@@ -1,0 +1,28 @@
+{
+  "unitId": 258000207,
+  "animName": "standby",
+  "frameDelays": [
+    16,
+    16,
+    16,
+    4,
+    4,
+    4,
+    4,
+    16,
+    16,
+    4,
+    4,
+    4,
+    4,
+    16
+  ],
+  "frameRect": {
+    "x": 953,
+    "y": 922,
+    "width": 112,
+    "height": 116
+  },
+  "imageWidth": 1568,
+  "imageHeight": 116
+}

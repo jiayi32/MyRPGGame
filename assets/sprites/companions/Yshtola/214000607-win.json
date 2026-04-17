@@ -1,0 +1,18 @@
+{
+  "unitId": 214000607,
+  "animName": "win",
+  "frameDelays": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "frameRect": {
+    "x": 991,
+    "y": 937,
+    "width": 56,
+    "height": 79
+  },
+  "imageWidth": 224,
+  "imageHeight": 79
+}

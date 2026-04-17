@@ -1,0 +1,35 @@
+{
+  "unitId": 201000407,
+  "animName": "limit_atk",
+  "frameDelays": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    5,
+    6,
+    4,
+    4,
+    4,
+    4,
+    4,
+    8,
+    5,
+    5,
+    8,
+    8
+  ],
+  "frameRect": {
+    "x": 594,
+    "y": 225,
+    "width": 555,
+    "height": 1084
+  },
+  "imageWidth": 11655,
+  "imageHeight": 1084
+}

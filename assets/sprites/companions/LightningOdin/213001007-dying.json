@@ -1,0 +1,15 @@
+{
+  "unitId": 213001007,
+  "animName": "dying",
+  "frameDelays": [
+    6
+  ],
+  "frameRect": {
+    "x": 978,
+    "y": 973,
+    "width": 54,
+    "height": 43
+  },
+  "imageWidth": 54,
+  "imageHeight": 43
+}

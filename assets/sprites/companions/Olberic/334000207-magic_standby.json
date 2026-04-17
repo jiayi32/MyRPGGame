@@ -1,0 +1,18 @@
+{
+  "unitId": 334000207,
+  "animName": "magic_standby",
+  "frameDelays": [
+    7,
+    7,
+    7,
+    7
+  ],
+  "frameRect": {
+    "x": 972,
+    "y": 937,
+    "width": 85,
+    "height": 80
+  },
+  "imageWidth": 340,
+  "imageHeight": 80
+}

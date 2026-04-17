@@ -1,0 +1,15 @@
+{
+  "unitId": 338000307,
+  "animName": "dead",
+  "frameDelays": [
+    10
+  ],
+  "frameRect": {
+    "x": 958,
+    "y": 990,
+    "width": 88,
+    "height": 39
+  },
+  "imageWidth": 88,
+  "imageHeight": 39
+}

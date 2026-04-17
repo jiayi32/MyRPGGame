@@ -1,0 +1,15 @@
+{
+  "unitId": 201000407,
+  "animName": "move",
+  "frameDelays": [
+    4
+  ],
+  "frameRect": {
+    "x": 959,
+    "y": 932,
+    "width": 76,
+    "height": 85
+  },
+  "imageWidth": 76,
+  "imageHeight": 85
+}

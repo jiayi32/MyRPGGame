@@ -1,0 +1,26 @@
+{
+  "unitId": 254001507,
+  "animName": "super_limit_atk_before",
+  "frameDelays": [
+    6,
+    6,
+    6,
+    3,
+    10,
+    3,
+    5,
+    5,
+    5,
+    5,
+    5,
+    5
+  ],
+  "frameRect": {
+    "x": 940,
+    "y": 906,
+    "width": 135,
+    "height": 134
+  },
+  "imageWidth": 1620,
+  "imageHeight": 134
+}

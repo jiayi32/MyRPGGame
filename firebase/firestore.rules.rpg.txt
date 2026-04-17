@@ -1,0 +1,146 @@
+// RPG-related Firestore rules extracted from /firestore.rules
+// Source line ranges (as of staging time): 358-548
+//
+// In Phase 2 (cleanup), the expense app should retain:
+//   - userGameProfiles (XP/level/streak)
+//   - xpLedger (idempotency for XP awards)
+//   - gameConfig (read-only)
+// And drop the rest. Cosmetics live on userGameProfiles, so that doc stays.
+
+// =====================================================================
+// userGameProfiles - any authenticated user can read; write restricted to owner
+// =====================================================================
+match /userGameProfiles/{userId} {
+  allow read: if isAuthenticated();
+  allow create: if isAuthenticated() && isOwner(userId);
+  allow update: if isAuthenticated() && isOwner(userId);
+  allow delete: if false;
+}
+
+// =====================================================================
+// userAchievements - user can read own; write via service (awardXP flow)
+// =====================================================================
+match /userAchievements/{achievementId} {
+  allow read: if isAuthenticated() &&
+                 resource.data.userId == request.auth.uid;
+  allow list: if isAuthenticated();
+  allow create: if isAuthenticated() &&
+                   request.resource.data.userId == request.auth.uid;
+  allow update, delete: if false;
+}
+
+// =====================================================================
+// xpLedger - append-only log; user can read/create own entries
+// =====================================================================
+match /xpLedger/{entryId} {
+  allow read: if isAuthenticated() &&
+                 resource.data.userId == request.auth.uid;
+  allow list: if isAuthenticated();
+  allow create: if isAuthenticated() &&
+                   request.resource.data.userId == request.auth.uid;
+  allow update, delete: if false;
+}
+
+// =====================================================================
+// goldLedger - append-only log; mirrors xpLedger pattern
+// =====================================================================
+match /goldLedger/{entryId} {
+  allow read: if isAuthenticated() &&
+                 resource.data.userId == request.auth.uid;
+  allow list: if isAuthenticated();
+  allow create: if isAuthenticated() &&
+                   request.resource.data.userId == request.auth.uid;
+  allow update, delete: if false;
+}
+
+// =====================================================================
+// rewardIdempotency - per-reward dedupe marker docs
+// =====================================================================
+match /rewardIdempotency/{entryId} {
+  allow read: if isAuthenticated();
+  allow list: if isAuthenticated();
+  allow create: if isAuthenticated() &&
+                   request.resource.data.userId == request.auth.uid;
+  allow update, delete: if false;
+}
+
+// =====================================================================
+// achievementDefinitions - static seed data; authenticated read, write for seeding
+// =====================================================================
+match /achievementDefinitions/{defId} {
+  allow read: if isAuthenticated();
+  allow list: if isAuthenticated();
+  allow create, update: if isAuthenticated();
+  allow delete: if false;
+}
+
+// =====================================================================
+// dailyQuestProgress - user-scoped daily quest state (Sprint 2)
+// =====================================================================
+match /dailyQuestProgress/{docId} {
+  allow read: if isAuthenticated();
+  allow list: if isAuthenticated();
+  allow create: if isAuthenticated();
+  allow update: if isAuthenticated();
+  allow delete: if false;
+}
+
+// =====================================================================
+// gameConfig - read-only config docs (XP multiplier events, etc.)
+// =====================================================================
+match /gameConfig/{configId} {
+  allow read: if isAuthenticated();
+  allow list: if isAuthenticated();
+  // Only admin/Cloud Functions should write config
+  allow write: if false;
+}
+
+// =====================================================================
+// CAMPAIGN RPG (Phase 2.5+)
+// =====================================================================
+match /campaigns/{campaignId} {
+  allow read: if isAuthenticated() &&
+                 (request.auth.uid in resource.data.memberUserIds ||
+                  request.auth.uid == resource.data.ownerUserId);
+  allow create: if isAuthenticated() &&
+                   request.auth.uid == request.resource.data.ownerUserId;
+  allow update: if isAuthenticated() &&
+                   request.auth.uid in resource.data.memberUserIds;
+  allow delete: if false;
+
+  // Campaign avatars - campaign members can read; owner of avatar can create/update
+  match /avatars/{avatarUserId} {
+    allow read: if isAuthenticated();
+    allow create: if isAuthenticated() && isOwner(avatarUserId);
+    allow update: if isAuthenticated() && isOwner(avatarUserId);
+    allow delete: if false;
+  }
+
+  // Campaign bosses
+  match /bosses/{bossId} {
+    allow read: if isAuthenticated();
+    allow create, update: if isAuthenticated();
+    allow delete: if false;
+  }
+
+  // Campaign quests
+  match /quests/{questId} {
+    allow read: if isAuthenticated();
+    allow create, update: if isAuthenticated();
+    allow delete: if false;
+  }
+
+  // Campaign battles
+  match /battles/{battleId} {
+    allow read: if isAuthenticated();
+    allow create: if isAuthenticated();
+    allow update, delete: if false;
+  }
+
+  // Campaign archive
+  match /archive/{entryId} {
+    allow read: if isAuthenticated();
+    allow create: if isAuthenticated();
+    allow update, delete: if false;
+  }
+}

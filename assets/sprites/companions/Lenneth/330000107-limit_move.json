@@ -1,0 +1,15 @@
+{
+  "unitId": 330000107,
+  "animName": "limit_move",
+  "frameDelays": [
+    4
+  ],
+  "frameRect": {
+    "x": 967,
+    "y": 952,
+    "width": 88,
+    "height": 66
+  },
+  "imageWidth": 88,
+  "imageHeight": 66
+}

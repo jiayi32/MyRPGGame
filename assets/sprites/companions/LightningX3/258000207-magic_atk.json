@@ -1,0 +1,22 @@
+{
+  "unitId": 258000207,
+  "animName": "magic_atk",
+  "frameDelays": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4
+  ],
+  "frameRect": {
+    "x": 948,
+    "y": 941,
+    "width": 108,
+    "height": 78
+  },
+  "imageWidth": 864,
+  "imageHeight": 78
+}

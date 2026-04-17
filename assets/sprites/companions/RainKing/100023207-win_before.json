@@ -1,0 +1,36 @@
+{
+  "unitId": 100023207,
+  "animName": "win_before",
+  "frameDelays": [
+    8,
+    6,
+    8,
+    6,
+    8,
+    8,
+    4,
+    4,
+    4,
+    4,
+    8,
+    8,
+    8,
+    8,
+    8,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12,
+    12
+  ],
+  "frameRect": {
+    "x": 932,
+    "y": 895,
+    "width": 150,
+    "height": 153
+  },
+  "imageWidth": 3300,
+  "imageHeight": 153
+}

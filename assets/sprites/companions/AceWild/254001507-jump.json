@@ -1,0 +1,15 @@
+{
+  "unitId": 254001507,
+  "animName": "jump",
+  "frameDelays": [
+    10
+  ],
+  "frameRect": {
+    "x": 972,
+    "y": 951,
+    "width": 59,
+    "height": 60
+  },
+  "imageWidth": 59,
+  "imageHeight": 60
+}
