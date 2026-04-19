@@ -856,3 +856,509 @@ They should feel like they are choosing:
 That is the right design for a roguelite class system.
 
 ---
+Yes. The previous structure was **too feature-heavy and a bit duplicated**. The main issue was that it mixed **content**, **domain logic**, and **UI feature shells** in a way that would make the codebase harder to scale.
+
+The optimized approach is to split the project into **three layers**:
+
+1. **content** — static game data like classes, lineages, skills, gear, bosses
+2. **domain** — pure game rules and engines
+3. **features** — screens, UI components, hooks, state wiring
+
+That separation is cleaner, easier to test, and easier for a developer to navigate.
+
+---
+
+# Revised optimized file structure
+
+```text
+src/
+  app/
+    App.tsx
+    navigation/
+      RootNavigator.tsx
+      MainNavigator.tsx
+      RunNavigator.tsx
+      HubNavigator.tsx
+      CombatNavigator.tsx
+      types.ts
+    providers/
+      AppProviders.tsx
+      MetaProgressionProvider.tsx
+      RunProvider.tsx
+      CombatProvider.tsx
+
+  content/
+    classes/
+      classDefinitions.ts
+      lineageDefinitions.ts
+      tierTables.ts
+      branchGraph.ts
+      unlockRequirements.ts
+      classMatrix.ts
+    skills/
+      skillDefinitions.ts
+      passiveDefinitions.ts
+      skillTags.ts
+    gear/
+      gearDefinitions.ts
+      itemDefinitions.ts
+      statSkewDefinitions.ts
+    bosses/
+      bossDefinitions.ts
+      bossMechanics.ts
+      raidPatterns.ts
+    rewards/
+      rewardTables.ts
+      bankingRewards.ts
+
+  domain/
+    combat/
+      combatEngine.ts
+      combatReducer.ts
+      combatQueue.ts
+      combatResolution.ts
+      combatAI.ts
+      combatMath.ts
+      damagePipeline.ts
+      costPipeline.ts
+      targetResolver.ts
+      effectPipeline.ts
+      ctRules.ts
+      statRules.ts
+    progression/
+      classUnlockEngine.ts
+      classEvolutionEngine.ts
+      lineageUpgradeEngine.ts
+      slotUnlockEngine.ts
+      hybridUnlockEngine.ts
+      metaProgressionEngine.ts
+    run/
+      runEngine.ts
+      checkpointEngine.ts
+      stageEngine.ts
+      randomEncounterEngine.ts
+      runStateMachine.ts
+    rewards/
+      rewardEngine.ts
+      bankingEngine.ts
+      lootEngine.ts
+    gear/
+      gearEngine.ts
+      gearScalingEngine.ts
+      statSkewEngine.ts
+      ctReductionEngine.ts
+
+  features/
+    hub/
+      screens/
+        HomeHubScreen.tsx
+        ClassUpgradeScreen.tsx
+        LineageUpgradeScreen.tsx
+        HybridUnlockScreen.tsx
+      components/
+        HubHeader.tsx
+        MetaResourcePanel.tsx
+        UnlockedClassGrid.tsx
+        LineageCard.tsx
+        UpgradeCard.tsx
+      state/
+        hubStore.ts
+        hubSelectors.ts
+      hooks/
+        useHubActions.ts
+
+    run/
+      screens/
+        RunMapScreen.tsx
+        StageScreen.tsx
+        RandomEncounterScreen.tsx
+        CheckpointScreen.tsx
+        RunRewardScreen.tsx
+      components/
+        StageNode.tsx
+        CheckpointPanel.tsx
+        RewardVaultPanel.tsx
+        EncounterChoiceCard.tsx
+        RunStatusBar.tsx
+      state/
+        runStore.ts
+        runSelectors.ts
+      hooks/
+        useRunActions.ts
+
+    combat/
+      screens/
+        BattleScreen.tsx
+        BattlePrepScreen.tsx
+        BattleRewardScreen.tsx
+      components/
+        WaterfallCommandMenu.tsx
+        CommandButton.tsx
+        SkillList.tsx
+        TargetPicker.tsx
+        QueueTimeline.tsx
+        BattleLogPanel.tsx
+        StatusPanel.tsx
+        ResourceBars.tsx
+        GearPanel.tsx
+      state/
+        combatStore.ts
+        combatSelectors.ts
+      hooks/
+        useBattleActions.ts
+        useAutoBattle.ts
+
+    gear/
+      screens/
+        EquipmentScreen.tsx
+        ItemDetailScreen.tsx
+        GearEnhanceScreen.tsx
+      components/
+        GearCard.tsx
+        GearStatBlock.tsx
+        GearAbilityPanel.tsx
+        StatSkewPreview.tsx
+      state/
+        gearStore.ts
+        gearSelectors.ts
+      hooks/
+        useGearActions.ts
+
+  shared/
+    components/
+      Button.tsx
+      Card.tsx
+      Modal.tsx
+      Tabs.tsx
+      Badge.tsx
+      EmptyState.tsx
+      LoadingState.tsx
+    design/
+      colors.ts
+      spacing.ts
+      typography.ts
+      theme.ts
+    hooks/
+      useConfirm.ts
+      useDebounce.ts
+      useNetworkStatus.ts
+    state/
+      appStore.ts
+      uiStore.ts
+    types/
+      common.ts
+      ids.ts
+    utils/
+      clamp.ts
+      safeMath.ts
+      deepClone.ts
+      formatNumber.ts
+
+  data/
+    persistence/
+      database.ts
+      repositoryFactory.ts
+      migrations/
+      syncQueue.ts
+    seed/
+      classSeed.ts
+      lineageSeed.ts
+      gearSeed.ts
+      bossSeed.ts
+      rewardSeed.ts
+
+  services/
+    api/
+      client.ts
+      endpoints.ts
+    sync/
+      syncEngine.ts
+      conflictResolver.ts
+    logging/
+      logger.ts
+    analytics/
+      analytics.ts
+
+  tests/
+    unit/
+    integration/
+    fixtures/
+```
+
+---
+
+# Why this structure is better
+
+## 1) `content/` is now separated from logic
+
+This is the biggest improvement.
+
+### What belongs in `content/`
+
+* class names
+* lineage names
+* skill lists
+* passive lists
+* boss definitions
+* gear data
+* reward tables
+
+### Why
+
+These are **not engine logic**. They are game content. Keeping them in one place makes balancing and editing much easier.
+
+---
+
+## 2) `domain/` is now the rules engine
+
+This is where the actual game logic lives.
+
+### What belongs in `domain/`
+
+* combat calculations
+* CT queue rules
+* class evolution rules
+* checkpoint logic
+* reward banking
+* gear stat skew
+* lineage upgrades
+
+### Why
+
+The developer can unit test these modules without touching React Native screens.
+
+This makes the project far easier to maintain.
+
+---
+
+## 3) `features/` is now UI only
+
+This prevents the codebase from becoming tangled.
+
+### What belongs in `features/`
+
+* screens
+* components
+* hooks
+* feature-specific local state wiring
+
+### Why
+
+This keeps React Native views separate from pure gameplay logic.
+
+---
+
+## 4) `run/` and `rewards/` are separated from `hub/`
+
+Previously, these were drifting together too much.
+
+### Why separation matters
+
+* `run/` is temporary state
+* `rewards/` is extraction and banking logic
+* `hub/` is permanent progression spending
+
+These are related, but they are not the same thing.
+
+---
+
+## 5) `gear/` is its own domain and feature
+
+That is useful because gear affects both:
+
+* combat formulas
+* progression display
+* equipment UI
+
+It needs its own engine and its own UI.
+
+---
+
+# Module responsibility map
+
+## `domain/combat/`
+
+Pure battle rules.
+
+### Handles
+
+* CT queue
+* D20 rolls
+* damage pipeline
+* skill costs
+* status effects
+* AI action choice
+* combat state transitions
+
+### Does not handle
+
+* screen rendering
+* persistence
+* hub upgrades
+* class unlocks
+
+---
+
+## `domain/progression/`
+
+Permanent progression logic.
+
+### Handles
+
+* class unlocks
+* class evolution
+* lineage upgrades
+* hybrid unlocks
+* extra class slot unlocks
+
+### Does not handle
+
+* battle execution
+* visual UI
+* random encounter presentation
+
+---
+
+## `domain/run/`
+
+Active run logic.
+
+### Handles
+
+* stage progression
+* checkpoint timing
+* random encounter resolution
+* continue/return-home choice
+* run failure behavior
+
+### Does not handle
+
+* permanent upgrades
+* combat engine math
+* screen rendering
+
+---
+
+## `domain/rewards/`
+
+Reward and banking logic.
+
+### Handles
+
+* baseline rewards
+* bonus vault rewards
+* banking/unbanking
+* loot conversion
+* reward tables
+
+### Why separate
+
+Because rewards are not identical to progression. They become progression only after banking.
+
+---
+
+## `domain/gear/`
+
+Gear math and gear effects.
+
+### Handles
+
+* flat stat bonuses
+* multiplicative bonuses
+* stat skew
+* CT reduction cap
+* active gear ability cost handling
+
+### Why separate
+
+Because gear is a rules layer, not just UI inventory data.
+
+---
+
+# What I removed from the previous structure
+
+The previous version had too many overlapping concerns:
+
+* `classSystem`
+* `hub`
+* `run`
+* `rewards`
+* `gear`
+
+That was workable, but it caused duplication because:
+
+* class definitions belonged partly in data and partly in engine
+* reward banking was too close to run state
+* lineage upgrades were mixed with general hub logic
+
+The revised version fixes that by making:
+
+* `content` = static definitions
+* `domain` = rules
+* `features` = UI
+
+That is the cleanest split.
+
+---
+
+# Exact execution order for a developer
+
+## Phase 1 — foundation
+
+* `content/classes`
+* `content/skills`
+* `content/gear`
+* `content/bosses`
+* `domain/progression`
+* `domain/combat`
+* `domain/run`
+* `domain/rewards`
+* `domain/gear`
+
+## Phase 2 — state wiring
+
+* stores
+* selectors
+* provider setup
+* repository/persistence support
+
+## Phase 3 — UI shell
+
+* hub screens
+* run screens
+* battle screens
+* gear screens
+
+## Phase 4 — polish
+
+* animations
+* effects
+* balance tuning
+* accessibility
+
+---
+
+# Recommended simplification rule
+
+If a file answers **“what is this thing?”**, it belongs in `content/`.
+
+If a file answers **“what happens when this thing is used?”**, it belongs in `domain/`.
+
+If a file answers **“how does the player see or interact with it?”**, it belongs in `features/`.
+
+That rule will keep the project clean.
+
+---
+
+# Final recommendation
+
+This revised structure is much better because it:
+
+* reduces duplication,
+* separates data from logic,
+* keeps combat engine testable,
+* keeps UI shallow,
+* and makes class/lineage growth easier to extend.
+
+The previous structure was too broad. This one is the one I would hand to a developer.
+
