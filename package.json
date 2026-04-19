@@ -1,8 +1,10 @@
 {
   "dependencies": {
-    "expo": "^56.0.0-canary-20260417-141204f",
-    "react": "^19.2.3",
-    "react-native": "^0.85.0"
+    "expo": "^55.0.15",
+    "expo-dev-client": "~55.0.27",
+    "react": "^19.2.0",
+    "react-native": "^0.83.4",
+    "react-native-gesture-handler": "~2.30.0"
   },
   "packageManager": "yarn@4.12.0+sha512.f45ab632439a67f8bc759bf32ead036a1f413287b9042726b7cc4818b7b49e14e9423ba49b18f9e06ea4941c1ad062385b1d8760a8d5091a1a31e5f6219afca8",
   "devDependencies": {
