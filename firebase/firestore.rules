@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// P0 placeholder rules. Deny-all except the _p0_ping sanity-check collection.
+// P3 replaces this with the real RPG schema (players, runs, outcomes, static content).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /_p0_ping/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

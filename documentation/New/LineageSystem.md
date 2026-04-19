@@ -69,21 +69,34 @@ Cross-lineage evolution:
 
 Instead of free evolution, we define a **lineage graph**.
 
-Example structure:
+Example structure (Franklin graph layout):
 
 ```
-            Chrono
-           /     \
-     Arcana       Rift
-        |          |
-     Umbra —— Nox —— Ignis
-        |          |
-      Beast —— Terra —— Aegis
-           \     /
-            Seraph
-             |
-           Solaris
+      Chrono         Solaris
+      /   \         /     \
+   Arcana   Rift   Ignis   Seraph
+    /   \   |   /     \   /
+Umbra   Nox-Terra---Aegis  Spirit
+    \   /   |   \     /   /
+    Beast   |    Spirit---Seraph
+      \   |   /     /   /
+      Spirit---Beast---Umbra
 ```
+
+Adjacency list (each node has 3 neighbors):
+
+- Chrono: Arcana, Rift, Ignis
+- Arcana: Chrono, Umbra, Nox
+- Rift: Chrono, Nox, Terra
+- Ignis: Chrono, Aegis, Terra
+- Umbra: Arcana, Beast, Nox
+- Nox: Arcana, Rift, Umbra
+- Terra: Rift, Ignis, Spirit
+- Aegis: Ignis, Seraph, Solaris
+- Beast: Umbra, Spirit, Seraph
+- Spirit: Beast, Terra, Seraph
+- Seraph: Beast, Spirit, Aegis
+- Solaris: Aegis, Seraph, Arcana
 
 ---
 

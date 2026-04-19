@@ -1,5 +1,24 @@
 {
-  "android": {
-    "package": "com.jiayi32.myrpggame"
+  "expo": {
+    "name": "MyRPGGame",
+    "slug": "myrpggame",
+    "scheme": "myrpggame",
+    "version": "0.1.0",
+    "newArchEnabled": false,
+    "android": {
+      "package": "com.jiayi32.myrpggame"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "@react-native-firebase/app",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": []
+          }
+        }
+      ]
+    ]
   }
 }

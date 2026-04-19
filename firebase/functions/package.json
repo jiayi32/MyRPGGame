@@ -1,0 +1,26 @@
+{
+  "name": "myrpggame-functions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloud Functions for MyRPGGame. Thin — seeds, outcome ledger, meta progression.",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "lint": "eslint \"src/**/*.ts\"",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.0",
+    "typescript": "^5.9.3"
+  }
+}

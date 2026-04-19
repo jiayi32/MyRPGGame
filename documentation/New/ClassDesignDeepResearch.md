@@ -77,10 +77,10 @@ interface ClassData {
 
 ```mermaid
 graph LR
-  Solaris --> Seraph --> Arcana --> Chrono --> Rift --> Ignis --> Nox --> Beast --> Terra --> Aegis --> Tempest --> Solaris
+  Solaris --> Seraph --> Arcana --> Chrono --> Rift --> Ignis --> Nox --> Spirit --> Terra --> Aegis --> Tempest --> Solaris
   Arcana --> Umbra
 ```
-*(Lineage adjacency graph: connected lineages can evolve into each other; Solaris ⇄ Seraph ⇄ Arcana ⇄ Chrono ⇄ Rift ⇄ Ignis ⇄ Nox ⇄ Beast ⇄ Terra ⇄ Aegis ⇄ Tempest ⇄ Solaris, with Umbra branching from Arcana)*  
+*(Lineage adjacency graph: connected lineages can evolve into each other; Solaris ⇄ Seraph ⇄ Arcana ⇄ Chrono ⇄ Rift ⇄ Ignis ⇄ Nox ⇄ Spirit ⇄ Terra ⇄ Aegis ⇄ Tempest ⇄ Solaris, with Umbra branching from Arcana)*  
 
 **Class-to-Lineage Mapping:**  
 - **Solaris:** Aspirant Radiant (T5), Dawnblade Initiate (T4), Solarian Vanguard (T3), Lumen Judge (T2), Helios Arbiter (T1)  
@@ -93,7 +93,7 @@ graph LR
 - **Terra:** Stone Initiate (T5), Earthbreaker (T4), Mountain Sentinel (T3), World Anchor (T2), Titan Core (T1)  
 - **Arcana:** Arcane Initiate (T5), Spellbinder (T4), Chaos Mage (T3), Reality Weaver (T2), Probability Architect (T1)  
 - **Rift:** Rift Initiate (T5), Blink Assassin (T4), Phase Walker (T3), Dimensional Hunter (T2), Singularity Fracture (T1)  
-- **Beast:** Fang Initiate (T5), Predator Warrior (T4), Apex Hunter (T3), Alpha Devourer (T2), Primal Overlord (T1)  
+- **Spirit:** Fang Initiate (T5), Predator Warrior (T4), Apex Hunter (T3), Alpha Devourer (T2), Primal Overlord (T1)  
 - **Seraph:** Grace Initiate (T5), Light Herald (T4), Sanctum Protector (T3), Divine Ascendant (T2), Judgment Vessel (T1)  
 
 ---
@@ -347,7 +347,7 @@ Tempest classes are **swift and agile**, focusing on high attack speed, multiple
   - **Rank10:** *Gusty Flourish* – Every third Wind Slash causes slight armor reduction on target.  
 - **Gear Synergy:** Critical hit and agility gear. Items boosting Attack/Crit rate.  
 - **Tips:** Use *Tailwind* before combos. *Quick Step* is great for repositioning.  
-- **Evolution:** Evolves to **Beast Predator Warrior** (T4) or **Solaris Dawnblade Initiate** (T3).  
+- **Evolution:** Evolves to **Spirit Predator Warrior** (T4) or **Solaris Dawnblade Initiate** (T3).  
 
 ### Wind Striker (Tempest, Tier 4)  
 - **Lore:** A dual-wielding fighter dancing on the wind.  
@@ -368,7 +368,7 @@ Tempest classes are **swift and agile**, focusing on high attack speed, multiple
   - **Rank10:** *Cyclone Master* – Cyclone Edge gains +10% attack speed.  
 - **Gear Synergy:** Dual-wield or fast weapon gear; strength/agility boosts.  
 - **Tips:** *Swift Riposte* turns defense into offense. Save *Wind’s Fury* for burst windows.  
-- **Evolution:** Leads to **Beast Apex Hunter** (T3) or **Solaris Lumen Judge** (T1).  
+- **Evolution:** Leads to **Spirit Apex Hunter** (T3) or **Solaris Lumen Judge** (T1).  
 
 ### Storm Runner (Tempest, Tier 3)  
 - **Lore:** A prize-winning racer and lightning wielder.  
@@ -570,7 +570,7 @@ Ignis classes harness **flames and explosive power**. They often sacrifice defen
   - **Rank10:** *Lava Heart* – If Spark Armor breaks, deal 15% of max HP as AoE fire damage.  
 - **Gear Synergy:** Fire damage boosters; items converting HP to damage.  
 - **Tips:** Use *Combustion* before important hits. *Spark Armor* punishes attackers.  
-- **Evolution:** Evolves to **Beast Predator Warrior** (T4) or **Nox Venom Initiate** (T4).  
+- **Evolution:** Evolves to **Spirit Predator Warrior** (T4) or **Nox Venom Initiate** (T4).  
 
 ### Flame Berserker (Ignis, Tier 4)  
 - **Lore:** A raging fighter who channels fury into fiery attacks.  
@@ -681,7 +681,7 @@ Nox classes use **poison, disease, and curses**. They often have damage-over-tim
   - **Rank10:** *Toxicology* – Targets with 3 poison stacks take +20% damage from all sources.  
 - **Gear Synergy:** Gear boosting poison damage, MP regen or buff durations.  
 - **Tips:** Build up poison stacks with *Envenom*, then hit with *Poison Darts*. Use *Antidote* strategically.  
-- **Evolution:** Evolves to **Beast Apex Hunter** (T2) or **Ignis Flame Berserker** (T4).  
+- **Evolution:** Evolves to **Spirit Apex Hunter** (T2) or **Ignis Flame Berserker** (T4).  
 
 ### Plague Hunter (Nox, Tier 4)  
 - **Lore:** An assassin specialized in infectious weapons.  
@@ -903,7 +903,7 @@ Terra classes are **grounded and resilient**, using earth magic and raw strength
   - **Rank10:** *Earth Master* – All resistances +10%.  
 - **Gear Synergy:** Defense or strength gear; regeneration or earth-element items.  
 - **Tips:** Use *Ground Pound* at choke points. Summon golem early in fights.  
-- **Evolution:** Evolves to **Aegis Fortress Knight** (T2) or **Beast Predator Warrior** (T4).  
+- **Evolution:** Evolves to **Aegis Fortress Knight** (T2) or **Spirit Predator Warrior** (T4).  
 
 ### Earthbreaker (Terra, Tier 4)  
 - **Lore:** A warrior who animates earth in battle.  
@@ -945,7 +945,7 @@ Terra classes are **grounded and resilient**, using earth magic and raw strength
   - **Rank10:** *Unbreakable* – When Bastion expires, grants all allies +20% Defense for 5s.  
 - **Gear Synergy:** Defense/HP gear; items for AoE or stun enhancements.  
 - **Tips:** Position *Bastion* to block threats. *Stone Gaze* on high-DPS foes.  
-- **Evolution:** Evolves to **Aegis Immutable Wall** (T1) or **Beast Predator Warrior** (T1).  
+- **Evolution:** Evolves to **Aegis Immutable Wall** (T1) or **Spirit Predator Warrior** (T1).  
 
 ### World Anchor (Terra, Tier 2)  
 - **Lore:** A being of earth, unshakable and vast.  
@@ -1167,7 +1167,7 @@ Rift classes manipulate **space and dimensions**. Abilities include teleportatio
   - **Rank10:** *Safe Return* – Homeward resets cooldown on surviving a lethal hit (once per battle).  
 - **Gear Synergy:** Ranged attack gear; any mobility gear.  
 - **Tips:** Use *Spatial Bind* to set up a killing blow with *Phase Barrage*. *Homeward* for safe escape or reposition.  
-- **Evolution:** Evolves to **Rift Singularity Fracture** (T1) or **Beast Predator Warrior** (T2).  
+- **Evolution:** Evolves to **Rift Singularity Fracture** (T1) or **Spirit Predator Warrior** (T2).  
 
 ### Singularity Fracture (Rift, Tier 1)  
 - **Lore:** A demi-god of space, master of teleportation.  
@@ -1192,10 +1192,10 @@ Rift classes manipulate **space and dimensions**. Abilities include teleportatio
 - **Evolution:** Final Rift champion.  
 
 ---
-## **Beast Lineage (Physical/Instinct)**  
-Beast classes rely on raw physical might, feral instincts, and primal transformations. They often have self-buffs (rage, bloodlust) and multi-hit attacks. CT profiles: *fast or medium*. Roles: DPS or tanky DPS.
+## **Spirit Lineage (Physical/Instinct)**  
+Spirit classes channel primal spirits — feral instincts, ancestral totems, and bestial transformations granted by bonded spirit-forms. They often have self-buffs (rage, bloodlust) and multi-hit attacks. CT profiles: *fast or medium*. Roles: DPS or tanky DPS.
 
-### Fang Initiate (Beast, Tier 5)  
+### Fang Initiate (Spirit, Tier 5)  
 - **Lore:** A feral fighter training claws and fangs in battle.  
 - **Role:** DPS (melee).  
 - **CT Profile:** **Fast** (CT ~20–35).  
@@ -1217,7 +1217,7 @@ Beast classes rely on raw physical might, feral instincts, and primal transforma
 - **Tips:** Keep *Primal Roar* up for strength buff. Use *Feral Leap* to initiate.  
 - **Evolution:** Evolves to **Aegis Fortress Knight** (T3) or **Terra World Anchor** (T2).  
 
-### Predator Warrior (Beast, Tier 4)  
+### Predator Warrior (Spirit, Tier 4)  
 - **Lore:** A hunter prowl through shadows for prey.  
 - **Role:** DPS (stalker).  
 - **CT Profile:** **Fast** (CT ~20–40).  
@@ -1238,7 +1238,7 @@ Beast classes rely on raw physical might, feral instincts, and primal transforma
 - **Tips:** Build stacks of *Fury* for huge damage. Use *Leaping Claw* on marked targets.  
 - **Evolution:** Evolves to **Aegis Iron Warder** (T3) or **Nox Venom Initiate** (T5).  
 
-### Apex Hunter (Beast, Tier 3)  
+### Apex Hunter (Spirit, Tier 3)  
 - **Lore:** An alpha beast leading pack hunts, enhanced senses.  
 - **Role:** Hybrid DPS/Tank.  
 - **CT Profile:** **Medium** (CT ~40–60).  
@@ -1259,7 +1259,7 @@ Beast classes rely on raw physical might, feral instincts, and primal transforma
 - **Tips:** Use *Pack Howl* with teammates. Build Bleeds then *Predatory Leap*.  
 - **Evolution:** Evolves to **Aegis Shield Initiate** (T1) or **Nox Plague Hunter** (T4).  
 
-### Alpha Devourer (Beast, Tier 2)  
+### Alpha Devourer (Spirit, Tier 2)  
 - **Lore:** A monstrous hybrid, apex of predatory evolution.  
 - **Role:** Boss DPS.  
 - **CT Profile:** **Slow** (CT ~60–80).  
@@ -1280,7 +1280,7 @@ Beast classes rely on raw physical might, feral instincts, and primal transforma
 - **Tips:** *Insatiable Onslaught* for boss burst phases. Keep bleeding targets for *Hunger Rush*.  
 - **Evolution:** Evolves into **Aegis Immutable Wall** (T1) or **Nox Blight Tyrant** (T2).  
 
-### Primal Overlord (Beast, Tier 1)  
+### Primal Overlord (Spirit, Tier 1)  
 - **Lore:** The ultimate beast, with primal fury unmatched.  
 - **Role:** Boss DPS/Tank.  
 - **CT Profile:** **Slow** (CT ~80–100).  
@@ -1300,7 +1300,7 @@ Beast classes rely on raw physical might, feral instincts, and primal transforma
   - **Rank10:** *Primal God* – Wielding the title of apex increases all stats by +20%.  
 - **Gear Synergy:** Legendary endgame gear boosting HP, damage, and lifesteal.  
 - **Tips:** *Alpha Howl* for raid kills. *Worship* when sure of survival.  
-- **Evolution:** Final Beast.  
+- **Evolution:** Final Spirit.  
 
 ---
 ## **Seraph Lineage (Divine/Buff)**  

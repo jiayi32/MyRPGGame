@@ -49,6 +49,10 @@ android/build/
 
 # Firebase
 firebase-debug.log
+firestore-debug.log
+.firebase/
+firebase/functions/lib/
+firebase/functions/node_modules/
 
 # Patch package
 patches/

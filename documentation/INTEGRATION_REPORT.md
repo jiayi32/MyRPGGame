@@ -67,13 +67,14 @@ Matching criterion: **mechanical identity** (role, CT profile, resource economy,
 | 9 | **Arrow Creed** | Tempest | Horse | Discipline, long-range, momentum |
 | 10 | **Iron Covenant** | Terra | Pig | Oath, heavy power, endurance |
 | 11 | **Star Circuit** | Chrono | Tiger | CT manipulation, resource cycling |
-| 12 | **Dream Ocean** | Beast | Dog | Moon, illusion, healing, reactive |
+| 12 | **Dream Ocean** | Spirit | Dog | Moon, illusion, healing, spirit-summon, reactive |
 
-**Notes & conflicts to resolve:**
+**Notes (mapping is locked):**
 
-- The mapping above is a proposal. Some matches are mechanically clean (Bull Cathedral ⇔ Aegis ⇔ Ox); others are ambiguous (Tide Shell's "moonlit evasion + flow" fits both Rift and Tempest; Dream Ocean's "moon + illusion + healing" fits both Beast and Seraph). The developer should lock these before content work begins.
-- WeaponDesign.md assigned specific Tier 5 gear set identities to zodiac totems (e.g., Rat = "Temporal Hijacker" = CT theft). Under the mapping above, that gear set is the **Black Nest** T5 set. If the developer prefers different pairings, the gear set identities need to move to match the lineage's canonical mechanical identity.
-- ClassDesignDeepResearch.md's adjacency graph is expressed in archetype names: `Solaris ⇄ Seraph ⇄ Arcana ⇄ Chrono ⇄ Rift ⇄ Ignis ⇄ Nox ⇄ Beast ⇄ Terra ⇄ Aegis ⇄ Tempest ⇄ Solaris`, with Umbra branching from Arcana. Under the mapping: `Sunfang Court ⇄ Balance Reins ⇄ Twin Mirror ⇄ Star Circuit ⇄ Tide Shell ⇄ Drakehorn Forge ⇄ Thorn Ledger ⇄ Dream Ocean ⇄ Iron Covenant ⇄ Bull Cathedral ⇄ Arrow Creed ⇄ Sunfang Court`, with Black Nest branching from Twin Mirror.
+- All 12 rows are locked. Previously ambiguous rows resolved: Tide Shell → **Rift** (phase drift / CT-skip better fit "moonlit evasion" than Tempest); Arrow Creed → **Tempest** (discipline / momentum / long-range; frees Spirit for Dream Ocean); Dream Ocean → **Spirit** (archetype renamed from "Beast" — rationale below).
+- **Archetype rename: "Beast" → "Spirit".** The former "Beast" archetype in ClassDesignDeepResearch.md is renamed to **Spirit** across the design corpus. Dream Ocean's identity ("moon + illusion + healing + spirit-summon + reactive") reads more naturally as a Spirit lineage that can summon spirit-beasts, rather than a Beast lineage that happens to heal. The rename also disambiguates from Arrow Creed's animal-companion flavor.
+- WeaponDesign.md assigned Tier 5 gear set identities to zodiac totems (e.g., Rat = "Temporal Hijacker" = CT theft). Under this mapping, that gear set is the **Black Nest** T5 set. Gear set identities already match the lineage mechanical identity under the locked mapping.
+- ClassDesignDeepResearch.md's adjacency graph is expressed in archetype names: `Solaris ⇄ Seraph ⇄ Arcana ⇄ Chrono ⇄ Rift ⇄ Ignis ⇄ Nox ⇄ Spirit ⇄ Terra ⇄ Aegis ⇄ Tempest ⇄ Solaris`, with Umbra branching from Arcana. Under the mapping: `Sunfang Court ⇄ Balance Reins ⇄ Twin Mirror ⇄ Star Circuit ⇄ Tide Shell ⇄ Drakehorn Forge ⇄ Thorn Ledger ⇄ Dream Ocean ⇄ Iron Covenant ⇄ Bull Cathedral ⇄ Arrow Creed ⇄ Sunfang Court`, with Black Nest branching from Twin Mirror.
 
 ---
 
@@ -390,7 +391,7 @@ These are issues within `documentation/New/` itself. Each should be resolved bef
 
 | # | Gap | Blocks phase | Proposed resolution | Needs developer decision? |
 |---|---|---|---|---|
-| G1 | Lineage mapping table (§3) is a proposal, with two ambiguous rows (Tide Shell ↔ Rift vs. Tempest; Dream Ocean ↔ Beast vs. Seraph) | P1 | Lock the table via developer review of §3 | **Yes** |
+| G1 | ~~Lineage mapping table ambiguity~~ **Resolved.** All 12 rows locked: Tide Shell → Rift, Arrow Creed → Tempest, Dream Ocean → Spirit (archetype renamed from "Beast"). See §3. | P1 | Locked | Done |
 | G2 | `EnemyDesign.md` is empty. No generic enemy archetypes exist for stages 1–4, 6–9, 11–29. | P1 | Define 8–12 generic archetypes per BossDesign.md's template (stat-wall, speed-pressure, sustain-denial, DPS-race, CT-manipulator, summoner, nullshield, frenzy, oracle, engineer — the stage-5 mini-boss pool is a reusable blueprint). | **Yes** |
 | G3 | Cross-lineage evolution schema inconsistency. `ClassDesignDeepResearch.md` uses `evolutionTo` (single target) but lists up to two options in prose. `LineageSystem.md` describes a richer graph with tier-down mandatory. `ClassDesign.md` allows same-tier cross-evolution if affinity ≥70. | P1 | Adopt `evolutionTargetClassIds: string[]` (see §5). Lock the tier-down rule: **always drops 1 tier on cross-lineage transition**, per LineageSystem.md. Affinity ≥70 is the *filter* for which cross-lineage targets appear, not a tier-preservation override. | **Yes** |
 | G4 | Checkpoint reward split between baseline and bonus vault is not quantified. | P2 | Propose 65% baseline / 35% vault by default; tune via Monte Carlo. | Recommendation only |

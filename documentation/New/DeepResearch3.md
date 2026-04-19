@@ -696,7 +696,7 @@ Below is a **compact table** of all 60 classes grouped by lineage. Each class ha
 | **Abyss Sovereign (1)**| *Shadow Nova* (120,CD5): All-enemy void damage<br>*Orb of Nothingness* (CT60,CD3): High crit buff    | Sovereign’s Embrace: +0-?% effect on weakened targets<br>Master of Night: +0-?% all stats|                                             |
 </details>
 
-*(Remaining 10 lineages similarly expanded: Tempest, Aegis, Ignis, Nox, Chrono, Terra, Arcana, Rift, Beast, Seraph. Due to space, their tables are omitted here, but follow the above format.)*
+*(Remaining 10 lineages similarly expanded: Tempest, Aegis, Ignis, Nox, Chrono, Terra, Arcana, Rift, Spirit, Seraph. Due to space, their tables are omitted here, but follow the above format.)*
 
 ---
 

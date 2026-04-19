@@ -490,7 +490,7 @@ We list **60 classes** by lineage and tier. For brevity, key info is given; unsp
 - **Terra (Earth):** [Stone Initiate, World Anchor, ...] – e.g. *Earthquake*, *Rooted Strength*. Passives: +stun chance, +DEF boost.  
 - **Arcana (Magic/RNG):** [Arcane Initiate, Chaos Mage, ...] – e.g. *Arcane Missiles*, *Random Surge*. Passives: +buff variance, +crit unpredictability.  
 - **Rift (Space):** [Rift Initiate, Blink Assassin, ...] – e.g. *Phase Jab*, *Portal Strike*. Passives: +teleport evade, +CR.  
-- **Beast (Instinct):** [Fang Initiate, Alpha Devourer, ...] – e.g. *Bite*, *Rampage*. Passives: +attack speed, +HP from kills.  
+- **Spirit (Instinct):** [Fang Initiate, Alpha Devourer, ...] – e.g. *Spirit Bite*, *Rampage*. Passives: +attack speed, +HP from kills.  
 - **Seraph (Divine Buff):** [Grace Initiate, Light Herald, ...] – e.g. *Blessing*, *Halo Burst*. Passives: +team buffs, +healing boost.
 
 Due to space, full 60-class details are abbreviated above. Detailed design docs should enumerate all classes similarly.
