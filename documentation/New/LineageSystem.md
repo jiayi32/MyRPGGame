@@ -2,6 +2,8 @@ Understood — that clarification actually **changes the system from “hybrid s
 
 I’ll correct the model and restate it precisely.
 
+> **See also:** [LineageMechanicCatalog.md](LineageMechanicCatalog.md) is the authoritative spec for each lineage's **unique mechanic** and how it evolves across tiers (T5 → T1). This document covers the cross-lineage evolution graph only.
+
 ---
 
 # 🔁 CORRECTED CROSS-LINEAGE SYSTEM (FINAL DEFINITION)

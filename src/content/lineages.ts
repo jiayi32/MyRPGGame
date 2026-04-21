@@ -1,0 +1,231 @@
+import { UNSPECIFIED, type Lineage, type LineageId } from './types';
+
+export const LINEAGE_IDS = [
+  'drakehorn_forge',
+  'bull_cathedral',
+  'twin_mirror',
+  'tide_shell',
+  'sunfang_court',
+  'thorn_ledger',
+  'balance_reins',
+  'black_nest',
+  'arrow_creed',
+  'iron_covenant',
+  'star_circuit',
+  'dream_ocean',
+] as const satisfies readonly LineageId[];
+
+export type KnownLineageId = (typeof LINEAGE_IDS)[number];
+
+const drakehornForge: Lineage = {
+  id: 'drakehorn_forge',
+  name: 'Drakehorn Forge',
+  archetype: 'ignis',
+  zodiac: 'dragon',
+  themeTags: ['fire', 'burst', 'ramp', 'momentum'],
+  adjacentLineageIds: ['tide_shell', 'thorn_ledger'],
+  description:
+    'Burst DPS lineage harnessing flames and explosive power. Sacrifices defense for damage ramp; HP-cost and overheat mechanics are common. CT profile leans medium to slow.',
+  uniqueMechanic: {
+    id: 'heat',
+    name: 'Heat',
+    shortDescription:
+      'Drakehorn classes accumulate Heat from basics and DoTs, then spend it for amplified bursts, HP-cost refunds, and cooldown resets.',
+    evolutionByTier: {
+      5: 'Heat introduced as a ramp buff: consecutive casts boost the next skill; simple stack → spend pattern.',
+      4: 'Heat starts taxing resources: skills cost HP instead of MP, and Rage Fuel / Berserker’s Pact refund HP on proc.',
+      3: 'Heat becomes dual-system: buffs amplify AoE damage while multi-hit Dragon’s Breath refreshes cooldowns.',
+      2: 'Heat converts to execution pressure: Executioner’s Flame / Final Blaze punish low-HP targets and chain kills.',
+      1: 'Heat masters tempo: End of Days resets every cooldown on multi-kill, ultimates loop via Phoenix Heart revival.',
+    },
+  },
+  upgradeBonuses: [
+    {
+      rank: 1,
+      effect: 'Fire damage mastery — flat bonus to fire-tagged damage output.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 2,
+      effect: 'Burn duration extended on DoT effects applied by Drakehorn classes.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 3,
+      effect: 'Heat-stack decay rate reduced, sustaining ramp mechanics longer.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 4,
+      effect: 'HP-cost skills refund a portion of HP spent on hit.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 5,
+      effect: 'Crit chance bonus when above a momentum threshold.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 6,
+      effect: 'Basic attacks apply a small ignite stack.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'flat',
+    },
+    {
+      rank: 7,
+      effect: 'AoE fire skills gain additional radius.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 8,
+      effect: 'Cooldown reduction on ultimate-tag skills.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 9,
+      effect: 'Self-revive effects restore additional HP on proc.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+    {
+      rank: 10,
+      effect: 'Apex: fire-tagged damage ignores a portion of enemy fire resistance.',
+      magnitude: UNSPECIFIED,
+      magnitudeUnit: 'percent',
+    },
+  ],
+};
+
+const stubLineage = (
+  id: LineageId,
+  name: string,
+  archetype: Lineage['archetype'],
+  zodiac: Lineage['zodiac'],
+  themeTags: string[],
+  adjacentLineageIds: LineageId[],
+  description: string,
+): Lineage => ({
+  id,
+  name,
+  archetype,
+  zodiac,
+  themeTags,
+  adjacentLineageIds,
+  description,
+  upgradeBonuses: UNSPECIFIED,
+  uniqueMechanic: UNSPECIFIED,
+});
+
+export const LINEAGES: readonly Lineage[] = [
+  drakehornForge,
+  stubLineage(
+    'bull_cathedral',
+    'Bull Cathedral',
+    'aegis',
+    'ox',
+    ['defense', 'sanctuary', 'retaliation'],
+    ['iron_covenant', 'arrow_creed'],
+    'Defense-first lineage built on sanctuary, retaliation, and immovable presence.',
+  ),
+  stubLineage(
+    'twin_mirror',
+    'Twin Mirror',
+    'arcana',
+    'monkey',
+    ['duplication', 'misdirection', 'adaptive'],
+    ['balance_reins', 'star_circuit', 'black_nest'],
+    'Adaptive spellcasters leveraging duplication and misdirection; hub of the adjacency graph with Black Nest branching from it.',
+  ),
+  stubLineage(
+    'tide_shell',
+    'Tide Shell',
+    'rift',
+    'rabbit',
+    ['evasion', 'phase', 'ct-skip'],
+    ['star_circuit', 'drakehorn_forge'],
+    'Moonlit evasion lineage: phase drift, CT-skipping, unpredictable positioning.',
+  ),
+  stubLineage(
+    'sunfang_court',
+    'Sunfang Court',
+    'solaris',
+    'rooster',
+    ['radiance', 'royal', 'crit'],
+    ['balance_reins', 'arrow_creed'],
+    'Radiant royal-burst lineage. Precision crits, commanding presence, front-line burst.',
+  ),
+  stubLineage(
+    'thorn_ledger',
+    'Thorn Ledger',
+    'nox',
+    'snake',
+    ['precision', 'dot', 'venom'],
+    ['drakehorn_forge', 'dream_ocean'],
+    'Precision / DoT / venom-stacking lineage. Inevitability through accumulation.',
+  ),
+  stubLineage(
+    'balance_reins',
+    'Balance Reins',
+    'seraph',
+    'goat',
+    ['support', 'symmetry', 'equalization'],
+    ['sunfang_court', 'twin_mirror'],
+    'Control-via-symmetry support lineage. Equalization and team sustain.',
+  ),
+  stubLineage(
+    'black_nest',
+    'Black Nest',
+    'umbra',
+    'rat',
+    ['stealth', 'death', 'ct-theft'],
+    ['twin_mirror'],
+    'Stealth, death, and CT theft. Branches from Twin Mirror in the adjacency graph.',
+  ),
+  stubLineage(
+    'arrow_creed',
+    'Arrow Creed',
+    'tempest',
+    'horse',
+    ['discipline', 'long-range', 'momentum'],
+    ['bull_cathedral', 'sunfang_court'],
+    'Discipline, long-range precision, momentum-based damage.',
+  ),
+  stubLineage(
+    'iron_covenant',
+    'Iron Covenant',
+    'terra',
+    'pig',
+    ['oath', 'endurance', 'heavy'],
+    ['dream_ocean', 'bull_cathedral'],
+    'Oath-bound endurance lineage. Heavy power and steady sustain.',
+  ),
+  stubLineage(
+    'star_circuit',
+    'Star Circuit',
+    'chrono',
+    'tiger',
+    ['ct-manipulation', 'resource-cycling'],
+    ['twin_mirror', 'tide_shell'],
+    'CT manipulation and resource cycling lineage. Alters the combat tempo itself.',
+  ),
+  stubLineage(
+    'dream_ocean',
+    'Dream Ocean',
+    'spirit',
+    'dog',
+    ['moon', 'illusion', 'heal', 'summon', 'reactive'],
+    ['thorn_ledger', 'iron_covenant'],
+    'Moonlit illusion, healing, and spirit-summon lineage. Reactive rather than proactive.',
+  ),
+];
+
+export const LINEAGE_BY_ID: ReadonlyMap<LineageId, Lineage> = new Map(
+  LINEAGES.map((l) => [l.id, l]),
+);

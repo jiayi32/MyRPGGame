@@ -41,7 +41,7 @@ DeepResearch.md's Node+PostgreSQL+WebSocket stack is superseded by the developer
 ## 2. Locked Decisions
 
 1. **Pure RPG pivot.** Expense→boss pipeline, campaign-to-group linkage, and settlement triggers are removed. `CampaignService.generateBossFromSettlement()` and the expense-trait mapping become dead code.
-2. **Firebase, client-authoritative (with Cloud Functions for validation).** Stay on Expo + Firestore + Cloud Functions. No separate Node.js server. Client runs the full CombatEngine for prediction; Cloud Functions validate action intents and write authoritative state back to Firestore. This matches DeepResearch3.md.
+2. **Client-authoritative combat with server-issued seeds; Firebase stores outcomes only, no battle logs.** Stay on Expo + Firestore + Cloud Functions. Server issues a per-run seed and the encounter sequence; client runs the full deterministic CombatEngine locally with no round-trips during combat; outcomes are submitted at stage boundaries where Cloud Functions validate plausibility and commit meta-progression. Supersedes the earlier hybrid prediction + per-action reconciliation model. Matches [CHANGELOG.md](../CHANGELOG.md) 0.1.0 and DeepResearch3.md §4.2.
 3. **Thematic lineage names are canonical** — Drakehorn Forge, Bull Cathedral, Twin Mirror, Tide Shell, Sunfang Court, Thorn Ledger, Balance Reins, Black Nest, Arrow Creed, Iron Covenant, Star Circuit, Dream Ocean. ClassDesignDeepResearch.md's 60 class definitions are re-homed under these thematic lineages via the mapping table in §3. (Decision flagged for re-confirmation once the mapping is visible — see §8.)
 4. **Fresh 60-class design** per ClassDesignDeepResearch.md. Existing 12 classes (Vanguard, Arcanist, Ranger, Cleric, Rogue, Warden, Tactician, Alchemist, Duelist, Enchanter, Sentinel, Harbinger) are archived.
 5. **Legacy retention systems move to `redundant/`.** Companion, Town Building, Expedition, and Gamification (XP/streaks/achievements/daily quests) are *moved, not deleted* — see §7.
@@ -80,48 +80,63 @@ Matching criterion: **mechanical identity** (role, CT profile, resource economy,
 
 ## 4. Target Architecture (Firebase)
 
-Consolidated from DeepResearch3.md and Architecture.md.
+Consolidated from DeepResearch3.md §4.2 and Architecture.md, with the locked [CHANGELOG.md](../CHANGELOG.md) 0.1.0 revision: **client-authoritative combat with server-issued seeds; Firebase stores outcomes only, no battle logs.**
+
+> **Authority hierarchy footnote.** CHANGELOG entries marked "supersedes" are canonical. Any edit to this section that contradicts a live CHANGELOG supersedes-note is a bug. Where [Architecture.md](New/Architecture.md) or [CombatEngine.md](New/CombatEngine.md) use looser "server-authoritative" phrasing, this section is stricter: the server is authoritative over **outcomes**, not over the tick loop.
 
 ### Runtime topology
 
 ```
 Client (Expo/React Native, TypeScript)
-├── CombatEngine.ts (shared, deterministic, seeded RNG)
-├── Zustand stores (playerProfile, run, combat)
+├── CombatEngine.ts (pure, deterministic, seeded RNG — authoritative for in-combat state)
+├── Zustand stores (playerProfile, run, combat — hold local BattleState)
 ├── UI screens (BattleScreen, RunMapScreen, HubScreen, EquipmentScreen)
-└── Firebase SDK (Firestore onSnapshot listeners, Auth, App Check)
+└── Firebase SDK (Firestore onSnapshot on static + run metadata, Auth, App Check)
 
 Firebase
-├── Firestore (persistent + real-time)
-│   ├── players/{playerId}           (profile, unlocked lineages, meta resources)
-│   ├── runs/{runId}                 (active run state)
-│   │   ├── actions/{actionId}       (client-written action intents)
-│   │   └── snapshots/{tick}         (optional rollback checkpoints)
-│   ├── lineages/{lineageId}         (static, 12 docs)
-│   ├── skills/{skillId}             (static, ~240 docs = 60 classes × ~4 skills)
-│   ├── gearItems/{gearId}           (static, unified item table)
-│   ├── players/{playerId}/gear/{instanceId} (owned instances)
-│   ├── encounters/{encId}           (stage encounter templates)
-│   ├── bosses/{bossId}              (mini / standard / counter)
-│   ├── anomalies/{anomId}           (Run Director event cards)
-│   └── telemetry/{eventId}          (analytics, balance tuning)
+├── Firestore (persistent only — never battle state)
+│   ├── players/{playerId}                      (profile, unlocked lineages, meta resources)
+│   ├── runs/{runId}                            (seed, stage, activeClassId, banked/vaulted rewards, result)
+│   │   └── checkpoints/{stageIndex}            (server-committed StageOutcome, immutable after write)
+│   ├── lineages/{lineageId}                    (static, 12 docs)
+│   ├── skills/{skillId}                        (static, ~240 docs = 60 classes × ~4 skills)
+│   ├── gearItems/{gearId}                      (static, unified item table)
+│   ├── players/{playerId}/gear/{instanceId}    (owned instances)
+│   ├── encounters/{encId}                      (stage encounter templates)
+│   ├── bosses/{bossId}                         (mini / standard / counter)
+│   ├── anomalies/{anomId}                      (Run Director event cards)
+│   └── telemetry/{eventId}                     (aggregate events only, not a replay log)
 │
-├── Cloud Functions (TypeScript, authoritative logic)
-│   ├── processAction (Firestore trigger on runs/{runId}/actions)
-│   ├── startRun      (HTTP; seeds run, creates initial BattleState)
-│   ├── endRun        (HTTP; finalizes rewards, updates meta progression)
-│   └── selectEncounter (HTTP; Run Director picks next stage)
+├── Cloud Functions (TypeScript, authoritative over outcomes + meta-progression)
+│   ├── startRun             (HTTP; issues seed, writes initial run doc)
+│   ├── selectEncounter      (HTTP; Run Director picks next stage)
+│   ├── rollAnomaly          (HTTP; issues anomaly events during a run)
+│   ├── submitStageOutcome   (HTTP; validates stage result, writes checkpoints/{stageIndex})
+│   ├── bankCheckpoint       (HTTP; banks/vaults rewards at 10-stage marks)
+│   ├── endRun               (HTTP; finalizes rewards, updates meta progression)
+│   └── logTelemetry         (HTTP; writes aggregate event to telemetry/*)
 │
 └── Firebase App Check (blocks non-app clients)
 ```
 
-### Core rules
+### Combat authority model
 
-- **Client is never trusted for state.** Security rules deny all client writes to `runs/{runId}.state`, `players/{playerId}.credits`, and any derived-reward fields. Clients can only create `runs/{runId}/actions/{actionId}` docs; Cloud Functions validate and commit state.
-- **Deterministic RNG.** A seeded PRNG (e.g., Mulberry32 or seeded Mersenne Twister) is stored in `runs/{runId}.seed`. Client uses it for prediction; Cloud Function uses the same seed + tick number for authoritative resolution. This allows rollback without desync.
-- **Client prediction → server reconcile.** Client applies actions immediately via local CombatEngine for zero-latency UX. Cloud Function resolves the same action authoritatively. When the authoritative state arrives via `onSnapshot`, client soft-corrects (smooth interpolation), not a hard reset.
-- **Tick rate.** 20–30 ticks/sec simulated; Firestore updates are per-action, not per-tick, to stay within quota. Each tick writes a delta (changed fields only) rather than the full BattleState.
-- **Snapshot budget.** BattleState <50KB; delta <5KB per tick. Firestore doc limit is 1MB — well within range for 2–5 player raids.
+- **Server issues a seed per run.** `startRun` writes `runs/{runId}.seed` once at run start. The seed, combined with the player's authored build and the server-selected encounter sequence, determines every PRNG roll in the run.
+- **Client runs the full CombatEngine locally.** CombatEngine is a pure, deterministic module; same seed + same inputs → same outputs. Battle state lives in Zustand + device memory. No round-trips during combat. No per-tick Firestore writes. No action-intent subcollection.
+- **Server issues encounter selection and anomaly events.** `selectEncounter` and `rollAnomaly` gate what fight the player enters next — the seed alone does not determine what the player faces. This keeps the Run Director server-side and prevents seed-shop scumming.
+- **Client writes outcomes at stage boundaries.** On stage / mini-boss / gate / counter-boss completion, checkpoint banking, or run end, the client calls `submitStageOutcome` / `bankCheckpoint` / `endRun` with an outcome payload (see §5 `StageOutcome`). Server validates plausibility (bounds checks, content-table lookup, seed + encounter consistency) and commits meta-progression writes.
+- **Firestore stores outcomes, not logs.** `runs/{runId}` holds run-level fields only; `checkpoints/{stageIndex}` holds server-committed stage outcomes. Firestore never sees `BattleState`, per-tick snapshots, or per-action intents. `telemetry/*` captures aggregate signals (stage completion time, skill-use counts) for balance, not a replayable log.
+- **Seed determinism is the audit hook, not the hot path.** Because the engine is deterministic, a server-side headless replay can reproduce any claimed outcome from seed + encounter + build. Replay is optional (see below); the live path never requires it.
+
+### Security & anti-cheat
+
+Three-line defense-in-depth:
+
+1. **Transport + identity.** App Check (Play Integrity in production Android, debug provider in `__DEV__`; iOS deferred) + Firebase Auth + Firestore rules deny direct client writes to every meta-progression doc (`players/{id}`, `runs/{id}`, `runs/{id}/checkpoints/*`). Cloud Functions are the only write path.
+2. **Outcome plausibility bounds.** `submitStageOutcome` and `bankCheckpoint` validate the payload against the server-selected encounter and content tables: max rewards per stage, HP/resource sanity, elapsed time floor, drop-pool membership. Payloads outside bounds are rejected.
+3. **Deterministic replay audit (optional, P6+).** A Cloud Function — invoked by `endRun` or a nightly Cloud Scheduler job — re-runs the same seed + encounter sequence + build through a headless CombatEngine and compares claimed outcomes. Because CombatEngine is pure and deterministic, divergence is a cheat signal. Not required on the hot path.
+
+**Explicit trade-off (locked, not a TODO).** Cheating the *in-run experience* is possible: the client owns `BattleState` and can modify it locally. Cheating *rewards or meta-progression* is not: the server gates every write that persists. This is the deliberate asymmetry that buys zero-latency combat without exposing account-level progression to the client.
 
 ---
 
@@ -209,14 +224,13 @@ interface PlayerGear {
   level: number;
 }
 
-// Run — active session
+// Run — active session (run-level metadata only; BattleState lives client-side)
 interface Run {
   playerId: string;
-  seed: number;
+  seed: number;                                      // server-issued at startRun; drives all PRNG rolls
   stage: number;                                     // 1..30
   turn: number;
   activeClassId: string;
-  state: BattleState;
   bankedRewards: RewardBundle;                       // baseline, always granted
   vaultedRewards: RewardBundle;                      // at-risk, banked only on return-home
   result?: "ongoing" | "won" | "lost";
@@ -224,24 +238,23 @@ interface Run {
   updatedAt: Timestamp;
 }
 
-// PlayerAction — client-written intent
-interface PlayerAction {
+// StageOutcome — client-submitted, server-committed outcome at each stage boundary
+// Stored at runs/{runId}/checkpoints/{stageIndex} after server validation.
+interface StageOutcome {
   playerId: string;
-  unitId: string;
-  skillId: string;
-  targets: string[];
-  clientTick: number;
-  timestamp: Timestamp;
+  runId: string;
+  stageIndex: number;                                // 1..30
+  result: "won" | "lost" | "fled";
+  rewards: RewardBundle;                             // claimed drops; bounded-checked against encounter tables
+  hpRemaining: number;
+  elapsedSeconds: number;
+  clientSubmittedAt: Timestamp;
+  serverCommittedAt: Timestamp;
 }
 
-// BattleState — current combat state
-interface BattleState {
-  tick: number;
-  units: { [unitId: string]: { hp: number; ct: number; buffs: Buff[]; cooldowns: { [skillId: string]: number } } };
-  pendingActions: PlayerAction[];
-  tickDelta: number;                                 // CT drain per tick
-  rngCursor: number;                                 // seeded PRNG offset
-}
+// Note: `BattleState` is a client-side type only — it lives in Zustand + device
+// memory and is never written to Firestore. Its shape is specified in the P2
+// CombatEngine module spec, not in the persistence schema.
 
 // BossDef — static
 interface BossDef {
@@ -288,10 +301,9 @@ match /players/{playerId} {
 match /runs/{runId} {
   allow read: if resource.data.playerId == request.auth.uid;
   allow write: if false;                             // Cloud Functions only
-  match /actions/{actionId} {
-    allow create: if request.auth.uid == request.resource.data.playerId;
-    allow read: if true;
-    allow update, delete: if false;
+  match /checkpoints/{stageIndex} {
+    allow read: if get(/databases/$(database)/documents/runs/$(runId)).data.playerId == request.auth.uid;
+    allow write: if false;                           // Cloud Functions only; immutable after commit
   }
 }
 
@@ -323,7 +335,7 @@ match /telemetry/{id} {
 | **Boss Director / AI** | Adaptive boss AI inside combat tick (CT lock, burst shield, etc.) | Auto-battle AI exists on player side; no adaptive boss AI | Build | `src/domain/combat/BossAI.ts` per BossDesign.md + CombatEngine.md |
 | **Progression** | Class unlock on first obtain, same-lineage default evolution, cross-lineage adjacency-based, tier-down on lineage swap, lineage ranks at hub, 1/2/3 class slots | Account XP + campaign XP + class-rank XP exist but serve a different progression model | Quarantine current; build progression per ClassDesign.md | New `src/domain/progression/` |
 | **Hub / meta-progression** | Hub upgrades (class rank, lineage rank, gear level, class slot, hybrid unlock) fueled by banked resources | Town-building exists but is a gold sink, not tied to class/lineage ranks | Legacy; build new hub | §7 quarantines Town; new HubScreen wires to meta resources |
-| **Networking** | Firestore listeners + Cloud Functions; seeded RNG; soft rollback | Firestore listeners in place (`onSnapshot`); no Cloud Functions; no rollback; combat is client-only | Biggest architectural delta | Provision `firebase/functions/`; move validation to Cloud Functions |
+| **Networking** | Outcomes-only writes + seeded RNG; no per-tick state; Firestore listeners for static content + run metadata only | Firestore listeners in place (`onSnapshot`); no Cloud Functions; combat is client-only | Cloud Functions do outcome validation, not per-action resolution | Provision `firebase/functions/` endpoints for seed issuance + outcome submission + meta-progression |
 | **Persistence** | Schema per §5 (`players/*`, `runs/*`, static content cols) | Schema is `campaigns/*`, `userGameProfiles/*` + RPG subcollections under `campaigns/{id}/*` | Schema rewrite | Draft new rules in `firebase/firestore.rules.v2.txt`; do not delete current until migration verified |
 | **Security** | App Check on; strict rules denying direct state writes | App Check presence unknown; current rules allow authenticated writes to campaign subdocs | Tighten | Add App Check init; rewrite rules per §5 |
 | **Enemies (non-boss)** | Archetypes for stages 1–4, 6–9, 11–29 | Not implemented (no enemy concept beyond bosses) | `EnemyDesign.md` is empty — see §8 | Flag to developer; define archetypes before P1 |
@@ -410,8 +422,8 @@ High-level sequencing. Each phase is a separate planning task with its own todo 
 - **P0 — Doc finalization** (no code): resolve §8 gaps requiring developer decisions (G1, G2, G3, G5). Confirm lineage mapping in §3.
 - **P1 — Content data** (TypeScript only, no network): write `src/content/{lineages,classes,skills,gear,bosses,encounters,anomalies}.ts` as typed data modules. Every class/skill/gear item from ClassDesignDeepResearch.md / WeaponDesign.md / BossDesign.md is represented.
 - **P2 — Domain engines** (TypeScript, pure functions): deterministic CombatEngine (seeded PRNG, CT queue, skill resolution pipeline, stat pipeline, status effects), Run Director, Boss AI Director, progression engine (class unlock, evolution, lineage rank).
-- **P3 — Firebase backend**: new Firestore schema, security rules, indexes, and Cloud Functions (`processAction`, `startRun`, `endRun`, `selectEncounter`, `logTelemetry`). Provision `firebase/functions/` directory and wire to emulator.
-- **P4 — Client state wiring**: Zustand stores (`playerStore`, `runStore`, `combatStore`), FirebaseService wrappers, prediction + reconciliation logic.
+- **P3 — Firebase backend**: new Firestore schema, security rules, indexes, and Cloud Functions (`startRun`, `selectEncounter`, `rollAnomaly`, `submitStageOutcome`, `bankCheckpoint`, `endRun`, `logTelemetry`). Provision `firebase/functions/` directory and wire to emulator. Rules deny direct client writes to `runs/{id}` and `runs/{id}/checkpoints/*` per §5.
+- **P4 — Client state wiring**: Zustand stores (`playerStore`, `runStore`, `combatStore`) drive local `BattleState`; Firebase wrappers sync run metadata on stage boundaries only; no per-tick listeners on run docs during combat.
 - **P5 — UI screens**: BattleScreen, RunMapScreen, HubScreen, EquipmentScreen, ClassSelectScreen, RewardResolutionScreen. New tab navigator replacing `CompanionTabNavigator`.
 - **P6 — Telemetry + balance harness**: event logging, Monte Carlo simulation harness (headless Node), tuning pass on skill numbers, gear numerics, reward splits, anomaly frequency.
 
@@ -424,8 +436,8 @@ For each phase, "done" means:
 - **P0 done:** §3 table has no "or" rows. §8 rows G1, G2, G3, G5 show locked resolutions. `EnemyDesign.md` has populated archetype list.
 - **P1 done:** TypeScript strict compile passes on `src/content/*.ts`. Every `lineageId`/`classId`/`skillId`/`gearId`/`bossId`/`encounterId` is reachable via a typed discriminated union. Cross-refs resolve (every `evolutionTargetClassIds` entry exists; every `skillId` on a class exists in `skills.ts`).
 - **P2 done:** Unit tests (Jest) cover: CT queue ordering, damage pipeline (base→flat→mult→tradeoff→passive→buff), D20 tier resolution, CT-reduction 10% cap, status effect tick, cross-lineage evolution graph traversal. Same seed + same inputs → same outputs (determinism test).
-- **P3 done:** Firestore emulator accepts an authenticated client write to `runs/{id}/actions/{aid}` and rejects a direct write to `runs/{id}.state`. `processAction` Cloud Function triggers, validates, writes new state. End-to-end emulator test passes.
-- **P4 done:** Client predicts a skill use within one animation frame; Firestore-driven reconciliation updates UI within 200ms of server commit; desync injection test produces a smooth correction (not a snap).
+- **P3 done:** Firestore emulator accepts an authenticated `startRun` callable invocation (writes seed + initial run doc) and rejects direct client writes to `runs/{id}` and `runs/{id}/checkpoints/*`. `submitStageOutcome` validates an outcome payload against the server-selected encounter and commits a `checkpoints/{stageIndex}` doc. Deterministic replay audit (optional but recommended) passes on a golden-path playthrough.
+- **P4 done:** Client starts a run, plays stage 1 → 5 in a single device session with no Firestore writes during combat, and commits one `checkpoints/{stageIndex}` doc on stage-5 completion. Network disconnect mid-combat does not corrupt run state (offline-safe).
 - **P5 done:** Playthrough of stage 1 → 5 (mini-boss) → 10 (gate boss) → 30 (counter boss) is complete on device. Checkpoint banking visibly awards baseline rewards and vaults bonus rewards. Return-home action banks the vault.
 - **P6 done:** 10k-run Monte Carlo simulation shows no single lineage >60% run-completion rate, no gear set >55% pick rate, counter boss win rate per-counter 40–60%.
 
@@ -451,4 +463,4 @@ Every file in `documentation/New/` is accounted for:
 
 ## Appendix B — Summary for a new reader
 
-> We are building a CT-queue roguelite RPG on Expo + Firebase. Twelve lineages (thematic names), sixty classes (five tiers each), cross-lineage evolution that drops one tier. Runs are 30 stages with mini-boss at 5, gate boss at 10, counter boss at 30. Checkpoints bank partial rewards at each 10-stage mark. Combat is a deterministic tick loop with seeded RNG, run identically on client (for prediction) and in Cloud Functions (for authority). The product was originally lifted from an expense-splitting app; every trace of that finance layer is being removed, and the retention systems from the old app (Companion, Town, Expedition, Gamification) are quarantined to `redundant/` for possible future reuse but are not part of the new design.
+> We are building a CT-queue roguelite RPG on Expo + Firebase. Twelve lineages (thematic names), sixty classes (five tiers each), cross-lineage evolution that drops one tier. Runs are 30 stages with mini-boss at 5, gate boss at 10, counter boss at 30. Checkpoints bank partial rewards at each 10-stage mark. Combat is a deterministic tick loop with seeded RNG, run locally on the client with a server-issued seed; outcomes are validated by Cloud Functions at stage boundaries (no per-tick round-trips, no battle logs in Firestore). The product was originally lifted from an expense-splitting app; every trace of that finance layer is being removed, and the retention systems from the old app (Companion, Town, Expedition, Gamification) are quarantined to `redundant/` for possible future reuse but are not part of the new design.
