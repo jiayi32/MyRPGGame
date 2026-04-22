@@ -13,7 +13,7 @@ Order: entity type → concrete locations → source doc paragraph to quantify f
 
 ## Lineage unique mechanics
 
-- `drakehorn_forge.uniqueMechanic` — fully authored (Heat stacks, T5 → T1 evolution). Source: [LineageMechanicCatalog.md](New/LineageMechanicCatalog.md) §1 + [ClassDesignDeepResearch.md](New/ClassDesignDeepResearch.md) Ignis section. Catalog is authoritative.
+- `drakehorn_forge.uniqueMechanic` — fully authored (Heat stacks, T1 → T5 evolution). Source: [LineageMechanicCatalog.md](New/LineageMechanicCatalog.md) §1 + [ClassDesignDeepResearch.md](New/ClassDesignDeepResearch.md) Ignis section. Catalog is authoritative.
 - Other 11 lineages: `uniqueMechanic: UNSPECIFIED`. Seed mechanics are proposed in [LineageMechanicCatalog.md](New/LineageMechanicCatalog.md) §2–12 but not yet structured into `{id, name, shortDescription, evolutionByTier}` payloads. P1.5 authors land these alongside passives/skills, per lineage.
 
 ## Class passives (Drakehorn only so far)

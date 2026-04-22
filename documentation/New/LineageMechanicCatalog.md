@@ -1,11 +1,11 @@
 # Lineage Mechanic Catalog
 
-Authoritative spec for the **unique mechanic** attached to each of the 12 lineages, and how that mechanic evolves across the T5 → T1 tier arc. This catalog is the working reference for P1.5 class authoring.
+Authoritative spec for the **unique mechanic** attached to each of the 12 lineages, and how that mechanic evolves across the T1 → T5 tier arc. This catalog is the working reference for P1.5 class authoring.
 
 Framework (adopted from the class design review of [ClassDesignBrainstorm.md](ClassDesignBrainstorm.md)):
 
 - `CLASS = (Lineage) × (CombatArchetype)`. Lineage supplies the unique mechanic and elemental flavor; `combatArchetype ∈ { burst_dps, sustain_dps, tank, support, trickster }` supplies the combat-role shape.
-- Tier convention is **T5 = simplest starter, T1 = apex** (matches [src/content/classes/drakehornForge.ts](../../src/content/classes/drakehornForge.ts) and [ClassDesignDeepResearch.md](ClassDesignDeepResearch.md)). The second 60-class breakdown in [ClassDesignBrainstorm.md](ClassDesignBrainstorm.md) reverses this — ignore its tier direction when translating.
+- Tier convention is **T1 = simplest starter, T5 = apex** (aligned with [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) canonical decisions). If older source material uses the reverse direction, treat it as superseded and translate into T1 → T5 progression.
 - Skill and class names in the brainstorm are **inspiration only**. Authoritative names live in code and in [ClassDesignDeepResearch.md](ClassDesignDeepResearch.md). Do not rename existing ids.
 - Each lineage eventually covers all 5 combat archetypes as a soft goal. Drakehorn is intentionally offense-skewed; other lineages should spread the archetype slots more evenly.
 
@@ -24,11 +24,11 @@ Status legend:
 
 | Tier | Class | combatArchetype | Evolution note |
 | --- | --- | --- | --- |
-| T5 | Ember Initiate | burst_dps | Heat introduced as a ramp buff — consecutive casts boost the next skill. |
-| T4 | Flame Berserker | sustain_dps | Heat taxes resources — skills cost HP; Rage Fuel / Berserker’s Pact refund. |
+| T1 | Ember Initiate | burst_dps | Heat introduced as a ramp buff — consecutive casts boost the next skill. |
+| T2 | Flame Berserker | sustain_dps | Heat taxes resources — skills cost HP; Rage Fuel / Berserker’s Pact refund. |
 | T3 | Pyre Warlord | support | Heat becomes dual-system — buffs amplify AoE; multi-hit Dragon’s Breath refreshes cooldowns. |
-| T2 | Inferno Executioner | burst_dps | Heat converts to execution pressure — low-HP thresholds trigger amplified finishers. |
-| T1 | Apocalypse Bringer | trickster | Heat masters tempo — End of Days resets cooldowns on multi-kill; Phoenix Heart loops ultimates. |
+| T4 | Inferno Executioner | burst_dps | Heat converts to execution pressure — low-HP thresholds trigger amplified finishers. |
+| T5 | Apocalypse Bringer | trickster | Heat masters tempo — End of Days resets cooldowns on multi-kill; Phoenix Heart loops ultimates. |
 
 ---
 

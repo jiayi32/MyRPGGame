@@ -30,11 +30,15 @@ export const sortedTurnOrder = (
 ): readonly InstanceId[] =>
   Object.values(units)
     .filter((u) => !u.isDead)
+    .map((u) => ({
+      id: u.id,
+      ct: u.ct,
+      speed: effectiveStats(u).speed,
+      insertionIndex: u.insertionIndex,
+    }))
     .sort((a, b) => {
       if (a.ct !== b.ct) return a.ct - b.ct;
-      const speedA = effectiveStats(a).speed;
-      const speedB = effectiveStats(b).speed;
-      if (speedA !== speedB) return speedB - speedA;
+      if (a.speed !== b.speed) return b.speed - a.speed;
       return a.insertionIndex - b.insertionIndex;
     })
     .map((u) => u.id);

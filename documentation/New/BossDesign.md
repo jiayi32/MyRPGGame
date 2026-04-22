@@ -875,7 +875,7 @@ Mini-bosses are:
 
 ---
 
-## 8. Frenzy Beast
+## 8. Frenzy Spirit
 
 * Role: chaos DPS
 * Mechanic: random double actions

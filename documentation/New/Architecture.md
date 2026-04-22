@@ -1,4 +1,16 @@
-# Single-Page Developer Execution Plan
+> **⚠️ RECONCILIATION NOTE (2026-04-22):**  
+> **Current Canonical Layout:** The actual codebase uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`) **NOT the nested folder structure shown in Section 2 below**.
+> The nested structure described in this document is an **aspirational future refactoring**. See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§3 (C8 decision)** for confirmation that current flat layout is authoritative.
+>
+> **Content Source:** All game data is **TS-authored in `src/content/*.ts` files** (TypeScript modules as canonical source). Firestore export is optional for operational workflows. See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§3 (C7 decision)**.
+>
+> **What's Stable:** `src/domain/combat/*` decomposition, `src/domain/` engines, and `src/features/` UI screens remain stable canonical layers. Only aspirational reorg of `content/` folder structure is deferred.
+>
+> **Status:** Contains both current-stable sections and aspirational-future sections. Clarifications in this note take precedence. See [../INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) for locked decisions.
+
+---
+
+# Single-Page Developer Execution Plan (Mixed: Current + Aspirational)
 
 ## Mobile RPG Roguelite — Class Lineages, CT Combat, Raid Bosses
 
@@ -9,9 +21,9 @@ Build the game as a **mobile-first roguelite RPG** with:
 * 12 lineages
 * 60 classes
 * CT-based combat
-* single-boss raid encounters
+* single-boss raid encounters (bosses at stages 5, 10, 30)
 * permanent unlocks + run-based evolution
-* checkpoint banking every 10 stages
+* checkpoint banking at stages 5, 10, 20, 30
 * gear-driven build identity
 * AQ-style command menu in battle
 
@@ -30,6 +42,8 @@ This keeps balancing, combat logic, and UI independent.
 ---
 
 ## 2) Minimal file structure
+
+> **⚠️ NOTE:** This section shows an **aspirational reorganization**. The current canonical file layout uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`, `src/content/gear.ts`, `src/content/bosses.ts`, `src/content/enemies.ts`, `src/content/encounters.ts`, `src/content/anomalies.ts`). The nested folder structure below is a future refactoring. For now, code against the flat layout currently in place. (See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §3 C8 decision.)
 
 ```text
 src/
@@ -211,10 +225,10 @@ Owns permanent and run-based class progression.
 
 Owns run flow.
 
-* stage progression
-* boss stage every 10th stage
-* random encounter spawning
-* checkpoint prompt
+* stage progression (1–30)
+* **boss encounters at stages 5, 10, 30** (mini / gate / counter)
+* procedural enemy encounters at stages 1–4, 6–9, 11–29 (not stage 20 specifically)
+* checkpoint prompts at stages 5, 10, 20, 30
 * continue vs return-home decision
 
 ### `domain/rewards/`
@@ -246,7 +260,8 @@ Owns gear math.
 * Cross-lineage evolution only if affinity score passes threshold
 * Classes unlock permanently once first obtained
 * Class rank and lineage rank persist across runs
-* Every 10 stages = checkpoint and boss
+* **Checkpoints at stages 5, 10, 20, 30** (not "every 10 stages")
+* **Boss encounters at stages 5 (mini), 10 (gate), and 30 (counter) ONLY** — stage 20 is procedural enemy, not boss
 * Checkpoint always grants baseline reward
 * Bonus vault is only banked on return-home
 * Gear may reduce CT, but total reduction is capped at 10%
@@ -612,11 +627,11 @@ Skills:
 
 ---
 
-# 🐺 BEAST (Instinct)
+# 🐺 SPIRIT (Instinct)
 
 * CT style: reactive aggression
 
-```text id="bea1"
+```text id="spi1"
 Skills:
 - bonus actions when HP low
 - chain attacks

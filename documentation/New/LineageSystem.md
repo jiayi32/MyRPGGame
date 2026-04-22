@@ -1,8 +1,11 @@
-Understood — that clarification actually **changes the system from “hybrid stacking” into a much cleaner directed evolution graph**, which is significantly better for readability, balance, and CT identity control.
+Understood — this clarification locks the system into a cleaner directed evolution graph, which is better for readability, balance, and CT identity control.
 
 I’ll correct the model and restate it precisely.
 
-> **See also:** [LineageMechanicCatalog.md](LineageMechanicCatalog.md) is the authoritative spec for each lineage's **unique mechanic** and how it evolves across tiers (T5 → T1). This document covers the cross-lineage evolution graph only.
+> **⚠️ RECONCILIATION NOTE (2026-04-22):** [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) is the primary authority.
+> Tier progression is **T1 starter → T5 apex**. Any older references to T5→T1 are superseded.
+> Canonical naming uses thematic lineage IDs and archetype alias **Spirit** (not Beast).
+> This document covers cross-lineage evolution graph behavior in line with C4/C5 decisions.
 
 ---
 
@@ -71,6 +74,8 @@ Cross-lineage evolution:
 
 Instead of free evolution, we define a **lineage graph**.
 
+For v1, use a **three-neighbor directed adjacency baseline** per lineage. This keeps branch choices legible and prevents unrestricted graph traversal explosion.
+
 Example structure (Franklin graph layout):
 
 ```
@@ -80,9 +85,9 @@ Example structure (Franklin graph layout):
     /   \   |   /     \   /
 Umbra   Nox-Terra---Aegis  Spirit
     \   /   |   \     /   /
-    Beast   |    Spirit---Seraph
+    Spirit  |    Terra---Solaris
       \   |   /     /   /
-      Spirit---Beast---Umbra
+      Seraph---Aegis---Umbra
 ```
 
 Adjacency list (each node has 3 neighbors):
@@ -91,13 +96,12 @@ Adjacency list (each node has 3 neighbors):
 - Arcana: Chrono, Umbra, Nox
 - Rift: Chrono, Nox, Terra
 - Ignis: Chrono, Aegis, Terra
-- Umbra: Arcana, Beast, Nox
+- Umbra: Arcana, Spirit, Nox
 - Nox: Arcana, Rift, Umbra
 - Terra: Rift, Ignis, Spirit
 - Aegis: Ignis, Seraph, Solaris
-- Beast: Umbra, Spirit, Seraph
-- Spirit: Beast, Terra, Seraph
-- Seraph: Beast, Spirit, Aegis
+- Spirit: Umbra, Terra, Seraph
+- Seraph: Aegis, Spirit, Solaris
 - Solaris: Aegis, Seraph, Arcana
 
 ---
@@ -285,6 +289,7 @@ What we fixed:
 * ✅ replaced with directed evolution graph
 * ✅ added adjacency constraints
 * ✅ introduced identity-preserving transition rules
+* ✅ locked v1 behavior to replacement identity + constrained three-neighbor transitions
 
 ---
 

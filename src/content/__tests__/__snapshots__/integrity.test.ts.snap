@@ -2,21 +2,14 @@
 
 exports[`content integrity sentinel audit snapshot 1`] = `
 {
-  "boss.atk": 27,
-  "boss.def": 27,
-  "boss.hp": 27,
-  "boss.mechanic.magnitude": 2,
-  "class.basicAttackSkillId": 55,
-  "class.ctRange": 55,
-  "class.passive.magnitude": 1,
-  "gear.baseStats": 3,
-  "gear.multStats": 2,
-  "gear.passive.magnitude": 1,
-  "gear.tradeoffs": 2,
-  "gear.upgradeLevels": 3,
-  "lineage.uniqueMechanic": 11,
+  "boss.atk": 24,
+  "boss.def": 24,
+  "boss.hp": 24,
+  "class.basicAttackSkillId": 50,
+  "class.ctRange": 50,
+  "class.passive.magnitude": 15,
   "lineage.upgradeBonus.magnitude": 10,
   "lineage.upgradeBonuses": 11,
-  "skill.effect.magnitude": 21,
+  "skill.effect.magnitude": 27,
 }
 `;

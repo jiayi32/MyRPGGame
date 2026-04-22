@@ -1,7 +1,17 @@
-# Class Design Document – 60 Classes (12 Lineages, Tiers 5→1)
+# Class Design Document – 60 Classes (12 Lineages, Reference Catalog)
+
+> **⚠️ RECONCILIATION NOTE (2026-04-22):**
+> This file is a deep reference catalog. [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) is the primary authority when conflicts exist.
+> Locked canonical constraints:
+> - Tier direction: **T1 starter → T5 apex**.
+> - Canonical naming: thematic lineage IDs in §3 of Integration Report.
+> - Archetype aliases remain valid as reference labels, with **Spirit** (not Beast).
+> - Cross-lineage behavior in v1 is replacement identity via constrained adjacency, not dual-lineage mixing.
+
+---
 
 ## Executive Summary  
-This document details **60 unique classes** across 12 thematic lineages (5 classes per lineage, Tier 5 through Tier 1). Each class section includes **name, lineage, tier, lore, role, CT profile, primary resource, basic attack, full skill list (active and passive by rank), gear synergies, play tips, and evolution paths**. The format follows a clear AQWorlds “class breakdown” style. We also provide a **TypeScript interface schema** for classes/skills and a **JSON example** for one class. At the end are **Mermaid diagrams**: one showing lineage adjacency (evolution paths) and another mapping each class to its lineage. 
+This document details **60 unique classes** across 12 thematic lineages (5 classes per lineage, Tier 1 through Tier 5 progression). Each class section includes **name, lineage, tier, lore, role, CT profile, primary resource, basic attack, full skill list (active and passive by rank), gear synergies, play tips, and evolution paths**. The format follows a clear AQWorlds “class breakdown” style. We also provide a **TypeScript interface schema** for classes/skills and a **JSON example** for one class. At the end are **Mermaid diagrams**: one showing lineage adjacency (evolution paths) and another mapping each class to its lineage. 
 
 This design emphasizes **CT-based combat**: classes have distinct CT-costed skills (fast, medium, or slow profiles) and themes aligned with their lineage (e.g. Solaris = radiant light, Umbra = shadows, Chrono = time control, etc.). Gear can modify or override skill performance. Cross-lineage evolution is represented (each class may evolve into a related lineage’s class). All rank-1–10 progressions are unique and themed. The result is a comprehensive **class build reference for developers**.
 
@@ -1203,13 +1213,13 @@ Spirit classes channel primal spirits — feral instincts, ancestral totems, and
 - **Basic Attack:** **Wild Strike** – A savage slash; small chance to Bleed.  
 - **Skills:**  
   - **Primal Roar** – CT:30, CD:8s – Howl that grants +20% Strength to self for 6s. (tags: *self-buff*).  
-  - **Beast Bite** – CT:25, CD:5s – Ferocious bite, apply Bleed (10% HP over 4s). (tags: *dot*).  
+  - **Spirit Bite** – CT:25, CD:5s – Ferocious bite, apply Bleed (10% HP over 4s). (tags: *dot*).  
   - **Feral Leap** – CT:40, CD:10s – Pounce to enemy, knock them down. (tags: *knockdown*).  
   - **Maul** – CT:35, CD:12s – A heavy two-handed attack, +15% Crit chance for 4s after use. (tags: *buff*).  
 - **Passives:**  
-  - **Rank1:** *Beast’s Instinct* – +5% Damage.  
+  - **Rank1:** *Spirit Instinct* – +5% Damage.  
   - **Rank3:** *Savage Strength* – Primal Roar duration +2s.  
-  - **Rank5:** *Bloodlust* – After Beast Bite Bleed ends, +10% Attack for 3s.  
+  - **Rank5:** *Bloodlust* – After Spirit Bite Bleed ends, +10% Attack for 3s.  
   - **Rank7:** *Iron Hide* – +5% Armor.  
   - **Rank9:** *Pounce Mastery* – Feral Leap root lasts +1s.  
   - **Rank10:** *Predator* – +5% Crit when HP >75%.  
@@ -1239,7 +1249,7 @@ Spirit classes channel primal spirits — feral instincts, ancestral totems, and
 - **Evolution:** Evolves to **Aegis Iron Warder** (T3) or **Nox Venom Initiate** (T5).  
 
 ### Apex Hunter (Spirit, Tier 3)  
-- **Lore:** An alpha beast leading pack hunts, enhanced senses.  
+- **Lore:** An alpha spirit-hunter leading pack hunts, enhanced senses.  
 - **Role:** Hybrid DPS/Tank.  
 - **CT Profile:** **Medium** (CT ~40–60).  
 - **Primary Resource:** *None*.  
@@ -1281,7 +1291,7 @@ Spirit classes channel primal spirits — feral instincts, ancestral totems, and
 - **Evolution:** Evolves into **Aegis Immutable Wall** (T1) or **Nox Blight Tyrant** (T2).  
 
 ### Primal Overlord (Spirit, Tier 1)  
-- **Lore:** The ultimate beast, with primal fury unmatched.  
+- **Lore:** The ultimate spirit avatar, with primal fury unmatched.  
 - **Role:** Boss DPS/Tank.  
 - **CT Profile:** **Slow** (CT ~80–100).  
 - **Primary Resource:** *None*.  
@@ -1290,7 +1300,7 @@ Spirit classes channel primal spirits — feral instincts, ancestral totems, and
   - **Soul Rend** – CT:90, CD:20s – Massive strike; enemies hit bleed profusely (huge DoT). (tags: *high damage*).  
   - **Alpha Howl** – CT:100, CD:25s – Allies get +50% Attack, +50% Crit for 10s. (tags: *team buff*).  
   - **Endless Hunger** – CT:80, CD:15s – Bite multiple enemies, restoring 20% HP per enemy. (tags: *aoe*, *heal*).  
-  - **Worship the Beast** – CT:120, CD:999s – Captures boss: player becomes unkillable and does damage over time to boss (one-time use). (tags: *ultimate*).  
+  - **Worship the Spirit** – CT:120, CD:999s – Captures boss: player becomes unkillable and does damage over time to boss (one-time use). (tags: *ultimate*).  
 - **Passives:**  
   - **Rank1:** *Devourer’s Will* – +20% Strength.  
   - **Rank3:** *Blood Pact* – +10% lifesteal.  

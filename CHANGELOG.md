@@ -6,6 +6,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — Placeholder icon pack registry
+
+- [src/assets/icons/types.ts](src/assets/icons/types.ts): introduced `IconStyle`, `IconTheme`, `IconSize`, plus literal slug unions for the imported PNG placeholder pack.
+- [src/assets/icons/registry.ts](src/assets/icons/registry.ts): added Metro-safe literal `require()` registries for 190 solid icons and 45 brand icons from `assets/icons/PNG/for-light-mode/48px/`.
+- [src/assets/icons/index.ts](src/assets/icons/index.ts): exported the icon types and registry helpers from a single barrel.
+- [src/assets/icons/__tests__/registry.test.ts](src/assets/icons/__tests__/registry.test.ts): added coverage checks for registry counts, asset resolution, lookup helpers, and namespace collisions.
+
+### Documentation
+
+- [documentation/New/IconPack.md](documentation/New/IconPack.md): documented the raw asset pack layout, current runtime scope, slug normalization rules, Metro literal-`require()` constraint, and suggested placeholder mappings for future sprite replacement work.
+
 ### Added — Class framework (lineage × combat archetype)
 
 - Schema additions to extract the structural insight from [documentation/New/ClassDesignBrainstorm.md](documentation/New/ClassDesignBrainstorm.md) without adopting its specific skill names, reversed tier direction, or new primary resources.

@@ -1,12 +1,12 @@
-import { UNSPECIFIED, type Skill } from '../types';
+import { type Skill } from '../types';
 
 export const DRAKEHORN_SKILLS: readonly Skill[] = [
-  // ---- T5 Ember Initiate ----
+  // ---- T1 Ember Initiate ----
   {
     id: 'drakehorn.flame_snap',
     name: 'Flame Snap',
     description: 'Basic ranged flame flick.',
-    ctCost: UNSPECIFIED,
+    ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
     target: 'single',
@@ -15,7 +15,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Small fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 1.8,
         damageType: 'fire',
       },
     ],
@@ -26,14 +26,14 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Shoots a bolt of fire.',
     ctCost: 25,
     cooldownSec: 5,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 18 },
     target: 'single',
     tags: ['ranged', 'fire'],
     effects: [
       {
         kind: 'damage',
         description: 'Ranged fire bolt damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 2.5,
         damageType: 'fire',
       },
     ],
@@ -44,14 +44,14 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Explodes on impact, burning the target over time.',
     ctCost: 35,
     cooldownSec: 8,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 22 },
     target: 'single',
     tags: ['dot', 'fire'],
     effects: [
       {
         kind: 'damage',
         description: 'Impact burst damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 2.8,
         damageType: 'fire',
       },
       {
@@ -70,7 +70,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Burning shield: incoming damage reduced by 10%, attacker takes 10% back.',
     ctCost: 30,
     cooldownSec: 10,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 20 },
     target: 'self',
     tags: ['counter', 'buff'],
     effects: [
@@ -94,7 +94,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Self-buff: next Fire Bolt double hits.',
     ctCost: 40,
     cooldownSec: 12,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 24 },
     target: 'self',
     tags: ['buff'],
     effects: [
@@ -107,12 +107,12 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     ],
   },
 
-  // ---- T4 Flame Berserker ----
+  // ---- T2 Flame Berserker ----
   {
     id: 'drakehorn.molten_strike',
     name: 'Molten Strike',
     description: 'Basic flaming punch with small ignite chance.',
-    ctCost: UNSPECIFIED,
+    ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
     target: 'single',
@@ -121,15 +121,15 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Basic physical-fire hybrid damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 1.9,
         damageType: 'fire',
       },
       {
         kind: 'dot',
         description: 'Small burn chance applied on hit.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.04,
         magnitudeUnit: 'percent',
-        chance: UNSPECIFIED,
+        chance: 0.25,
         damageType: 'fire',
       },
     ],
@@ -147,13 +147,13 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Large fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 3.5,
         damageType: 'fire',
       },
       {
         kind: 'dot',
         description: 'Ignite DoT on target.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.08,
         damageType: 'fire',
       },
     ],
@@ -164,20 +164,20 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Leap-slam that burns the ground in an AoE.',
     ctCost: 35,
     cooldownSec: 12,
-    resource: { type: 'HP', cost: UNSPECIFIED },
+    resource: { type: 'HP', cost: 0.10 },
     target: 'area',
     tags: ['aoe', 'fire', 'dot'],
     effects: [
       {
         kind: 'damage',
         description: 'AoE fire impact.',
-        magnitude: UNSPECIFIED,
+        magnitude: 3.2,
         damageType: 'fire',
       },
       {
         kind: 'dot',
         description: 'Burning ground DoT.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.09,
         damageType: 'fire',
       },
     ],
@@ -206,7 +206,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: '+25% Attack Speed and +15% damage for 6s.',
     ctCost: 25,
     cooldownSec: 10,
-    resource: { type: 'HP', cost: UNSPECIFIED },
+    resource: { type: 'HP', cost: 0.08 },
     target: 'self',
     tags: ['buff'],
     effects: [
@@ -234,7 +234,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     id: 'drakehorn.warhammer_smash',
     name: 'Warhammer Smash',
     description: 'Ground strike causing a flame fissure.',
-    ctCost: UNSPECIFIED,
+    ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
     target: 'area',
@@ -243,7 +243,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Flame fissure damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 2.0,
         damageType: 'fire',
       },
     ],
@@ -254,7 +254,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Empowers weapon with flame — next 3 attacks explode.',
     ctCost: 50,
     cooldownSec: 8,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 25 },
     target: 'self',
     tags: ['buff', 'multi-hit'],
     effects: [
@@ -273,14 +273,14 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Huge volcanic blast around self; knockback.',
     ctCost: 60,
     cooldownSec: 18,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 28 },
     target: 'area',
     tags: ['aoe', 'knockback', 'fire'],
     effects: [
       {
         kind: 'damage',
         description: 'Volcanic AoE damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 4.5,
         damageType: 'fire',
       },
     ],
@@ -291,20 +291,20 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Cone of flame, burning enemies.',
     ctCost: 45,
     cooldownSec: 12,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 24 },
     target: 'cone',
     tags: ['cone', 'fire', 'dot'],
     effects: [
       {
         kind: 'damage',
         description: 'Cone fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 3.5,
         damageType: 'fire',
       },
       {
         kind: 'dot',
         description: 'Burn applied to hit targets.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.07,
         damageType: 'fire',
       },
     ],
@@ -315,7 +315,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     description: 'Allies gain +10% Attack and reflect 5% damage for 8s.',
     ctCost: 30,
     cooldownSec: 10,
-    resource: { type: 'MP', cost: UNSPECIFIED },
+    resource: { type: 'MP', cost: 20 },
     target: 'allies',
     tags: ['team buff', 'buff'],
     effects: [
@@ -337,12 +337,12 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     ],
   },
 
-  // ---- T2 Inferno Executioner ----
+  // ---- T4 Inferno Executioner ----
   {
     id: 'drakehorn.blazing_axe',
     name: 'Blazing Axe',
     description: 'Heavy swing that burns deeply.',
-    ctCost: UNSPECIFIED,
+    ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
     target: 'single',
@@ -351,7 +351,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Heavy physical-fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 2.2,
         damageType: 'fire',
       },
     ],
@@ -369,7 +369,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'dot',
         description: 'Massive single-target DoT.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.11,
         damageType: 'fire',
       },
     ],
@@ -387,7 +387,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'AoE grenade damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 3.8,
         damageType: 'physical',
       },
     ],
@@ -411,7 +411,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Fallback high fire damage if execute fails.',
-        magnitude: UNSPECIFIED,
+        magnitude: 5.5,
         damageType: 'fire',
       },
     ],
@@ -429,18 +429,18 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Enormous AoE fire damage to all enemies.',
-        magnitude: UNSPECIFIED,
+        magnitude: 8.5,
         damageType: 'fire',
       },
     ],
   },
 
-  // ---- T1 Apocalypse Bringer ----
+  // ---- T5 Apocalypse Bringer ----
   {
     id: 'drakehorn.world_on_fire',
     name: 'World on Fire',
     description: 'Every basic attack ignites the ground for splash damage.',
-    ctCost: UNSPECIFIED,
+    ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
     target: 'area',
@@ -449,7 +449,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Splash fire damage on basic attack.',
-        magnitude: UNSPECIFIED,
+        magnitude: 0.6,
         damageType: 'fire',
       },
     ],
@@ -467,7 +467,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Meteor AoE fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 10.5,
         damageType: 'fire',
       },
     ],
@@ -485,7 +485,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
       {
         kind: 'damage',
         description: 'Pull + continuous fire damage.',
-        magnitude: UNSPECIFIED,
+        magnitude: 5.0,
         damageType: 'fire',
       },
     ],
@@ -527,3 +527,6 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
     ],
   },
 ];
+
+
+

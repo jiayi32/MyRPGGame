@@ -5,9 +5,9 @@ const miniBossStage5: BossDef = {
   name: 'Pyre Warden',
   bossType: 'mini',
   stage: 5,
-  hp: UNSPECIFIED,
-  atk: UNSPECIFIED,
-  def: UNSPECIFIED,
+    hp: 150,
+    atk: 12,
+    def: 5,
   phases: [
     {
       hpThreshold: 0.5,
@@ -32,9 +32,9 @@ const gateBossStage10: BossDef = {
   name: 'Vortex Colossus',
   bossType: 'standard',
   stage: 10,
-  hp: UNSPECIFIED,
-  atk: UNSPECIFIED,
-  def: UNSPECIFIED,
+    hp: 400,
+    atk: 18,
+    def: 10,
   phases: [
     {
       hpThreshold: 0.66,
@@ -51,7 +51,7 @@ const gateBossStage10: BossDef = {
     {
       name: 'CT Rewind',
       description: 'Periodically rewinds one random target by a fixed CT amount.',
-      magnitude: UNSPECIFIED,
+      magnitude: 30,
     },
   ],
   description: 'Stage-10 gate boss — generic boss pool representative with CT-manipulation theme.',
@@ -63,9 +63,9 @@ const counterBossStage30: BossDef = {
   bossType: 'counter',
   stage: 30,
   lineageCounter: 'drakehorn_forge',
-  hp: UNSPECIFIED,
-  atk: UNSPECIFIED,
-  def: UNSPECIFIED,
+    hp: 800,
+    atk: 25,
+    def: 15,
   phases: [
     {
       hpThreshold: 0.75,
@@ -82,7 +82,7 @@ const counterBossStage30: BossDef = {
     {
       name: 'Frostbite Aegis',
       description: 'Incoming fire damage is capped per hit; punishes Drakehorn ramp builds.',
-      magnitude: UNSPECIFIED,
+      magnitude: 50,
     },
   ],
   description:

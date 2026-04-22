@@ -1,5 +1,13 @@
 # Class Design Document
 
+> **⚠️ RECONCILIATION NOTE (2026-04-22):**
+> This document is aligned to [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) as primary authority.
+> Locked constraints applied to this doc:
+> - Tier direction is **T1 starter → T5 apex**.
+> - Cross-lineage evolution in v1 is **identity replacement**, not simultaneous dual-lineage mixing.
+> - Checkpoint pacing uses stage milestones **5, 10, 20, 30**; boss pacing remains **5/10/30**.
+> - Thematic lineage IDs are canonical; Beast-era naming is superseded by **Spirit**.
+
 ## Mobile RPG Roguelite — 12 Lineages, 60 Classes, Tier Evolution, and Checkpoint Banking
 
 This document defines the full class architecture for the game.
@@ -33,7 +41,7 @@ A player:
 * starts a run with an equipped class setup,
 * fights through stage nodes,
 * may encounter class evolution events,
-* reaches a checkpoint every 10 stages,
+* reaches checkpoints at stages 5, 10, 20, and 30,
 * chooses to continue or return home,
 * banks run resources at checkpoints,
 * upgrades classes and lineages at the hub.
@@ -43,7 +51,7 @@ The class system is designed so that the player can:
 * collect all 60 classes,
 * build around one lineage,
 * branch into compatible lineages,
-* and eventually mix classes through prestige unlocks.
+* and eventually unlock broader cross-lineage evolution options through prestige systems.
 
 ---
 
@@ -121,6 +129,7 @@ interface PlayerMetaProgression {
   lineageRanks: Record<LineageId, number>;
   unlockedGearIds: string[];
   unlockedWeapons: string[];
+  // Controls breadth of allowed cross-lineage transitions in v1/v2 rulesets.
   hybridUnlockLevel: 'none' | 'partial' | 'full';
 }
 
@@ -433,9 +442,11 @@ function canCrossEvolve(a: ClassDefinition, b: ClassDefinition): boolean {
 When a class evolves:
 
 * the player keeps the current run
-* the current class is replaced by the new one
+* the current class is replaced by the new one (single active class identity)
 * the new class is permanently unlocked if it is the first time obtained
 * the source class remains permanently unlocked too
+
+In v1, cross-lineage evolution is **identity replacement** only. The system does not support simultaneous dual-lineage class identity in one active form.
 
 ```ts
 function evolveClass(currentClassId: string, targetClassId: string) {
@@ -561,12 +572,12 @@ The checkpoint system should feel like a roguelite banking point, similar in spi
 
 ## 8.1 Core rule
 
-Every **10 stages** is a checkpoint.
+Checkpoints trigger at **stages 5, 10, 20, and 30**.
 
-* Stage 10 = boss
-* Stage 20 = boss
-* Stage 30 = boss
-* and so on
+* Stage 5 = mini-boss checkpoint
+* Stage 10 = gate-boss checkpoint
+* Stage 20 = procedural checkpoint (non-boss)
+* Stage 30 = counter-boss checkpoint
 
 At each checkpoint:
 
@@ -763,8 +774,8 @@ function unlockClassSlot(meta: PlayerMetaProgression, method: 'specialItem' | 'p
 
 ## Checkpoint banking
 
-* every 10 stages
-* boss at checkpoint
+* checkpoints at stages 5, 10, 20, 30
+* bosses at checkpoints 5, 10, 30 (stage 20 is non-boss)
 * baseline reward guaranteed
 * bonus vault banked only when returning home
 
@@ -783,7 +794,7 @@ function unlockClassSlot(meta: PlayerMetaProgression, method: 'specialItem' | 'p
 ```ts
 function runLoop() {
   while (!runEnded) {
-    if (stageIndex % 10 === 0) {
+    if ([5, 10, 20, 30].includes(stageIndex)) {
       const checkpointReward = generateCheckpointReward(stageIndex);
       onCheckpointReached(runState, checkpointReward);
 

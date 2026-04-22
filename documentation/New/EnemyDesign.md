@@ -1,7 +1,7 @@
 # Enemy Design — Generic Stage Enemies
 
 **Status:** Authoritative for P1 content. Closes gap G2 from [INTEGRATION_REPORT.md §8](../INTEGRATION_REPORT.md).
-**Scope:** Non-boss enemies that populate stages 1–4, 6–9, 11–29. Boss stages (5 / 10 / 20 / 30) are governed by [BossDesign.md](BossDesign.md).
+**Scope:** Non-boss enemies that populate stages 1–4, 6–9, 11–29 (including stage 20 as procedural enemy pressure). Boss stages (5 / 10 / 30) are governed by [BossDesign.md](BossDesign.md).
 
 ---
 
@@ -52,7 +52,7 @@ stageTierBand:
   1–4   → tier 1   (stages before first mini-boss)
   6–9   → tier 2   (stages before gate boss)
   11–19 → tier 3   (early mid-run)
-  20    → tier 3.5 (standard boss at 20 — handled by BossDesign.md)
+  20    → tier 3.5 (procedural pressure checkpoint stage; not a guaranteed boss)
   21–29 → tier 4   (late-run pressure)
 ```
 

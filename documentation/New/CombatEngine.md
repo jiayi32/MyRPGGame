@@ -1,4 +1,12 @@
-Below is the **Full Combat Simulation Engine Specification** designed for your CT-based roguelite RPG with:
+> **⚠️ RECONCILIATION NOTE (2026-04-22):**  
+> This document describes a **valid combat pattern** (server-authoritative tick processing with rollback) but is **NOT** the primary architecture for this project. See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§4 Combat Model** for the authoritative design: **outcome-only local deterministic combat** with server validation.  
+> This document is retained as a teaching reference for CT queue mechanics, hit resolution, and skill costs. Code implementers should consult INTEGRATION_REPORT.md first.
+>
+> **Status:** Reference material. Code follows [../INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §4 as primary authority.
+
+---
+
+Below is the **Full Combat Simulation Engine Specification** (reference teaching guide) for your CT-based roguelite RPG with:
 
 * multiplayer raid encounters (future-proofed)
 * deterministic CT queue combat
@@ -16,10 +24,16 @@ This is the **final “this can actually be built” layer**.
 
 # 1. SYSTEM OVERVIEW
 
-## Core Principle
+## Core Principle (Reference Pattern)
 
+This section describes a **server-authoritative tick model** as an example architecture.
+**However, the project's authoritative design uses outcome-only local deterministic combat** (see [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §4).
+
+For reference, a server-authoritative model would use:
 > The server is the *only source of truth* for combat state.
 > The client is a deterministic prediction + input interface.
+
+**Note:** This project's actual implementation is **outcome-only deterministic simulation on client**, with **server validation of stage outcomes only** (no per-tick round-trips, no per-tick state storage).
 
 ---
 

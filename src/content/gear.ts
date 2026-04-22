@@ -15,7 +15,7 @@ const worldbreakerFang: GearItem = {
   tier: 5,
   lineageId: 'drakehorn_forge',
   rarity: 'mythic',
-  baseStats: UNSPECIFIED,
+  baseStats: { strength: 18, intellect: 8, constitution: 12, dexterity: 10 },
   multStats: { strength: 1.25 },
   passives: [
     {
@@ -26,8 +26,12 @@ const worldbreakerFang: GearItem = {
     },
   ],
   triggers: [],
-  tradeoffs: UNSPECIFIED,
-  upgradeLevels: UNSPECIFIED,
+  tradeoffs: { constitution: -0.05 },
+  upgradeLevels: [
+    { level: 0, cost: 0, addStats: {}, addMults: {} },
+    { level: 1, cost: 100, addStats: { strength: 2 }, addMults: { strength: 0.05 } },
+    { level: 2, cost: 250, addStats: { strength: 4 }, addMults: { strength: 0.10 } },
+  ],
   description: 'Scaling dominance through relentless consecutive hits.',
 };
 
@@ -38,8 +42,8 @@ const moltenSovereignPlate: GearItem = {
   tier: 5,
   lineageId: 'drakehorn_forge',
   rarity: 'mythic',
-  baseStats: UNSPECIFIED,
-  multStats: UNSPECIFIED,
+  baseStats: { strength: 12, intellect: 6, constitution: 16, dexterity: 8 },
+  multStats: { constitution: 1.2, dexterity: 0.95 },
   passives: [
     {
       category: 'bias',
@@ -56,7 +60,11 @@ const moltenSovereignPlate: GearItem = {
   ],
   triggers: [],
   tradeoffs: { defensive_bias: -0.1 },
-  upgradeLevels: UNSPECIFIED,
+  upgradeLevels: [
+    { level: 0, cost: 0, addStats: {}, addMults: {} },
+    { level: 1, cost: 100, addStats: { constitution: 2 }, addMults: {} },
+    { level: 2, cost: 250, addStats: { constitution: 4 }, addMults: { constitution: 0.08 } },
+  ],
   description: 'Momentum-stacking plate that trades defense for runaway damage.',
 };
 
@@ -67,18 +75,22 @@ const ashfireSigil: GearItem = {
   tier: 5,
   lineageId: 'drakehorn_forge',
   rarity: 'mythic',
-  baseStats: UNSPECIFIED,
-  multStats: UNSPECIFIED,
+  baseStats: { intellect: 12, dexterity: 10, constitution: 8, strength: 6 },
+  multStats: { intellect: 1.15 },
   passives: [
     {
       category: 'rule_breaker',
-      effect: 'Dragon set rule-breaker passive (design TBD).',
-      magnitude: UNSPECIFIED,
+      effect: 'When final active skill kills, +50% damage to next skill for 8s.',
+      magnitude: 0.5,
     },
   ],
   triggers: [],
-  tradeoffs: UNSPECIFIED,
-  upgradeLevels: UNSPECIFIED,
+  tradeoffs: { strength: -0.08 },
+  upgradeLevels: [
+    { level: 0, cost: 0, addStats: {}, addMults: {} },
+    { level: 1, cost: 100, addStats: { intellect: 2 }, addMults: {} },
+    { level: 2, cost: 250, addStats: { intellect: 4 }, addMults: { intellect: 0.08 } },
+  ],
   description:
     'Accessory slot completing the Dragon set; rule-breaker passive pending balance pass.',
 };

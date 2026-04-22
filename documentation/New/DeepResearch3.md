@@ -1,8 +1,22 @@
-# Executive Summary - Revision 3
+> **⚠️ RECONCILIATION NOTE (2026-04-22):**  
+> This document describes a **detailed implementation approach** that includes action-intent subcollections and per-tick Firestore state storage. **However, the authoritative project design uses outcome-only persistence** (see [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§5 Persistence Model**). 
+>
+> **Key Differences:**
+> - This doc: `runs/{runId}/actions/{actionId}` subcollections + per-tick snapshots + action reconciliation  
+> - Primary design: Run metadata + checkpoint outcomes only; no action subcollections; no per-tick state; no battle logs
+>
+> This document is retained as reference for detailed **Cloud Function architecture, security rules, and data schema thinking**. Code implementers should follow [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) as primary authority.
+>
+> **Status:** Reference material on Cloud Function patterns. Core persistence model follows [../INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §5 (outcome-only).
+
+---
+
+# Executive Summary - Revision 3 (Reference Architecture)
+# Executive Summary - Revision 3 (Reference Architecture)
 
 This document specifies a **complete architecture** for a CT-queue roguelite RPG built with **Expo/React Native (TypeScript)** on the client and **Firebase** on the backend. It integrates all prior decisions: 12 lineages, 60-class evolution, tiered gear (T1–T5), Run Director, Boss Director, encounter pacing (stage 5/10/30), and both PvE and small-scale raid modes. Key points:
 
-- **Client-Heavy Simulation + Firebase Authority:** We perform most combat calculations on the **client (TypeScript)** for responsiveness, while using **Firebase Cloud Functions** for authoritative validation and state updates【20†L114-L122】【4†L232-L238】.  
+- **⚠️ [Reference Pattern] Client-Heavy Simulation + Firebase Authority:** This section describes an action-intent model with Cloud Function per-tick processing. **The actual design uses outcome-only local simulation** (see [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §4–§5). That means: client computes outcomes deterministically, server validates stage outcomes only, no per-tick Cloud Function ticks required.
 - **Data Schema:** Firestore collections (and optionally RTDB) store players, runs, gear, skills, etc. All schema fields, types, indexes, and example JSON/TypeScript interfaces are defined below. Security rules ensure clients **cannot cheat**; Cloud Functions enforce game rules【20†L101-L110】.  
 - **TypeScript Code Structure:** Client code is modular and TypeScript-first. Example modules: `CombatEngine.ts`, `Random.ts`, `FirebaseService.ts`. We use Zustand (or Redux Toolkit) for state, and React Native libraries (reanimated, skia) for UI. Folder structure with `.ts/.tsx` files is outlined.  
 - **Combat Engine (CT Loop):** Pseudocode (in TS style) for the deterministic CT loop, action resolution, and stat pipeline is provided. We use a mermaid flowchart for the tick logic and run progression. Targets: ~20–30 sim ticks/sec, state deltas <5KB.  

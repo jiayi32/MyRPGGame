@@ -1,18 +1,228 @@
 import { UNSPECIFIED, type ClassData, type ClassTier, type LineageId } from '../types';
 
+const BULL_CATHEDRAL_CLASSES: readonly ClassData[] = [
+  {
+    id: 'bull_cathedral.shield_initiate',
+    name: 'Shield Initiate',
+    lineageId: 'bull_cathedral',
+    tier: 1,
+    role: 'Tank',
+    combatArchetype: 'tank',
+    ctProfile: 'Medium',
+    ctRange: { min: 35, max: 55 },
+    primaryResource: 'MP',
+    basicAttackSkillId: 'bull.shield_tap',
+    skillIds: ['bull.guard_up', 'bull.sanctuary_swing', 'bull.oath_line', 'bull.reprisal_mark'],
+    passives: [
+      {
+        rank: 1,
+        name: 'Stone Discipline',
+        description: 'Gain baseline Guard at battle start.',
+        magnitude: UNSPECIFIED,
+        statTag: 'guard_stacks',
+      },
+      {
+        rank: 3,
+        name: 'Oathful Brace',
+        description: 'Guard Up grants additional mitigation.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+        statTag: 'damage_reduction',
+      },
+      {
+        rank: 5,
+        name: 'Measured Reprisal',
+        description: 'Marked enemies take additional counter damage.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+    ],
+    evolutionTargetClassIds: ['bull_cathedral.bastion_guard'],
+    description:
+      'Entry Bull Cathedral class focused on building Guard and stabilizing allied frontlines.',
+    gearSynergy: 'Shield-strength and mitigation gear; counter-support relics.',
+    coreLoop: 'Build Guard via stance and incoming hits, then convert Guard into retaliation bursts.',
+    damageIdentity: 'Guard-scaled single-target punishment with reprisal marks.',
+    survivalIdentity: 'Early mitigation posture and ally damage redirection.',
+  },
+  {
+    id: 'bull_cathedral.bastion_guard',
+    name: 'Bastion Guard',
+    lineageId: 'bull_cathedral',
+    tier: 2,
+    role: 'Tank',
+    combatArchetype: 'tank',
+    ctProfile: 'Medium-Slow',
+    ctRange: { min: 45, max: 65 },
+    primaryResource: 'MP',
+    basicAttackSkillId: 'bull.bastion_hammer',
+    skillIds: ['bull.guard_slam', 'bull.bulwark_pulse', 'bull.sanctum_vow', 'bull.wardens_call'],
+    passives: [
+      {
+        rank: 2,
+        name: 'Weight of Stone',
+        description: 'Guard Slam consumes fewer Guard stacks for full value.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 4,
+        name: 'Shared Cover',
+        description: 'Bulwark Pulse shields allies for a larger amount.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 6,
+        name: "Called to Stand",
+        description: "Warden's Call generates bonus Guard when focused.",
+        magnitude: UNSPECIFIED,
+        statTag: 'guard_stacks',
+      },
+    ],
+    evolutionTargetClassIds: ['bull_cathedral.fortress_knight'],
+    description: 'Reinforced sanctuary defender that converts Guard into stronger party shielding.',
+    gearSynergy: 'Barrier scaling and taunt-control modifiers.',
+    coreLoop: 'Hold focus, pulse shields to allies, and spend Guard on hammer slams.',
+    damageIdentity: 'Defensive burst scaling off Guard consumption.',
+    survivalIdentity: 'Sustained mitigation with reactive Guard generation under pressure.',
+  },
+  {
+    id: 'bull_cathedral.fortress_knight',
+    name: 'Fortress Knight',
+    lineageId: 'bull_cathedral',
+    tier: 3,
+    role: 'Support',
+    combatArchetype: 'support',
+    ctProfile: 'Medium',
+    ctRange: { min: 40, max: 60 },
+    primaryResource: 'MP',
+    basicAttackSkillId: 'bull.fortress_strike',
+    skillIds: [
+      'bull.shared_bulwark',
+      'bull.pillar_crash',
+      'bull.anchored_stance',
+      'bull.consecrated_wall',
+    ],
+    passives: [
+      {
+        rank: 2,
+        name: 'Formation Tutor',
+        description: 'Shared Bulwark scales harder with active Guard.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 5,
+        name: 'Anchor Tempo',
+        description: 'Anchored Stance grants stronger CT discounts to defensive actions.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 8,
+        name: 'Sanctified Citadel',
+        description: 'Consecrated Wall duration is extended.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'seconds',
+      },
+    ],
+    evolutionTargetClassIds: ['bull_cathedral.iron_warder'],
+    description: 'Midline bastion that shares Guard value as team protection and tempo control.',
+    gearSynergy: 'Support barriers, cooldown economy, and defensive aura extensions.',
+    coreLoop: 'Convert your Guard state into ally shields and safer cadence windows.',
+    damageIdentity: 'Area control through Guard-amplified crash patterns.',
+    survivalIdentity: 'Group-focused sanctuaries and CT-efficient defensive rotations.',
+  },
+  {
+    id: 'bull_cathedral.iron_warder',
+    name: 'Iron Warder',
+    lineageId: 'bull_cathedral',
+    tier: 4,
+    role: 'Tank',
+    combatArchetype: 'tank',
+    ctProfile: 'Medium-Slow',
+    ctRange: { min: 55, max: 75 },
+    primaryResource: 'MP',
+    basicAttackSkillId: 'bull.warder_pike',
+    skillIds: ['bull.unyielding_taunt', 'bull.ct_shackle', 'bull.covenant_ram', 'bull.guard_hegemony'],
+    passives: [
+      {
+        rank: 3,
+        name: 'Iron Rebuke',
+        description: 'Enemies affected by Unyielding Taunt lose additional CT when striking you.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 6,
+        name: 'Shackle Mastery',
+        description: 'CT Shackle debuff duration is extended.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'seconds',
+      },
+      {
+        rank: 9,
+        name: 'Guard Dominion',
+        description: 'Guard Hegemony gains additional mitigation conversion.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+    ],
+    evolutionTargetClassIds: ['bull_cathedral.immutable_wall'],
+    description: 'Control-focused warder that enforces enemy tempo loss under taunt pressure.',
+    gearSynergy: 'CT control amplifiers and high-mitigation conversion sets.',
+    coreLoop: 'Pin enemy tempo with taunt + CT shackle, then cash out Guard into hegemony windows.',
+    damageIdentity: 'Cone burst and reprisal scaling under control states.',
+    survivalIdentity: 'High uptime control-tank pattern with strong mitigation conversion.',
+  },
+  {
+    id: 'bull_cathedral.immutable_wall',
+    name: 'Immutable Wall',
+    lineageId: 'bull_cathedral',
+    tier: 5,
+    role: 'Control',
+    combatArchetype: 'trickster',
+    ctProfile: 'Slow',
+    ctRange: { min: 70, max: 95 },
+    primaryResource: 'MP',
+    basicAttackSkillId: 'bull.wallbreaker_maul',
+    skillIds: ['bull.law_of_shelter', 'bull.citadel_domain', 'bull.bastion_edict', 'bull.immovable_decree'],
+    passives: [
+      {
+        rank: 4,
+        name: 'Civic Law',
+        description: 'Law of Shelter grants stronger shield-floor protection.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 7,
+        name: 'Domain Authority',
+        description: 'Citadel Domain amplifies both ally defense and enemy damage penalty.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+      {
+        rank: 10,
+        name: 'Immovable Mandate',
+        description: 'Immovable Decree grants stronger CT-shift resistance to allies.',
+        magnitude: UNSPECIFIED,
+        magnitudeUnit: 'percent',
+      },
+    ],
+    evolutionTargetClassIds: [],
+    description: 'Apex Bull Cathedral authority form that enforces sanctuary law across the battlefield.',
+    gearSynergy: 'Capstone barrier scaling, team mitigation auras, and CT-resistance gear.',
+    coreLoop: 'Establish sanctuary law windows and suppress enemy throughput while allies stabilize.',
+    damageIdentity: 'Guard-amplified decree strikes with battlefield debuff support.',
+    survivalIdentity: 'Party-wide shield floor and CT resistance against disruptive effects.',
+  },
+];
+
 type StubTuple = readonly [tier: ClassTier, idSuffix: string, displayName: string];
 
 const LINEAGE_CLASS_TABLE: readonly (readonly [LineageId, readonly StubTuple[]])[] = [
-  [
-    'bull_cathedral',
-    [
-      [5, 'shield_initiate', 'Shield Initiate'],
-      [4, 'bastion_guard', 'Bastion Guard'],
-      [3, 'fortress_knight', 'Fortress Knight'],
-      [2, 'iron_warder', 'Iron Warder'],
-      [1, 'immutable_wall', 'Immutable Wall'],
-    ],
-  ],
   [
     'twin_mirror',
     [
@@ -141,7 +351,12 @@ function stubClass(
   };
 }
 
-export const STUB_CLASSES: readonly ClassData[] = LINEAGE_CLASS_TABLE.flatMap(
+const NON_BULL_STUB_CLASSES: readonly ClassData[] = LINEAGE_CLASS_TABLE.flatMap(
   ([lineageId, entries]) =>
     entries.map(([tier, idSuffix, name]) => stubClass(lineageId, tier, idSuffix, name)),
 );
+
+export const STUB_CLASSES: readonly ClassData[] = [
+  ...BULL_CATHEDRAL_CLASSES,
+  ...NON_BULL_STUB_CLASSES,
+];

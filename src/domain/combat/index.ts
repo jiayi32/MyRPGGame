@@ -14,6 +14,7 @@ export * from './factory';
 export * from './validate';
 export * from './effects';
 export * from './step';
+export * from './bossAI';
 
 export interface EngineOptions {
   readonly seed: number;

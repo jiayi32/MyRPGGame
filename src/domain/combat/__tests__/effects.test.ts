@@ -301,4 +301,66 @@ describe('effects', () => {
     expect(remaining).toHaveLength(1);
     expect(remaining[0]!.kind).toBe('buff');
   });
+
+  test('utility effect clears non-active cooldowns on target', () => {
+    const state = buildBattle(2, [{ id: 'p', team: 'player' }]);
+    const playerId = toInstanceId('p');
+    const withCooldowns: BattleState = {
+      ...state,
+      units: {
+        ...state.units,
+        [playerId]: {
+          ...state.units[playerId]!,
+          cooldowns: {
+            ['test.skill' as Skill['id']]: 12,
+            ['test.other' as Skill['id']]: 5,
+          },
+        },
+      },
+    };
+
+    const skill = baseSkill([
+      { kind: kind('utility'), description: '', magnitude: 1, magnitudeUnit: 'flat' },
+    ]);
+    const result = applySkillEffects(
+      withCooldowns,
+      withCooldowns.units[playerId]!,
+      [playerId],
+      skill,
+      hit('normal', 1),
+      0,
+      1,
+    );
+
+    const cooldowns = result.state.units[playerId]!.cooldowns;
+    expect(cooldowns['test.skill' as Skill['id']]).toBe(12);
+    expect(cooldowns['test.other' as Skill['id']]).toBeUndefined();
+  });
+
+  test('summon effect applies a concrete status instead of stub event', () => {
+    const state = buildBattle(3, [{ id: 'p', team: 'player' }]);
+    const playerId = toInstanceId('p');
+    const skill = baseSkill([
+      {
+        kind: kind('summon'),
+        description: 'Summon ally spirit',
+        magnitude: 1,
+        magnitudeUnit: 'flat',
+        durationSec: 4,
+      },
+    ]);
+    const result = applySkillEffects(
+      state,
+      state.units[playerId]!,
+      [playerId],
+      skill,
+      hit('normal', 1),
+      0,
+      1,
+    );
+
+    expect(result.state.units[playerId]!.statuses.length).toBeGreaterThan(0);
+    expect(result.state.units[playerId]!.statuses[0]!.kind).toBe('buff');
+    expect(result.state.log.some((e) => e.type === 'effect_stub')).toBe(false);
+  });
 });

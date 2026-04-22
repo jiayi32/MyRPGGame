@@ -1,8 +1,8 @@
 # Integration Report — New Design → Implementation
 
-**Status:** Draft. Requires developer sign-off on §3 (Lineage Mapping) and §8 (Unresolved Gaps) before coding begins.
+**Status:** Reconciliation baseline. Coding is already in progress; this report governs major documentation conflict resolution.
 **Scope:** Consolidates the target direction from `documentation/New/`, maps it against what is implemented today (documented in `documentation/Old/` and visible in `src/`), and defines the migration path.
-**Authority:** `documentation/New/` governs. `documentation/Old/` is historical reference only. Where New docs conflict internally, this report states which wins.
+**Authority:** **This report is the primary authority.** `documentation/New/` and `documentation/Old/` are source inputs and reference context. Where any docs conflict, this report's decisions win unless the developer explicitly overrides them.
 
 ---
 
@@ -13,28 +13,39 @@ The project was lifted from an expense-splitting app (commit `5971a17 RPG lifted
 **Direction locked with developer:**
 
 - The finance integration is **dropped entirely**. No expense→boss pipeline, no settlement triggers, no group-as-party linkage.
-- `documentation/New/` is the sole design authority going forward.
+- `documentation/INTEGRATION_REPORT.md` is the canonical reconciliation source of truth going forward.
 - The Old docs remain as historical reference in `documentation/Old/` until quarantined (§7).
 
-### Authority hierarchy among New docs
+### Authority hierarchy among supporting docs
 
-Several New docs overlap and at points conflict. For this report:
+Several supporting docs overlap and at points conflict. Their role is advisory unless this report explicitly delegates authority for a subsection.
 
 | Doc | Role | Precedence |
 |-----|------|-----------|
-| [Architecture.md](New/Architecture.md) | Overall layering (content/domain/features), CT system, banking | Baseline |
-| [CombatEngine.md](New/CombatEngine.md) | Combat resolution pipeline, CT queue loop, D20 | Combat authority |
-| [ClassDesign.md](New/ClassDesign.md) | 12 thematic lineage names, tier evolution rules | **Lineage naming authority** |
+| [Architecture.md](New/Architecture.md) | Overall layering direction and module intent | Reference (must conform to this report) |
+| [CombatEngine.md](New/CombatEngine.md) | Combat loop mechanics and terminology | Reference (must conform to §4) |
+| [ClassDesign.md](New/ClassDesign.md) | Thematic lineage framing and progression concepts | Reference (must conform to §§2–3, §8) |
 | [ClassDesignDeepResearch.md](New/ClassDesignDeepResearch.md) | Full 60-class detail (1417 lines) | **Class content authority** |
-| [WeaponDesign.md](New/WeaponDesign.md) | Gear tiers, 12 zodiac T5 sets | Gear authority |
-| [BossDesign.md](New/BossDesign.md) | Stage 5 / 10 / 30 boss pacing | Boss authority |
-| [LineageSystem.md](New/LineageSystem.md) | Cross-lineage evolution graph | Evolution authority |
-| [EnemyDesign.md](New/EnemyDesign.md) | — (empty) | Gap, see §8 |
+| [WeaponDesign.md](New/WeaponDesign.md) | Gear tiers and T5 set themes | Gear reference |
+| [BossDesign.md](New/BossDesign.md) | Stage 5 / 10 / 30 pacing and boss role design | Boss reference |
+| [LineageSystem.md](New/LineageSystem.md) | Cross-lineage graph candidates and evolution notes | Evolution reference |
+| [EnemyDesign.md](New/EnemyDesign.md) | Non-boss enemy archetypes and scaling | Enemy reference |
 | [DeepResearch.md](New/DeepResearch.md) | Generic Node+PostgreSQL stack | **Superseded** (see below) |
 | [DeepResearch2.md](New/DeepResearch2.md) | Firebase Rev 2 architecture | Reference only |
-| [DeepResearch3.md](New/DeepResearch3.md) | Firebase Rev 3 architecture, TypeScript interfaces | **Architecture authority** |
+| [DeepResearch3.md](New/DeepResearch3.md) | Firebase Rev 3 architecture and interface ideas | Reference only (must conform to §4) |
 
-DeepResearch.md's Node+PostgreSQL+WebSocket stack is superseded by the developer's decision to stay on Firebase. DeepResearch3.md supersedes DeepResearch2.md as the latest revision and matches the chosen stack.
+DeepResearch.md's Node+PostgreSQL+WebSocket stack is superseded by the developer's decision to stay on Firebase. DeepResearch3.md remains useful as a reference for Firebase interface ideas, but where it conflicts with this report's outcome-only model, this report wins.
+
+### Major conflict confirmation workflow
+
+For every **major** doc conflict (architecture, persistence, progression graph, canonical IDs, pacing spine, or module boundaries):
+
+1. Default to this report's decision.
+2. Ask the developer for explicit confirmation before treating any override as locked.
+3. In that question, label whether the proposed choice is:
+  - **In line with this report**, or
+  - **A deviation from this report**.
+4. Always state consequences on schema, runtime topology, balance surface area, and migration cost.
 
 ---
 
@@ -325,20 +336,20 @@ match /telemetry/{id} {
 
 | System | New requirement | Current state | Delta | Action |
 |---|---|---|---|---|
-| **Lineages** | 12 lineages with adjacency graph, hub ranks, cross-evolution | No lineage concept in code; `src/content/lineages.ts` and `src/domain/lineageSystem.ts` are stubs | Entire layer missing | Build `src/content/lineages.ts` data + `src/domain/progression/lineages.ts` logic |
-| **Classes** | 60 classes, 5 tiers × 12 lineages, fresh design | 12 implemented classes (Vanguard/…/Harbinger) with rank 1–10 skill trees. Different shape entirely. | 60 - 0 = 60 new classes; 12 existing are archived | Quarantine `CampaignDefinitions.ts`; build new `src/content/classes.ts` from ClassDesignDeepResearch.md |
-| **Skills** | ~240+ skill defs with CT_cost, cooldown, resource, target, tags, effects | Skills are inline on each class definition; taxonomy is different (no `tags`, different resource model) | Full rewrite | Build `src/content/skills.ts` with flat catalog |
-| **Gear** | Unified `gearItems` table, T1–T4 generic + 12 lineage-locked T5 sets, 10% CT-reduction cap | `GearDefinitions.ts` exists with stat bonuses + abilities, but tiers and lineage sets don't align | Re-model | Quarantine current; build per WeaponDesign.md |
-| **Combat engine** | Deterministic, seeded RNG, CT queue tick loop, D20 hit/crit, stat pipeline (base → flat → mult → tradeoff → passive → buff) | `CombatEngine.ts` (~1200 LOC) has CT queue, 4-tier D20 (fail/normal/strong/crit), defense ratio, status effects, auto-battle AI — **substantial and mostly salvageable in shape**, but not structured to run identically on client + Cloud Function | Core behaviors map; determinism + shared-code packaging is the gap | Either (a) refactor current engine into a pure, deterministic module shared between client and Cloud Functions, or (b) rewrite fresh per CombatEngine.md. See §9 P2. |
+| **Lineages** | 12 lineages with adjacency graph, hub ranks, cross-evolution | `src/content/lineages.ts` exists with all 12 thematic lineage IDs and adjacency links; Drakehorn is authored while 11 lineages remain mostly seeded (`UNSPECIFIED` payloads). | Structural layer present; authoring depth and final graph alignment remain | Keep current module; finish authored non-Drakehorn lineage payloads and align to §3/§8 decisions. |
+| **Classes** | 60 classes, 5 tiers × 12 lineages, fresh design | `src/content/classes.ts` + `src/content/classes/stubs.ts` provide a 60-class scaffold; Drakehorn is most-authored while the remaining lineage classes are mostly stubs. | Shape exists; content depth and naming/tier consistency work remain | Continue from current scaffold; do not restart from legacy campaign classes. |
+| **Skills** | ~240+ skill defs with CT_cost, cooldown, resource, target, tags, effects | Flat skill catalog structure exists; authored depth is partial and skewed toward Drakehorn. | Structure is in place; breadth and tuning remain | Preserve schema; expand authored coverage lineage-by-lineage (skills can be renamed later without schema churn). |
+| **Gear** | Unified `gearItems` table, T1–T4 generic + 12 lineage-locked T5 sets, 10% CT-reduction cap | `src/content/gear.ts` exists with Dragon set + template scaffolding; many values are intentionally sentinel/placeholder pending P6. | Data model exists; full set authoring and numeric tuning remain | Keep current model; expand sets and retain sentinel audit discipline. |
+| **Combat engine** | Deterministic, seeded RNG, CT queue tick loop, D20 hit/crit, stat pipeline (base → flat → mult → tradeoff → passive → buff) | `src/domain/combat/` is already a decomposed deterministic module with tests (including determinism). | Core engine mostly complete for target architecture | Build surrounding run/progression/backend contracts around this engine; no fresh combat rewrite. |
 | **Run structure** | Roguelite "run" entity; 30-stage progression; mini-boss @5, gate boss @10, counter boss @30; checkpoint banking every 10 stages | Campaign entity tied to groups and settlements; no stage progression, no checkpoint banking | Replace campaign with run | Build `src/domain/run/` engines; write new `runs/*` Firestore schema |
 | **Run Director** | Weighted encounter selection, anomaly injection, pressure scaling | `src/domain/runDirector.ts` exists but is minimal | Flesh out or rewrite | New Cloud Function `selectEncounter` + local preview |
 | **Boss Director / AI** | Adaptive boss AI inside combat tick (CT lock, burst shield, etc.) | Auto-battle AI exists on player side; no adaptive boss AI | Build | `src/domain/combat/BossAI.ts` per BossDesign.md + CombatEngine.md |
 | **Progression** | Class unlock on first obtain, same-lineage default evolution, cross-lineage adjacency-based, tier-down on lineage swap, lineage ranks at hub, 1/2/3 class slots | Account XP + campaign XP + class-rank XP exist but serve a different progression model | Quarantine current; build progression per ClassDesign.md | New `src/domain/progression/` |
 | **Hub / meta-progression** | Hub upgrades (class rank, lineage rank, gear level, class slot, hybrid unlock) fueled by banked resources | Town-building exists but is a gold sink, not tied to class/lineage ranks | Legacy; build new hub | §7 quarantines Town; new HubScreen wires to meta resources |
-| **Networking** | Outcomes-only writes + seeded RNG; no per-tick state; Firestore listeners for static content + run metadata only | Firestore listeners in place (`onSnapshot`); no Cloud Functions; combat is client-only | Cloud Functions do outcome validation, not per-action resolution | Provision `firebase/functions/` endpoints for seed issuance + outcome submission + meta-progression |
+| **Networking** | Outcomes-only writes + seeded RNG; no per-tick state; Firestore listeners for static content + run metadata only | Firebase Functions scaffold exists, but production run-lifecycle endpoints are not fully implemented yet. | Backend contract layer is incomplete | Implement `startRun`, `selectEncounter`, `rollAnomaly`, `submitStageOutcome`, `bankCheckpoint`, `endRun`, `logTelemetry` with outcome-only validation. |
 | **Persistence** | Schema per §5 (`players/*`, `runs/*`, static content cols) | Schema is `campaigns/*`, `userGameProfiles/*` + RPG subcollections under `campaigns/{id}/*` | Schema rewrite | Draft new rules in `firebase/firestore.rules.v2.txt`; do not delete current until migration verified |
 | **Security** | App Check on; strict rules denying direct state writes | App Check presence unknown; current rules allow authenticated writes to campaign subdocs | Tighten | Add App Check init; rewrite rules per §5 |
-| **Enemies (non-boss)** | Archetypes for stages 1–4, 6–9, 11–29 | Not implemented (no enemy concept beyond bosses) | `EnemyDesign.md` is empty — see §8 | Flag to developer; define archetypes before P1 |
+| **Enemies (non-boss)** | Archetypes for stages 1–4, 6–9, 11–29 | `documentation/New/EnemyDesign.md` is populated and `src/content/enemies.ts` exists with archetype scaffolding. | Design and baseline content now exist; pacing alignment still needed | Align any stage-20 assumptions to the §4/§8 pacing spine, then continue tuning. |
 | **Telemetry** | Event log (RunStart/SkillUsed/BossPhaseChange/Death/…) | Event bus (`appEvents`) exists but no persistent telemetry log | Add | Cloud Function `logTelemetry` + `telemetry/*` collection |
 
 ---
@@ -397,21 +408,36 @@ Move — **do not delete** — the following to a root-level `redundant/` folder
 
 ---
 
-## 8. Unresolved New-Doc Gaps
+## 8. Unresolved New-Doc Conflicts (Developer Confirmation Queue)
 
-These are issues within `documentation/New/` itself. Each should be resolved before the phase in which it bites.
+These are major conflicts across docs. Default resolution follows this report. If an option deviates from this report, developer confirmation is required before lock-in.
 
-| # | Gap | Blocks phase | Proposed resolution | Needs developer decision? |
+| # | Conflict | Default (this report) | In line with this report? | Developer confirmation needed? |
 |---|---|---|---|---|
-| G1 | ~~Lineage mapping table ambiguity~~ **Resolved.** All 12 rows locked: Tide Shell → Rift, Arrow Creed → Tempest, Dream Ocean → Spirit (archetype renamed from "Beast"). See §3. | P1 | Locked | Done |
-| G2 | `EnemyDesign.md` is empty. No generic enemy archetypes exist for stages 1–4, 6–9, 11–29. | P1 | Define 8–12 generic archetypes per BossDesign.md's template (stat-wall, speed-pressure, sustain-denial, DPS-race, CT-manipulator, summoner, nullshield, frenzy, oracle, engineer — the stage-5 mini-boss pool is a reusable blueprint). | **Yes** |
-| G3 | Cross-lineage evolution schema inconsistency. `ClassDesignDeepResearch.md` uses `evolutionTo` (single target) but lists up to two options in prose. `LineageSystem.md` describes a richer graph with tier-down mandatory. `ClassDesign.md` allows same-tier cross-evolution if affinity ≥70. | P1 | Adopt `evolutionTargetClassIds: string[]` (see §5). Lock the tier-down rule: **always drops 1 tier on cross-lineage transition**, per LineageSystem.md. Affinity ≥70 is the *filter* for which cross-lineage targets appear, not a tier-preservation override. | **Yes** |
-| G4 | Checkpoint reward split between baseline and bonus vault is not quantified. | P2 | Propose 65% baseline / 35% vault by default; tune via Monte Carlo. | Recommendation only |
-| G5 | D20 hit/crit formula is undefined in New docs. | P2 | Adopt the Old combat engine's 4-tier system as baseline: fail (1–9) / normal (10–17) / strong (18–19) / critical (20) with d12 severity multiplier. Keep defense ratio `100/(100+2·DEF)` as mitigation. | **Yes** (explicit carry-over) |
-| G6 | Tier 5 "rule-breaker" gear sets have narrative identities but no numerics (e.g., "steals CT" — how much?). | P2 | Leave `unspecified` sentinel in gear data; fill during balance tuning (P6). | Tracked, no block |
-| G7 | Lineage rank thresholds (Rank 1–10 bonuses) are described only for a few lineages in ClassDesign.md. | P1 | Require one `upgradeBonuses[]` row per rank per lineage. Placeholder entries with `TODO` until tuning. | No immediate decision needed |
-| G8 | Hybrid unlock progression (`hybridUnlockLevel: none/partial/full`) has no defined milestones. | P5 | Defer — this is a post-launch progression feature, not a P1–P5 blocker. | No |
-| G9 | Anomaly frequency / Run Director "pressure" formula is narrative only. | P2 | Start with anomaly every 5 stages; pressure = `(avgSkillsPerTurn × avgDamagePerTurn × (1 + gearTierBonus))`, tune in P6. | Recommendation only |
+| C1 | Combat authority split: outcome-only local simulation vs server-authoritative tick processing. | Outcome-only local deterministic simulation + server outcome validation (§4). | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C2 | Persistence split: outcome-only run docs vs action-intent/sub-tick state persistence. | Outcome-only run metadata + checkpoints; no battle logs (§4–§5). | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C3 | Canonical lineage namespace and Beast→Spirit rename drift across docs. | Thematic lineage IDs are canonical; Beast is renamed Spirit (§3). | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C4 | Cross-lineage evolution rules differ (replacement vs hybrid stacking semantics). | Identity replacement on transition; no simultaneous dual-lineage identity in v1. | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C5 | Adjacency graph candidates differ (ring+branch vs denser alternatives). | Keep §3 mapped graph as current canonical baseline unless explicitly overridden. | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C6 | Boss pacing conflicts (5/10/30 vs 5/10/20/30). | 5/10/30 pacing spine from §4 and BossDesign references. | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C7 | Static-content source conflicts (TS-authored modules vs Firestore-first static docs). | TS-authored `src/content/*` is canonical authoring source; optional export/sync to Firestore is permitted. | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C8 | Module layout conflicts (aspirational folder map vs current implementation seams). | Current implementation seams are canonical for now; future refactors are explicit follow-up work. | Yes | **Confirmed in line with this report (2026-04-22).** |
+| C9 | EnemyDesign status drift (previously marked empty, now populated). | Treat EnemyDesign as implemented baseline input, not a missing prerequisite. | Yes | Done; no further decision required. |
+
+**Developer confirmation status:** C1–C8 confirmed in line with this report on 2026-04-22.
+
+### C1–C8 Conflict-Resolution Impact Summary
+
+| Conflict | Locked decision | Primary impacted docs | Current status | Migration debt marker |
+|---|---|---|---|---|
+| C1 Combat authority | Outcome-only local deterministic simulation; server validates outcomes only | New/CombatEngine.md, New/DeepResearch3.md, New/Architecture.md | Reconciled to reference-vs-canonical split | `src/domain/combat/*` is current; keep no per-tick server ownership assumptions |
+| C2 Persistence model | Outcome-only run metadata + checkpoints; no action-intent subcollections; no per-tick state logs | New/DeepResearch3.md, §4/§5 of this report | Reconciled in docs; backend implementation pending | Implement Cloud Functions contract (`submitStageOutcome`, `bankCheckpoint`, `endRun`) |
+| C3 Canonical lineage IDs + Beast→Spirit | Thematic IDs are canonical; archetype alias is Spirit | New/ClassDesign.md, New/ClassDesignDeepResearch.md, New/LineageSystem.md, New/Architecture.md | Reconciled headers/notes; deep catalog remains alias-heavy by design | Rename stale Beast-era code/content references in `src/content/classes/stubs.ts` |
+| C4 Cross-lineage semantics | v1 uses identity replacement, not simultaneous dual-lineage hybrid stacking | New/ClassDesign.md, New/LineageSystem.md | Reconciled | Keep hybridization as explicit future expansion only |
+| C5 Adjacency graph | Constrained three-neighbor directed adjacency baseline | New/LineageSystem.md, New/ClassDesign.md | Reconciled at rule level | Align `src/content/lineages.ts` graph representation if still using older assumption |
+| C6 Boss pacing | Boss stages are 5/10/30 only; stage 20 is procedural (checkpoint, non-boss) | New/EnemyDesign.md, New/Architecture.md, New/BossDesign.md | Reconciled in Enemy/Architecture docs | Audit any remaining stage-20 boss assumptions in runtime selectors |
+| C7 Content source | TS-authored `src/content/*` is canonical; Firestore export optional | New/Architecture.md, New/DeepResearch3.md | Reconciled | Preserve code-first authoring and avoid Firestore-first drift |
+| C8 Module layout | Current implementation seams are canonical; nested reorg is aspirational | New/Architecture.md, §6 Gap Analysis in this report | Reconciled | Treat content-folder reorg as explicit future refactor task |
 
 ---
 
@@ -419,7 +445,7 @@ These are issues within `documentation/New/` itself. Each should be resolved bef
 
 High-level sequencing. Each phase is a separate planning task with its own todo breakdown.
 
-- **P0 — Doc finalization** (no code): resolve §8 gaps requiring developer decisions (G1, G2, G3, G5). Confirm lineage mapping in §3.
+- **P0 — Doc finalization** (no code): walk the §8 conflict queue (C1–C8), confirm defaults or record approved overrides, then reconcile supporting docs to match this report.
 - **P1 — Content data** (TypeScript only, no network): write `src/content/{lineages,classes,skills,gear,bosses,encounters,anomalies}.ts` as typed data modules. Every class/skill/gear item from ClassDesignDeepResearch.md / WeaponDesign.md / BossDesign.md is represented.
 - **P2 — Domain engines** (TypeScript, pure functions): deterministic CombatEngine (seeded PRNG, CT queue, skill resolution pipeline, stat pipeline, status effects), Run Director, Boss AI Director, progression engine (class unlock, evolution, lineage rank).
 - **P3 — Firebase backend**: new Firestore schema, security rules, indexes, and Cloud Functions (`startRun`, `selectEncounter`, `rollAnomaly`, `submitStageOutcome`, `bankCheckpoint`, `endRun`, `logTelemetry`). Provision `firebase/functions/` directory and wire to emulator. Rules deny direct client writes to `runs/{id}` and `runs/{id}/checkpoints/*` per §5.
@@ -433,7 +459,7 @@ High-level sequencing. Each phase is a separate planning task with its own todo 
 
 For each phase, "done" means:
 
-- **P0 done:** §3 table has no "or" rows. §8 rows G1, G2, G3, G5 show locked resolutions. `EnemyDesign.md` has populated archetype list.
+- **P0 done:** §3 mapping is unchanged or explicitly overridden by developer note; §8 conflicts C1–C8 each show either "confirmed" or "overridden with rationale"; stale statements like "EnemyDesign is empty" are removed.
 - **P1 done:** TypeScript strict compile passes on `src/content/*.ts`. Every `lineageId`/`classId`/`skillId`/`gearId`/`bossId`/`encounterId` is reachable via a typed discriminated union. Cross-refs resolve (every `evolutionTargetClassIds` entry exists; every `skillId` on a class exists in `skills.ts`).
 - **P2 done:** Unit tests (Jest) cover: CT queue ordering, damage pipeline (base→flat→mult→tradeoff→passive→buff), D20 tier resolution, CT-reduction 10% cap, status effect tick, cross-lineage evolution graph traversal. Same seed + same inputs → same outputs (determinism test).
 - **P3 done:** Firestore emulator accepts an authenticated `startRun` callable invocation (writes seed + initial run doc) and rejects direct client writes to `runs/{id}` and `runs/{id}/checkpoints/*`. `submitStageOutcome` validates an outcome payload against the server-selected encounter and commits a `checkpoints/{stageIndex}` doc. Deterministic replay audit (optional but recommended) passes on a golden-path playthrough.
@@ -450,16 +476,16 @@ Every file in `documentation/New/` is accounted for:
 | File | Role in this report |
 |---|---|
 | Architecture.md | §1 (hierarchy), §4 (baseline) |
-| BossDesign.md | §6 (Bosses row), §8 (G2 template), §9 (P1/P2) |
-| ClassDesign.md | §1 (hierarchy), §2 (decision 3), §3 (thematic names), §8 (G3) |
+| BossDesign.md | §6 (Bosses row), §8 (C6), §9 (P1/P2) |
+| ClassDesign.md | §1 (hierarchy), §2 (decision 3), §3 (thematic names), §8 (C4) |
 | ClassDesignDeepResearch.md | §1 (hierarchy), §2 (decision 4), §5 (schema), §9 (P1) |
-| CombatEngine.md | §1 (hierarchy), §4 (core rules), §8 (G5), §9 (P2) |
+| CombatEngine.md | §1 (hierarchy), §4 (core rules), §8 (C1), §9 (P2) |
 | DeepResearch.md | §1 (marked superseded) |
 | DeepResearch2.md | §1 (reference) |
-| DeepResearch3.md | §1 (architecture authority), §4, §5 |
-| EnemyDesign.md | §8 (G2) |
-| LineageSystem.md | §1 (hierarchy), §3 (adjacency graph), §8 (G3) |
-| WeaponDesign.md | §1 (hierarchy), §3 (zodiac names), §5 (GearItem), §6 (Gear row), §8 (G6) |
+| DeepResearch3.md | §1 (reference), §4, §5, §8 (C1/C2/C7) |
+| EnemyDesign.md | §6 (Enemies row), §8 (C6/C9) |
+| LineageSystem.md | §1 (hierarchy), §3 (adjacency graph), §8 (C4/C5) |
+| WeaponDesign.md | §1 (hierarchy), §3 (zodiac names), §5 (GearItem), §6 (Gear row) |
 
 ## Appendix B — Summary for a new reader
 

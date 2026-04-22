@@ -112,11 +112,11 @@ describe('content integrity', () => {
     );
     const byTier = new Map<ClassTier, ClassData>();
     for (const c of drakehornClasses) byTier.set(c.tier, c);
-    const tiers: ClassTier[] = [5, 4, 3, 2, 1];
+    const tiers: ClassTier[] = [1, 2, 3, 4, 5];
     for (const t of tiers) expect(byTier.has(t)).toBe(true);
 
-    for (const t of [5, 4, 3, 2] as const) {
-      const next = (t - 1) as ClassTier;
+    for (const t of [1, 2, 3, 4] as const) {
+      const next = (t + 1) as ClassTier;
       const here = byTier.get(t)!;
       const sameLineageTargets = here.evolutionTargetClassIds.filter((id) => {
         const tgt = CLASS_BY_ID.get(id);

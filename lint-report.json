@@ -1,0 +1,4 @@
+﻿
+> myrpggame@0.1.0 lint
+> eslint "{src,firebase/functions/src}/**/*.{ts,tsx}" json
+

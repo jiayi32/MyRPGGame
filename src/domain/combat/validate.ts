@@ -47,6 +47,14 @@ const isEnemyTarget = (target: SkillTarget): boolean =>
   target === 'global' ||
   target === 'cone';
 
+const resolveHpCost = (caster: Unit, skill: Skill): number => {
+  if (skill.resource.type !== 'HP' || !isSpecified(skill.resource.cost)) {
+    return 0;
+  }
+  // Locked policy: HP resource costs are authored as a percentage of max HP.
+  return caster.hpMax * skill.resource.cost;
+};
+
 const validateTargets = (
   state: BattleState,
   caster: Unit,
@@ -103,10 +111,7 @@ export const canCast = (
     skill.resource.type === 'MP' && isSpecified(skill.resource.cost)
       ? skill.resource.cost
       : 0;
-  const hpCost =
-    skill.resource.type === 'HP' && isSpecified(skill.resource.cost)
-      ? skill.resource.cost
-      : 0;
+  const hpCost = resolveHpCost(caster, skill);
   if (mpCost > 0 && caster.mp < mpCost) return fail('insufficient_resource');
   if (hpCost > 0 && caster.hp <= hpCost) return fail('insufficient_resource');
 
@@ -128,7 +133,7 @@ export const resolveTargets = (
   if (isSelfTarget(target)) return [caster.id];
   if (target === 'global') {
     return Object.values(state.units)
-      .filter((u) => !u.isDead)
+      .filter((u) => !u.isDead && u.team !== caster.team)
       .map((u) => u.id);
   }
   if (target === 'area' || target === 'cone') {

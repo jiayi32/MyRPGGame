@@ -326,28 +326,54 @@ const applyCleanseEffect = (ctx: EffectContext): EffectOutcome => {
       (st) => st.kind !== 'dot' && st.kind !== 'debuff' && st.kind !== 'stun',
     );
     if (kept.length === target.statuses.length) return s;
-    const next = patchUnit(s, target.id, { statuses: kept });
-    return appendLog(next, [
+    return patchUnit(s, target.id, { statuses: kept });
+  });
+  return { state, cursor: ctx.cursor };
+};
+
+const applyUtilityEffect = (ctx: EffectContext): EffectOutcome => {
+  const state = forEachTarget(ctx, (s, target) => {
+    const nextCooldowns: Record<string, number> = {};
+    for (const [skillId, remaining] of Object.entries(target.cooldowns)) {
+      if (skillId === ctx.skill.id) {
+        nextCooldowns[skillId] = remaining;
+      }
+    }
+    return patchUnit(s, target.id, { cooldowns: nextCooldowns });
+  });
+  return { state, cursor: ctx.cursor };
+};
+
+const applySummonEffect = (ctx: EffectContext): EffectOutcome => {
+  const state = forEachTarget(ctx, (s, target) => {
+    const summonStatus = buildStatus(
       {
-        tick: ctx.tick,
-        type: 'effect_stub',
-        kind: 'cleanse',
-        skillId: ctx.skill.id,
+        ...ctx,
+        state: s,
+        effect: {
+          ...ctx.effect,
+          statTag: ctx.effect.statTag ?? 'summon_power',
+        },
       },
-    ]);
+      'buff',
+      target,
+    );
+    return addStatus(s, target, summonStatus, ctx.tick);
   });
   return { state, cursor: ctx.cursor };
 };
 
 const applyLifestealEffect = (ctx: EffectContext): EffectOutcome => {
   const { magnitude } = resolveMagnitude(ctx.effect);
-  const damageEvents = ctx.state.log.filter(
-    (e): e is Extract<BattleEvent, { type: 'damage' }> =>
-      e.type === 'damage' &&
-      e.tick === ctx.tick &&
-      e.sourceUnitId === ctx.caster.id,
-  );
-  const total = damageEvents.reduce((sum, e) => sum + e.amount, 0);
+  let total = 0;
+  for (let i = ctx.state.log.length - 1; i >= 0; i -= 1) {
+    const event = ctx.state.log[i];
+    if (event === undefined) continue;
+    if (event.tick < ctx.tick) break;
+    if (event.type !== 'damage' || event.tick !== ctx.tick) continue;
+    if (event.sourceUnitId !== ctx.caster.id) continue;
+    total += event.amount;
+  }
   if (total <= 0) return { state: ctx.state, cursor: ctx.cursor };
   const heal = total * magnitude;
   const casterAlive = ctx.state.units[ctx.caster.id];
@@ -357,15 +383,6 @@ const applyLifestealEffect = (ctx: EffectContext): EffectOutcome => {
   const state = applyHealToUnit(ctx.state, casterAlive, heal, ctx.caster.id, ctx.tick);
   return { state, cursor: ctx.cursor };
 };
-
-const applyStubEffect =
-  (kind: SkillEffectKind) =>
-  (ctx: EffectContext): EffectOutcome => ({
-    state: appendLog(ctx.state, [
-      { tick: ctx.tick, type: 'effect_stub', kind, skillId: ctx.skill.id },
-    ]),
-    cursor: ctx.cursor,
-  });
 
 const applyStatusGeneric = (ctx: EffectContext): EffectOutcome => {
   const tag = ctx.effect.statTag?.toLowerCase();
@@ -396,8 +413,8 @@ const HANDLERS: Readonly<Record<SkillEffectKind, EffectHandler>> = {
   execute: applyExecuteEffect,
   cleanse: applyCleanseEffect,
   lifesteal: applyLifestealEffect,
-  summon: applyStubEffect('summon'),
-  utility: applyStubEffect('utility'),
+  summon: applySummonEffect,
+  utility: applyUtilityEffect,
 };
 
 export const applyEffect = (ctx: EffectContext): EffectOutcome => {
