@@ -13,7 +13,8 @@
     "lint": "eslint \"src/**/*.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "test": "npm run build && node --test lib/__tests__/*.test.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

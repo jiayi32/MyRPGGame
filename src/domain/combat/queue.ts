@@ -1,4 +1,5 @@
 import { applyResistance, mitigate } from './d20';
+import { clamp } from './stateUtils';
 import { defenseFor, effectiveStats, resistanceFor } from './stats';
 import type {
   BattleEvent,
@@ -55,12 +56,50 @@ export const pickReady = (state: BattleState): Unit | null => {
 };
 
 export const nextReadyDelta = (state: BattleState): number => {
-  let min = Infinity;
+  // Determine whether any alive unit is actable (ct ≤ 0 and NOT stunned).
+  // If so, no time advancement is needed — pickReady will handle it.
+  //
+  // Otherwise we must advance past the stall. The next meaningful event is
+  // the EARLIER of:
+  //   (a) the soonest non-stunned unit reaching ct=0  (it can then act)
+  //   (b) the soonest stun expiry on a ct≤0 unit      (it unblocks that unit)
+  //
+  // If every alive unit is stunned with positive ct (rare), fall back to
+  // bringing the soonest of them to ct=0 so the stun can then expire.
+  let hasActableReady = false;
+  let minPositiveNonStunnedCt = Infinity;   // non-stunned unit, ct > 0
+  let minStunRemainingAtZero = Infinity;    // stunned unit, ct ≤ 0
+  let minStunnedPositiveCt = Infinity;      // stunned unit, ct > 0 (last resort)
+
   for (const unit of Object.values(state.units)) {
     if (unit.isDead) continue;
-    if (unit.ct < min) min = unit.ct;
+    const isStunned = unit.statuses.some((s) => s.kind === 'stun');
+    if (unit.ct <= EPSILON) {
+      if (!isStunned) {
+        hasActableReady = true;
+      } else {
+        for (const s of unit.statuses) {
+          if (s.kind === 'stun' && s.remainingSec < minStunRemainingAtZero) {
+            minStunRemainingAtZero = s.remainingSec;
+          }
+        }
+      }
+    } else if (!isStunned) {
+      if (unit.ct < minPositiveNonStunnedCt) minPositiveNonStunnedCt = unit.ct;
+    } else {
+      if (unit.ct < minStunnedPositiveCt) minStunnedPositiveCt = unit.ct;
+    }
   }
-  return Number.isFinite(min) ? Math.max(0, min) : 0;
+
+  if (hasActableReady) return 0;
+
+  // Nearest event: non-stunned unit ready vs. stun expiry for a blocked unit.
+  const nearestEvent = Math.min(minPositiveNonStunnedCt, minStunRemainingAtZero);
+  if (Number.isFinite(nearestEvent)) return Math.max(0, nearestEvent);
+
+  // Last resort: all alive units are stunned with positive ct — bring the
+  // earliest one to ct=0 so the stun can expire on the following advance.
+  return Number.isFinite(minStunnedPositiveCt) ? Math.max(0, minStunnedPositiveCt) : 0;
 };
 
 const decrementCooldowns = (
@@ -219,8 +258,7 @@ const advanceStatus = (
   };
 };
 
-const clamp = (v: number, lo: number, hi: number): number =>
-  Math.max(lo, Math.min(hi, v));
+// clamp is imported from ./stateUtils
 
 export const advance = (state: BattleState): BattleState => {
   if (state.result !== 'ongoing') return state;

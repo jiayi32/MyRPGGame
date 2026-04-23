@@ -15,6 +15,7 @@ import {
 import { applyResistance, mitigate, type HitRoll } from './d20';
 import { drawChance } from './prng';
 import { shiftCT } from './queue';
+import { appendLog, clamp, patchUnit } from './stateUtils';
 import { defenseFor, effectiveStats, resistanceFor } from './stats';
 import {
   toInstanceId,
@@ -27,6 +28,8 @@ import {
 } from './types';
 
 const EPSILON = 1e-9;
+
+// clamp, patchUnit, appendLog are imported from ./stateUtils
 
 export interface EffectContext {
   readonly state: BattleState;
@@ -43,28 +46,6 @@ export interface EffectOutcome {
   readonly state: BattleState;
   readonly cursor: number;
 }
-
-const patchUnit = (
-  state: BattleState,
-  id: InstanceId,
-  patch: Partial<Unit>,
-): BattleState => {
-  const unit = state.units[id];
-  if (unit === undefined) return state;
-  return {
-    ...state,
-    units: { ...state.units, [id]: { ...unit, ...patch } },
-  };
-};
-
-const appendLog = (
-  state: BattleState,
-  events: readonly BattleEvent[],
-): BattleState =>
-  events.length === 0 ? state : { ...state, log: [...state.log, ...events] };
-
-const clamp = (v: number, lo: number, hi: number): number =>
-  Math.max(lo, Math.min(hi, v));
 
 const computePowerBase = (
   caster: Unit,
@@ -457,4 +438,4 @@ export const applySkillEffects = (
   return { state: curState, cursor: curCursor };
 };
 
-export const __private = { computePowerBase, resolveDamageType, isSpecified };
+

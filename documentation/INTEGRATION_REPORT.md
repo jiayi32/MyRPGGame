@@ -336,7 +336,7 @@ match /telemetry/{id} {
 
 | System | New requirement | Current state | Delta | Action |
 |---|---|---|---|---|
-| **Lineages** | 12 lineages with adjacency graph, hub ranks, cross-evolution | `src/content/lineages.ts` exists with all 12 thematic lineage IDs and adjacency links; Drakehorn is authored while 11 lineages remain mostly seeded (`UNSPECIFIED` payloads). | Structural layer present; authoring depth and final graph alignment remain | Keep current module; finish authored non-Drakehorn lineage payloads and align to §3/§8 decisions. |
+| **Lineages** | 12 lineages with adjacency graph, hub ranks, cross-evolution | `src/content/lineages.ts` exists with all 12 thematic lineage IDs and adjacency links; Drakehorn is authored while the other 11 of 12 lineages remain mostly seeded (`UNSPECIFIED` payloads). | Structural layer present; authoring depth and final graph alignment remain | Keep current module; finish authored non-Drakehorn lineage payloads and align to §3/§8 decisions. |
 | **Classes** | 60 classes, 5 tiers × 12 lineages, fresh design | `src/content/classes.ts` + `src/content/classes/stubs.ts` provide a 60-class scaffold; Drakehorn is most-authored while the remaining lineage classes are mostly stubs. | Shape exists; content depth and naming/tier consistency work remain | Continue from current scaffold; do not restart from legacy campaign classes. |
 | **Skills** | ~240+ skill defs with CT_cost, cooldown, resource, target, tags, effects | Flat skill catalog structure exists; authored depth is partial and skewed toward Drakehorn. | Structure is in place; breadth and tuning remain | Preserve schema; expand authored coverage lineage-by-lineage (skills can be renamed later without schema churn). |
 | **Gear** | Unified `gearItems` table, T1–T4 generic + 12 lineage-locked T5 sets, 10% CT-reduction cap | `src/content/gear.ts` exists with Dragon set + template scaffolding; many values are intentionally sentinel/placeholder pending P6. | Data model exists; full set authoring and numeric tuning remain | Keep current model; expand sets and retain sentinel audit discipline. |
@@ -356,7 +356,7 @@ match /telemetry/{id} {
 
 ## 7. Legacy Quarantine Plan
 
-Move — **do not delete** — the following to a root-level `redundant/` folder, preserving relative paths so they can be referenced later. Deletion is a separate decision after migration is proven.
+Move — **do not delete** — the following to a root-level `redundant/` folder, preserving relative paths so they can be referenced later. Deletion is a separate   decision after migration is proven.
 
 ### Finance/expense legacy (entirely remove)
 - `src/contexts/CampaignContext.tsx`

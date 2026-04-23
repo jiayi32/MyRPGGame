@@ -74,35 +74,29 @@ Cross-lineage evolution:
 
 Instead of free evolution, we define a **lineage graph**.
 
-For v1, use a **three-neighbor directed adjacency baseline** per lineage. This keeps branch choices legible and prevents unrestricted graph traversal explosion.
+For v1, use the canonical archetype adjacency baseline aligned to the integration mapping and content IDs: a ring of 11 archetypes plus one branch node.
 
-Example structure (Franklin graph layout):
+Canonical structure:
 
-```
-      Chrono         Solaris
-      /   \         /     \
-   Arcana   Rift   Ignis   Seraph
-    /   \   |   /     \   /
-Umbra   Nox-Terra---Aegis  Spirit
-    \   /   |   \     /   /
-    Spirit  |    Terra---Solaris
-      \   |   /     /   /
-      Seraph---Aegis---Umbra
+```text
+Solaris <-> Seraph <-> Arcana <-> Chrono <-> Rift <-> Ignis <-> Nox <-> Spirit <-> Terra <-> Aegis <-> Tempest <-> Solaris
+Arcana <-> Umbra
 ```
 
-Adjacency list (each node has 3 neighbors):
+Adjacency list (12 nodes, canonical v1):
 
-- Chrono: Arcana, Rift, Ignis
-- Arcana: Chrono, Umbra, Nox
-- Rift: Chrono, Nox, Terra
-- Ignis: Chrono, Aegis, Terra
-- Umbra: Arcana, Spirit, Nox
-- Nox: Arcana, Rift, Umbra
-- Terra: Rift, Ignis, Spirit
-- Aegis: Ignis, Seraph, Solaris
-- Spirit: Umbra, Terra, Seraph
-- Seraph: Aegis, Spirit, Solaris
-- Solaris: Aegis, Seraph, Arcana
+- Solaris: Seraph, Tempest
+- Seraph: Solaris, Arcana
+- Arcana: Seraph, Chrono, Umbra
+- Chrono: Arcana, Rift
+- Rift: Chrono, Ignis
+- Ignis: Rift, Nox
+- Nox: Ignis, Spirit
+- Spirit: Nox, Terra
+- Terra: Spirit, Aegis
+- Aegis: Terra, Tempest
+- Tempest: Aegis, Solaris
+- Umbra: Arcana
 
 ---
 

@@ -7,6 +7,7 @@ import { rollHit, type HitRoll } from './d20';
 import { applySkillEffects } from './effects';
 import { resolveSkillOrSynthetic, SYNTHETIC_BASIC_ATTACK_ID } from './factory';
 import { sortedTurnOrder } from './queue';
+import { appendLog, patchUnit } from './stateUtils';
 import { canCast, resolveTargets } from './validate';
 import type {
   Action,
@@ -21,30 +22,13 @@ import type {
 
 const EPSILON = 1e-9;
 
+// appendLog and patchUnit are imported from ./stateUtils
+
 const fail = (state: BattleState, reason: StepError): StepResult => ({
   ok: false,
   reason,
   state,
 });
-
-const appendLog = (
-  state: BattleState,
-  events: readonly BattleEvent[],
-): BattleState =>
-  events.length === 0 ? state : { ...state, log: [...state.log, ...events] };
-
-const patchUnit = (
-  state: BattleState,
-  id: InstanceId,
-  patch: Partial<Unit>,
-): BattleState => {
-  const unit = state.units[id];
-  if (unit === undefined) return state;
-  return {
-    ...state,
-    units: { ...state.units, [id]: { ...unit, ...patch } },
-  };
-};
 
 const teamAlive = (state: BattleState, team: Unit['team']): boolean =>
   Object.values(state.units).some((u) => !u.isDead && u.team === team);

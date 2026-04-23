@@ -1,14 +1,52 @@
 rules_version = '2';
 
-// P0 placeholder rules. Deny-all except the _p0_ping sanity-check collection.
-// P3 replaces this with the real RPG schema (players, runs, outcomes, static content).
+// Phase 3 rules — authoritative shape per §5 of INTEGRATION_REPORT.md.
+// Cloud Functions are the sole write path for runs and checkpoints.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /_p0_ping/{id} {
-      allow read: if request.auth != null;
+
+    // --- Player profiles (read-only for owner; written only by Cloud Functions) ---
+    match /players/{playerId} {
+      allow read: if request.auth != null && request.auth.uid == playerId;
       allow write: if false;
+
+      // Gear instances are read-write for the owning player.
+      match /gear/{instanceId} {
+        allow read, write: if request.auth != null && request.auth.uid == playerId;
+      }
     }
 
+    // --- Active runs (read for owner; written only by Cloud Functions) ---
+    match /runs/{runId} {
+      allow read: if request.auth != null
+                  && resource.data.playerId == request.auth.uid;
+      allow write: if false;
+
+      // Stage outcome checkpoints (immutable after commit by Cloud Functions).
+      match /checkpoints/{stageIndex} {
+        allow read: if request.auth != null
+                    && get(/databases/$(database)/documents/runs/$(runId)).data.playerId
+                       == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // --- Static content collections (public read) ---
+    match /lineages/{id}    { allow read: if true; allow write: if false; }
+    match /classes/{id}     { allow read: if true; allow write: if false; }
+    match /skills/{id}      { allow read: if true; allow write: if false; }
+    match /gearItems/{id}   { allow read: if true; allow write: if false; }
+    match /bosses/{id}      { allow read: if true; allow write: if false; }
+    match /encounters/{id}  { allow read: if true; allow write: if false; }
+    match /anomalies/{id}   { allow read: if true; allow write: if false; }
+
+    // --- Telemetry (authenticated create-only; no read/update/delete) ---
+    match /telemetry/{id} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if false;
+    }
+
+    // --- Deny everything else ---
     match /{document=**} {
       allow read, write: if false;
     }

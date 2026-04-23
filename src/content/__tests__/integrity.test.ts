@@ -3,7 +3,7 @@ import { BOSSES } from '../bosses';
 import { CLASSES, CLASS_BY_ID } from '../classes';
 import { ENEMY_ARCHETYPES } from '../enemies';
 import { GEAR_ITEMS, GEAR_TEMPLATES } from '../gear';
-import { LINEAGES, LINEAGE_BY_ID } from '../lineages';
+import { LINEAGE_IDS, LINEAGES, LINEAGE_BY_ID } from '../lineages';
 import { SKILLS, SKILL_BY_ID } from '../skills';
 import {
   isSpecified,
@@ -30,6 +30,32 @@ describe('content integrity', () => {
       const dupes = ids.filter((id, i) => ids.indexOf(id) !== i);
       expect({ space: name, dupes }).toEqual({ space: name, dupes: [] });
     }
+  });
+
+  test('canonical lineage registry contains exactly 12 expected lineages', () => {
+    const expectedLineageIds = [
+      'drakehorn_forge',
+      'bull_cathedral',
+      'twin_mirror',
+      'tide_shell',
+      'sunfang_court',
+      'thorn_ledger',
+      'balance_reins',
+      'black_nest',
+      'arrow_creed',
+      'iron_covenant',
+      'star_circuit',
+      'dream_ocean',
+    ];
+
+    const canonicalSorted = [...expectedLineageIds].sort();
+    const idListSorted = [...LINEAGE_IDS].sort();
+    const runtimeSorted = LINEAGES.map((l) => l.id).sort();
+
+    expect(LINEAGE_IDS.length).toBe(12);
+    expect(LINEAGES).toHaveLength(12);
+    expect(idListSorted).toEqual(canonicalSorted);
+    expect(runtimeSorted).toEqual(canonicalSorted);
   });
 
   test('every class.skillIds entry resolves to a known skill', () => {
@@ -106,7 +132,7 @@ describe('content integrity', () => {
     expect(invalid).toEqual([]);
   });
 
-  test('Drakehorn Forge has a walkable T5→T1 same-lineage evolution chain', () => {
+  test('Drakehorn Forge has a walkable T1→T5 same-lineage evolution chain', () => {
     const drakehornClasses = CLASSES.filter(
       (c) => c.lineageId === 'drakehorn_forge' && c.isStub !== true,
     );
