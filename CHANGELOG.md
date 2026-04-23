@@ -6,6 +6,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — P3 MVP backend run lifecycle (Firebase Functions)
+
+- [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): introduced standalone backend contracts for `RewardBundle`, `RunDoc`, `StageOutcomeDoc`, and callable payload/response types.
+- [firebase/functions/src/shared/guards.ts](firebase/functions/src/shared/guards.ts): added reusable callable guards for auth, run ownership/state checks, stage validation, and reward bundle/plausibility validation.
+- [firebase/functions/src/shared/rewards.ts](firebase/functions/src/shared/rewards.ts): added deterministic reward helpers (`addRewards`, `splitRewards`, `mergeVaultIntoBank`, `forfeitVault`, `emptyReward`).
+- [firebase/functions/src/startRun.ts](firebase/functions/src/startRun.ts): implemented `startRun` callable (auth-gated run creation with server seed and initial run doc state).
+- [firebase/functions/src/submitStageOutcome.ts](firebase/functions/src/submitStageOutcome.ts): implemented `submitStageOutcome` callable with transactional checkpoint commit + run stage/reward ledger updates.
+- [firebase/functions/src/bankCheckpoint.ts](firebase/functions/src/bankCheckpoint.ts): implemented checkpoint banking callable (10/20/30 gate + vault merge in transaction).
+- [firebase/functions/src/endRun.ts](firebase/functions/src/endRun.ts): implemented run settlement callable (win merges vault, loss/flee forfeits vault).
+- [firebase/functions/src/index.ts](firebase/functions/src/index.ts): exported the new MVP callables from the functions entrypoint.
+- [firebase/functions/src/__tests__/guards.test.ts](firebase/functions/src/__tests__/guards.test.ts) and [firebase/functions/src/__tests__/rewards.test.ts](firebase/functions/src/__tests__/rewards.test.ts): added `node:test` coverage for backend shared validation/reward logic.
+- [firebase/functions/package.json](firebase/functions/package.json): added `test` script (`npm run build && node --test lib/__tests__/*.test.js`).
+- [firebase/firestore.rules](firebase/firestore.rules): replaced P0 deny-all placeholder with Phase 3 rules for `players/*`, `runs/*`, `runs/*/checkpoints/*`, static content collections, and telemetry create-only.
+
+### Added — Emulator MVP vertical slice (P4/P5 foundation)
+
+- [src/features/run/types.ts](src/features/run/types.ts): added client-side run/callable contracts aligned to backend payload shapes.
+- [src/services/runApi.ts](src/services/runApi.ts): added callable wrappers (`startRun`, `submitStageOutcome`, `endRun`) plus run snapshot fetch and error normalization.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): added deterministic stage simulation orchestrator (seeded stage selection + local combat replay + outcome payload build).
+- [src/stores/runStore.ts](src/stores/runStore.ts): added Zustand run lifecycle store (bootstrap/auth, start run, submit outcome, end run, snapshot refresh, reset).
+- [src/stores/combatStore.ts](src/stores/combatStore.ts): added Zustand combat simulation store for stage execution/reporting.
+- [src/stores/index.ts](src/stores/index.ts): exported run/combat stores from barrel.
+- [src/screens/HubScreen.tsx](src/screens/HubScreen.tsx): added MVP hub/start-run UI.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): added stage simulation + submit outcome UI.
+- [src/screens/RewardResolutionScreen.tsx](src/screens/RewardResolutionScreen.tsx): added server-ledger reward view + end-run closure UI.
+- [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx): replaced placeholder-only startup flow with `Hub → Battle → RewardResolution`, retaining Placeholder as diagnostics route.
+
+### Fixed
+
+- [src/domain/combat/queue.ts](src/domain/combat/queue.ts): resolved stun-related CT deadlock by making `nextReadyDelta` advance toward the earliest actionable event (ready non-stunned unit or stun expiry), including fallback handling when all alive units are stunned.
+- [src/domain/combat/__tests__/queue.test.ts](src/domain/combat/__tests__/queue.test.ts): added regression tests for stalled-ready-unit stun scenarios and time advancement correctness.
+- [src/domain/combat/stateUtils.ts](src/domain/combat/stateUtils.ts): introduced shared `clamp`/`patchUnit`/`appendLog` helpers and removed duplicate local implementations from [src/domain/combat/effects.ts](src/domain/combat/effects.ts), [src/domain/combat/step.ts](src/domain/combat/step.ts), and [src/domain/combat/queue.ts](src/domain/combat/queue.ts).
+- [src/content/__tests__/integrity.test.ts](src/content/__tests__/integrity.test.ts): added hard canonical lineage registry assertion (exactly 12 expected IDs) and corrected Drakehorn chain test label to `T1→T5`.
+
+### Changed — Documentation
+
+- [documentation/New/LineageSystem.md](documentation/New/LineageSystem.md): replaced inconsistent 11-node adjacency example with canonical 12-node archetype structure (including Tempest).
+- [documentation/INTEGRATION_REPORT.md](documentation/INTEGRATION_REPORT.md): clarified lineage progress wording to avoid misreading seeded-authoring count as total canonical lineage count.
+- [documentation/INTEGRATION_REPORT.md](documentation/INTEGRATION_REPORT.md): fixed minor wording/spacing drift in legacy quarantine section text.
+
+### Notes
+
+- Backend unit tests currently validate shared callable logic (`guards`/`rewards`) via `node:test`; end-to-end callable emulator smoke remains the next validation gate for the new UI flow.
+
 ### Added — Placeholder icon pack registry
 
 - [src/assets/icons/types.ts](src/assets/icons/types.ts): introduced `IconStyle`, `IconTheme`, `IconSize`, plus literal slug unions for the imported PNG placeholder pack.
