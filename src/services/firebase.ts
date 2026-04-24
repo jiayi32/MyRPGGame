@@ -1,8 +1,8 @@
-import firebase from '@react-native-firebase/app';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
-import functions from '@react-native-firebase/functions';
-import appCheck from '@react-native-firebase/app-check';
+import { getApp } from '@react-native-firebase/app';
+import { getAuth, connectAuthEmulator } from '@react-native-firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from '@react-native-firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from '@react-native-firebase/functions';
+import { initializeAppCheck, ReactNativeFirebaseAppCheckProvider } from '@react-native-firebase/app-check';
 
 let initialized = false;
 
@@ -18,25 +18,25 @@ let initialized = false;
 export async function initializeFirebase(): Promise<void> {
   if (initialized) return;
 
-  const provider = appCheck().newReactNativeFirebaseAppCheckProvider();
+  const provider = new ReactNativeFirebaseAppCheckProvider();
   const debugToken = process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN;
   const android = __DEV__
     ? { provider: 'debug' as const, ...(debugToken ? { debugToken } : {}) }
     : { provider: 'playIntegrity' as const };
   provider.configure({ android });
-  await appCheck().initializeAppCheck({
+  await initializeAppCheck(getApp(), {
     provider,
     isTokenAutoRefreshEnabled: true,
   });
 
   const emulatorHost = process.env.EXPO_PUBLIC_FIREBASE_EMULATOR_HOST;
   if (__DEV__ && emulatorHost) {
-    auth().useEmulator(`http://${emulatorHost}:9099`);
-    firestore().useEmulator(emulatorHost, 8080);
-    functions().useEmulator(emulatorHost, 5001);
+    connectAuthEmulator(getAuth(), `http://${emulatorHost}:9099`);
+    connectFirestoreEmulator(getFirestore(), emulatorHost, 8080);
+    connectFunctionsEmulator(getFunctions(), emulatorHost, 5001);
   }
 
   initialized = true;
 }
 
-export { firebase, auth, firestore, functions };
+export { getApp, getAuth, getFirestore, getFunctions };

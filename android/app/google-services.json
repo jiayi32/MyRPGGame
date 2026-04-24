@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "68801061044",
+    "project_id": "myrpggame-c6f35",
+    "storage_bucket": "myrpggame-c6f35.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:68801061044:android:f18e00690ec69368b477e1",
+        "android_client_info": {
+          "package_name": "com.jiayi32.myrpggame"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBFgKJPwHChoX2Ulx0RFW4C9RWPgFffYIw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,6 @@
-import { firestore, functions } from './firebase';
+import { getFirestore, getFunctions } from './firebase';
+import { httpsCallable } from '@react-native-firebase/functions';
+import { collection, doc } from '@react-native-firebase/firestore';
 import {
   EMPTY_REWARD_BUNDLE,
   type EndRunPayload,
@@ -61,7 +63,7 @@ export const formatCallableError = (error: unknown): string => {
 };
 
 export const startRun = async (payload: StartRunPayload): Promise<StartRunResponse> => {
-  const callable = functions().httpsCallable('startRun');
+  const callable = httpsCallable(getFunctions(), 'startRun');
   const result = await callable(payload);
   const data = asRecord(result.data);
 
@@ -83,7 +85,7 @@ export const startRun = async (payload: StartRunPayload): Promise<StartRunRespon
 export const submitStageOutcome = async (
   payload: SubmitStageOutcomePayload,
 ): Promise<SubmitStageOutcomeResponse> => {
-  const callable = functions().httpsCallable('submitStageOutcome');
+  const callable = httpsCallable(getFunctions(), 'submitStageOutcome');
   const result = await callable(payload);
   const data = asRecord(result.data);
 
@@ -94,7 +96,7 @@ export const submitStageOutcome = async (
 };
 
 export const endRun = async (payload: EndRunPayload): Promise<EndRunResponse> => {
-  const callable = functions().httpsCallable('endRun');
+  const callable = httpsCallable(getFunctions(), 'endRun');
   const result = await callable(payload);
   const data = asRecord(result.data);
 
@@ -105,7 +107,7 @@ export const endRun = async (payload: EndRunPayload): Promise<EndRunResponse> =>
 };
 
 export const getRunSnapshot = async (runId: string): Promise<RunSnapshot> => {
-  const snap = await firestore().collection('runs').doc(runId).get();
+  const snap = await doc(collection(getFirestore(), 'runs'), runId).get();
   if (!snap.exists) {
     throw new Error(`Run ${runId} not found.`);
   }

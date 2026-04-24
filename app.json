@@ -4,7 +4,7 @@
     "slug": "myrpggame",
     "scheme": "myrpggame",
     "version": "0.1.0",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "android": {
       "package": "com.jiayi32.myrpggame"
     },
