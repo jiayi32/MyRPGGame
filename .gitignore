@@ -34,6 +34,7 @@ web-build/
 
 # React Native
 ios/build/
+android/app/
 android/app/build/
 android/build/
 *.keystore

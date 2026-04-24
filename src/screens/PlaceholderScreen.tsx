@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import functions from '@react-native-firebase/functions';
+import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { initializeFirebase } from '@/services/firebase';
 import { signInAnonymously, type AuthUser } from '@/services/auth';
 
@@ -19,7 +19,7 @@ export function PlaceholderScreen() {
         const u = await signInAnonymously();
         setUser(u);
 
-        const callable = functions().httpsCallable('helloWorld');
+        const callable = httpsCallable(getFunctions(), 'helloWorld');
         const result = await callable({});
         setHelloResponse(JSON.stringify(result.data));
         setStatus('ready');
