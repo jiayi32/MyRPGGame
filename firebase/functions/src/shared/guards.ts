@@ -5,6 +5,113 @@ import type { RunDoc } from './types';
 
 export const CHECKPOINT_STAGES = new Set([10, 20, 30]);
 
+// ---------------------------------------------------------------------------
+// Payload size guard
+// ---------------------------------------------------------------------------
+
+/** Default max bytes for a callable payload (JSON-serialized). 16 KiB is generous for our shapes. */
+export const DEFAULT_MAX_PAYLOAD_BYTES = 16 * 1024;
+
+/** Throws invalid-argument if the JSON-serialized payload exceeds the byte cap. */
+export function requirePayloadSize(
+  data: unknown,
+  maxBytes: number = DEFAULT_MAX_PAYLOAD_BYTES,
+  label = 'payload'
+): void {
+  let serialized: string;
+  try {
+    serialized = JSON.stringify(data ?? null);
+  } catch {
+    throw new HttpsError('invalid-argument', `${label} is not JSON-serializable.`);
+  }
+  // Byte length of the UTF-8 encoded string (Buffer.byteLength is exact for UTF-8).
+  const bytes = Buffer.byteLength(serialized, 'utf8');
+  if (bytes > maxBytes) {
+    throw new HttpsError(
+      'invalid-argument',
+      `${label} size ${bytes}B exceeds cap ${maxBytes}B.`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-uid rate limit (sliding window, in-memory per warm instance)
+// ---------------------------------------------------------------------------
+// Note: This is best-effort throttling per warm Cloud Function instance, not a
+// distributed limit. With maxInstances bounded on each callable, an attacker
+// could still horizontally fan out across instances, but the per-instance cap
+// keeps a single bad client from saturating one instance and causing cost runs.
+// For stronger limits, move to a Firestore counter or Cloud Tasks queue in P6.
+
+interface RateWindow {
+  count: number;
+  windowStart: number;
+}
+
+const rateWindows = new Map<string, RateWindow>();
+const MAX_TRACKED_KEYS = 5000; // bounded to prevent unbounded growth on cold instances
+
+/**
+ * Throws resource-exhausted if `key` has exceeded `maxPerWindow` in the last `windowMs`.
+ * Resets when the window rolls over.
+ */
+export function requireRateLimit(
+  key: string,
+  maxPerWindow: number,
+  windowMs: number
+): void {
+  const now = Date.now();
+  const existing = rateWindows.get(key);
+
+  if (!existing || now - existing.windowStart >= windowMs) {
+    if (rateWindows.size >= MAX_TRACKED_KEYS) {
+      // Evict oldest-window entries to bound memory.
+      for (const [k, w] of rateWindows) {
+        if (now - w.windowStart >= windowMs) rateWindows.delete(k);
+        if (rateWindows.size < MAX_TRACKED_KEYS) break;
+      }
+    }
+    rateWindows.set(key, { count: 1, windowStart: now });
+    return;
+  }
+
+  existing.count += 1;
+  if (existing.count > maxPerWindow) {
+    throw new HttpsError(
+      'resource-exhausted',
+      `Rate limit exceeded: ${key} (>${maxPerWindow}/${windowMs}ms).`
+    );
+  }
+}
+
+/** Test helper — clears the rate window cache. Not exported via index. */
+export function __resetRateLimitsForTest(): void {
+  rateWindows.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Dev-tool gate
+// ---------------------------------------------------------------------------
+
+/**
+ * Throws permission-denied unless the runtime allows dev callables.
+ * Allowed when `process.env.ALLOW_DEV_TOOLS === 'true'` OR the functions
+ * runtime is running under the Firebase emulator (`FUNCTIONS_EMULATOR === 'true'`).
+ *
+ * In production, set ALLOW_DEV_TOOLS=true via `firebase functions:config:set` only on
+ * staging/private projects. The default (false) means dev callables 401 in prod.
+ */
+export function requireDevTools(): void {
+  const allowFlag = process.env['ALLOW_DEV_TOOLS'] === 'true';
+  const inEmulator = process.env['FUNCTIONS_EMULATOR'] === 'true';
+  if (!allowFlag && !inEmulator) {
+    throw new HttpsError(
+      'permission-denied',
+      'Dev tooling is disabled in this environment. Set ALLOW_DEV_TOOLS=true to enable.',
+    );
+  }
+}
+
 /** Throws unauthenticated error if request carries no auth. */
 export function requireAuth(request: CallableRequest): string {
   const uid = request.auth?.uid;

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { ClassId } from '@/content';
-import { currentUser, signInAnonymously } from '@/services/auth';
-import { initializeFirebase } from '@/services/firebase';
+import { CLASS_BY_ID } from '@/content';
+import { findSameLineageEvolutionTarget } from '@/domain/run/progression';
 import {
   endRun as endRunApi,
   formatCallableError,
@@ -18,6 +18,7 @@ import {
   type StageOutcomeResult,
   type SubmitStageOutcomeResponse,
 } from '@/features/run/types';
+import { usePlayerStore } from './playerStore';
 
 export type RunStoreStatus =
   | 'idle'
@@ -41,7 +42,6 @@ export interface SubmitOutcomeInput {
 interface RunStoreState {
   status: RunStoreStatus;
   error: string | null;
-  userId: string | null;
   runId: string | null;
   seed: number | null;
   stage: number | null;
@@ -90,7 +90,6 @@ const applySnapshot = (
 export const useRunStore = create<RunStoreState>((set, get) => ({
   status: 'idle',
   error: null,
-  userId: null,
   runId: null,
   seed: null,
   stage: null,
@@ -101,20 +100,34 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   lastSubmittedResult: null,
 
   bootstrap: async () => {
-    if (get().userId !== null && get().status !== 'idle') {
+    if (get().status !== 'idle' && get().status !== 'error') {
       return;
     }
 
     set({ status: 'initializing', error: null });
     try {
-      await initializeFirebase();
-      const user = currentUser() ?? (await signInAnonymously());
+      const player = await usePlayerStore.getState().bootstrap();
 
-      const hasRun = get().runId !== null;
-      const runResult = get().runResult;
-      const status: RunStoreStatus = hasRun && runResult === 'ongoing' ? 'run_active' : 'ready';
+      // Not signed in yet — playerStore is in 'awaiting_sign_in'. Stay idle
+      // so the SignInScreen owns the next step. The screen will call
+      // playerStore.signIn → which, on success, leaves the player in 'ready'.
+      // The Hub effect re-runs runStore.bootstrap once the player loads.
+      if (player === null) {
+        set({ status: 'idle', error: null });
+        return;
+      }
 
-      set({ userId: user.uid, status, error: null });
+      // Run resume: if player has an active run, hydrate this store from it.
+      if (player.currentRunId !== null) {
+        const snapshot = await getRunSnapshot(player.currentRunId);
+        if (snapshot.result === 'ongoing') {
+          applySnapshot(set, snapshot);
+          return;
+        }
+        // Run already settled — clear the stale pointer by falling through to ready.
+      }
+
+      set({ status: 'ready', error: null });
     } catch (error) {
       set({ status: 'error', error: formatCallableError(error) });
       throw error;
@@ -122,11 +135,26 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   },
 
   startRun: async (activeClassId) => {
-    await get().bootstrap();
+    const playerStore = usePlayerStore.getState();
+    if (playerStore.status !== 'ready') {
+      await get().bootstrap();
+    }
+
+    const classData = CLASS_BY_ID.get(activeClassId);
+    if (classData === undefined) {
+      throw new Error(`Unknown class: ${activeClassId}`);
+    }
+    const activeLineageId = classData.lineageId;
+    const evolutionTarget = findSameLineageEvolutionTarget(classData);
+    const evolutionTargetClassId = evolutionTarget ?? null;
 
     set({ status: 'starting_run', error: null, lastSubmittedResult: null });
     try {
-      const response = await startRunApi({ activeClassId });
+      const response = await startRunApi({
+        activeClassId,
+        activeLineageId,
+        evolutionTargetClassId,
+      });
       const snapshot = await getRunSnapshot(response.runId);
       applySnapshot(set, snapshot);
     } catch (error) {
@@ -172,6 +200,10 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
     try {
       const response = await endRunApi({ runId, finalResult });
 
+      // Apply the server-computed progression delta to the player store locally
+      // so the UI reflects new totals without a round-trip Firestore read.
+      usePlayerStore.getState().applyEndRunDelta(response.progression, null);
+
       set({
         bankedRewards: cloneReward(response.bankedRewards),
         vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
@@ -199,9 +231,9 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   },
 
   resetRun: () => {
-    const isSignedIn = get().userId !== null;
+    const playerStatus = usePlayerStore.getState().status;
     set({
-      status: isSignedIn ? 'ready' : 'idle',
+      status: playerStatus === 'ready' ? 'ready' : 'idle',
       error: null,
       runId: null,
       seed: null,

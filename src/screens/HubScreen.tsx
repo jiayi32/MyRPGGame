@@ -1,85 +1,101 @@
 import { useEffect } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Alert, Button, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
-import { useCombatStore, useRunStore } from '@/stores';
+import { usePlayerStore, useRunStore } from '@/stores';
+import { useCombatStore } from '@/stores/combatStore';
 
-const MVP_ACTIVE_CLASS_ID = 'drakehorn_forge.ember_initiate' as const;
+export function HubScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Hub'>;
-
-export function HubScreen({ navigation }: Props) {
-  const status = useRunStore((state) => state.status);
-  const error = useRunStore((state) => state.error);
-  const userId = useRunStore((state) => state.userId);
+  const runStatus = useRunStore((state) => state.status);
+  const runError = useRunStore((state) => state.error);
   const runId = useRunStore((state) => state.runId);
+  const stage = useRunStore((state) => state.stage);
   const bootstrap = useRunStore((state) => state.bootstrap);
-  const startRun = useRunStore((state) => state.startRun);
+  const endRunAction = useRunStore((state) => state.endRun);
+
+  const playerStatus = usePlayerStore((state) => state.status);
+  const uid = usePlayerStore((state) => state.uid);
+  const playerError = usePlayerStore((state) => state.error);
+
   const clearCombat = useCombatStore((state) => state.clear);
 
   useEffect(() => {
     bootstrap().catch(() => undefined);
   }, [bootstrap]);
 
-  const startDisabled =
-    status === 'initializing' ||
-    status === 'starting_run' ||
-    status === 'submitting_outcome' ||
-    status === 'ending_run';
+  const isLoading =
+    runStatus === 'initializing' ||
+    runStatus === 'starting_run';
 
-  const handleStartRun = async () => {
-    try {
-      clearCombat();
-      await startRun(MVP_ACTIVE_CLASS_ID);
-      navigation.navigate('Battle');
-    } catch {
-      // Error state is managed by run store and rendered below.
-    }
+  const hasActiveRun = runId !== null && runStatus === 'run_active';
+
+  const handleStartNew = () => {
+    clearCombat();
+    navigation.navigate('ClassSelect');
   };
 
-  const resumeAvailable = runId !== null;
+  const handleResume = () => {
+    navigation.navigate('Battle');
+  };
+
+  const handleForfeit = (): void => {
+    Alert.alert('Forfeit Run?', 'End this run as fled. Banked rewards persist; vault is forfeited.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Forfeit',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await endRunAction('fled');
+            } catch {
+              // surfaced by run store
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const error = runError ?? playerError;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>MyRPGGame MVP</Text>
-      <Text style={styles.subtitle}>Android emulator vertical slice</Text>
+      <Text style={styles.title}>MyRPGGame</Text>
+      <Text style={styles.subtitle}>Firebase vertical slice</Text>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Auth UID</Text>
-        <Text style={styles.value}>{userId ?? 'Signing in...'}</Text>
-
-        <Text style={styles.label}>Store Status</Text>
-        <Text style={styles.value}>{status}</Text>
-
-        <Text style={styles.label}>Run ID</Text>
-        <Text style={styles.value}>{runId ?? 'No active run'}</Text>
+        <Text style={styles.label}>Player</Text>
+        <Text style={styles.value}>{uid ?? 'Signing in…'}</Text>
+        <Text style={styles.label}>Status</Text>
+        <Text style={styles.value}>{playerStatus}</Text>
       </View>
+
+      {hasActiveRun && (
+        <View style={styles.runCard}>
+          <Text style={styles.runLabel}>Active Run — Stage {stage ?? '?'}</Text>
+          <Text style={styles.runId}>{runId}</Text>
+          <TouchableOpacity onPress={handleForfeit} style={styles.forfeitLink}>
+            <Text style={styles.forfeitLinkText}>Forfeit Run</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {error !== null ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.actions}>
-        <Button
-          title="Start Stage-1 Demo Run"
-          onPress={() => {
-            handleStartRun().catch(() => undefined);
-          }}
-          disabled={startDisabled}
-        />
-      </View>
-
-      <View style={styles.actions}>
-        <Button
-          title="Resume Active Run"
-          onPress={() => navigation.navigate('Battle')}
-          disabled={!resumeAvailable}
-        />
-      </View>
-
-      <View style={styles.actions}>
-        <Button
-          title="Diagnostics (helloWorld)"
-          onPress={() => navigation.navigate('Placeholder')}
-        />
+        {hasActiveRun ? (
+          <Button title="Resume Run" onPress={handleResume} />
+        ) : (
+          <Button
+            title="Start New Run"
+            onPress={handleStartNew}
+            disabled={isLoading || playerStatus !== 'ready'}
+          />
+        )}
       </View>
     </View>
   );
@@ -107,18 +123,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d8cdbb',
     backgroundColor: '#fffdf8',
-    gap: 6,
+    gap: 4,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     textTransform: 'uppercase',
     color: '#7b684a',
+    letterSpacing: 0.5,
   },
   value: {
     fontSize: 14,
     color: '#2d2d2d',
     marginBottom: 6,
   },
+  runCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#b7c9a0',
+    backgroundColor: '#f2f8ec',
+    gap: 4,
+  },
+  runLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2a4a1a',
+  },
+  runId: {
+    fontSize: 11,
+    color: '#5a7a4a',
+  },
+  forfeitLink: { alignSelf: 'flex-start', marginTop: 4 },
+  forfeitLinkText: { fontSize: 11, color: '#a04040', textDecorationLine: 'underline' },
   actions: {
     gap: 8,
   },

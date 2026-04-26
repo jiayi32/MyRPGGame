@@ -13,7 +13,14 @@ const RUN_COMPLETION_RESULTS: readonly RunResult[] = ['won', 'lost'];
 
 const didCompleteRun = (result: RunResult): boolean => RUN_COMPLETION_RESULTS.includes(result);
 
-const nextSameLineageTierTarget = (classData: ClassData): string | undefined => {
+/**
+ * Find the same-lineage next-tier evolution target for a class, or undefined if
+ * the class is at apex (no further upgrade in its own lineage).
+ *
+ * Exported so callers (runStore, etc.) can stamp this onto the run doc at
+ * startRun time — the server reads it back at endRun without a content lookup.
+ */
+export const findSameLineageEvolutionTarget = (classData: ClassData): string | undefined => {
   const nextTier = classData.tier + 1;
   for (const targetId of classData.evolutionTargetClassIds) {
     const target = CLASS_BY_ID.get(targetId);
@@ -24,6 +31,8 @@ const nextSameLineageTierTarget = (classData: ClassData): string | undefined => 
   }
   return undefined;
 };
+
+const nextSameLineageTierTarget = findSameLineageEvolutionTarget;
 
 const addOwnedClass = (
   ownedClassIds: readonly string[],

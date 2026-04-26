@@ -7,6 +7,8 @@ import {
   requireOwnership,
   requireOngoing,
   requireStageMatch,
+  requirePayloadSize,
+  requireRateLimit,
   validateRewardBundle,
   validateRewardPlausibility,
 } from './shared/guards';
@@ -22,9 +24,12 @@ export const submitStageOutcome = onCall<
   SubmitStageOutcomePayload,
   Promise<SubmitStageOutcomeResponse>
 >(
-  { enforceAppCheck: false },
+  { enforceAppCheck: false, maxInstances: 100, timeoutSeconds: 30, memory: '256MiB' },
   async (request) => {
+    requirePayloadSize(request.data, 4096, 'submitStageOutcome.data');
     const uid = requireAuth(request);
+    // Cap: 60 submits/min per user — covers fast play (~1/s) but blocks brute-force.
+    requireRateLimit(`submitStageOutcome:${uid}`, 60, 60_000);
     const { runId, stageIndex, result, rewards, hpRemaining, elapsedSeconds } = request.data;
 
     if (typeof runId !== 'string' || runId.length === 0) {

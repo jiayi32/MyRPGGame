@@ -16,10 +16,25 @@ export const EMPTY_REWARD_BUNDLE: RewardBundle = {
   gearIds: [],
 };
 
+export interface XpScrollPouch {
+  minor: number;
+  standard: number;
+  grand: number;
+}
+
+export const EMPTY_XP_SCROLLS: XpScrollPouch = {
+  minor: 0,
+  standard: 0,
+  grand: 0,
+};
+
 export type StageOutcomeResult = 'won' | 'lost' | 'fled';
 
 export interface StartRunPayload {
   activeClassId: string;
+  activeLineageId: string;
+  /** null when the active class is T1 (apex). */
+  evolutionTargetClassId: string | null;
 }
 
 export interface StartRunResponse {
@@ -47,9 +62,24 @@ export interface EndRunPayload {
   finalResult: StageOutcomeResult;
 }
 
+export interface ProgressionDelta {
+  awardedAscensionCells: number;
+  lineageRankDelta: number;
+  newlyUnlockedClassIds: string[];
+  playerTotals: {
+    goldBank: number;
+    ascensionCells: number;
+    xpScrolls: XpScrollPouch;
+    ownedClassIds: string[];
+    lineageRanks: Record<string, number>;
+  };
+  gearInstancesCreated: number;
+}
+
 export interface EndRunResponse {
   settled: boolean;
   bankedRewards: RewardBundle;
+  progression: ProgressionDelta;
 }
 
 export type RunFinalResult = 'ongoing' | 'won' | 'lost';
@@ -61,7 +91,59 @@ export interface RunSnapshot {
   stage: number;
   turn: number;
   activeClassId: string;
+  activeLineageId: string;
+  evolutionTargetClassId: string | null;
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
   result: RunFinalResult;
+}
+
+export interface PlayerSnapshot {
+  uid: string;
+  goldBank: number;
+  xpScrolls: XpScrollPouch;
+  ascensionCells: number;
+  lineageRanks: Record<string, number>;
+  ownedClassIds: string[];
+  currentRunId: string | null;
+}
+
+export interface GetOrCreatePlayerResponse {
+  player: PlayerSnapshot;
+  created: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Dev tooling response shapes (mirror firebase/functions/src/shared/types.ts)
+// ---------------------------------------------------------------------------
+
+export interface DevSkipStageResponse {
+  ok: boolean;
+  newStage: number;
+}
+
+export interface DevGrantAllClassesResponse {
+  ok: boolean;
+  ownedClassIds: string[];
+}
+
+export interface DevResetPlayerResponse {
+  ok: boolean;
+  runsDeleted: number;
+  gearDeleted: number;
+}
+
+export interface DevSetCurrenciesPayload {
+  goldBank?: number;
+  ascensionCells?: number;
+  xpScrollMinor?: number;
+  xpScrollStandard?: number;
+  xpScrollGrand?: number;
+}
+
+export interface DevSetCurrenciesResponse {
+  ok: boolean;
+  goldBank: number;
+  ascensionCells: number;
+  xpScrolls: XpScrollPouch;
 }

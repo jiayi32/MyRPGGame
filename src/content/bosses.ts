@@ -5,9 +5,12 @@ const miniBossStage5: BossDef = {
   name: 'Pyre Warden',
   bossType: 'mini',
   stage: 5,
-    hp: 150,
-    atk: 12,
-    def: 5,
+  hp: 320,
+  atk: 18,
+  def: 8,
+  speed: 75,
+  basicAttackSkillId: 'boss.pyre.scorch',
+  skillIds: ['boss.pyre.heat_surge', 'boss.pyre.ignite_aura'],
   phases: [
     {
       hpThreshold: 0.5,
@@ -32,9 +35,12 @@ const gateBossStage10: BossDef = {
   name: 'Vortex Colossus',
   bossType: 'standard',
   stage: 10,
-    hp: 400,
-    atk: 18,
-    def: 10,
+  hp: 720,
+  atk: 26,
+  def: 14,
+  speed: 70,
+  basicAttackSkillId: 'boss.vortex.crush',
+  skillIds: ['boss.vortex.ct_rewind', 'boss.vortex.gravity_well'],
   phases: [
     {
       hpThreshold: 0.66,
@@ -63,9 +69,16 @@ const counterBossStage30: BossDef = {
   bossType: 'counter',
   stage: 30,
   lineageCounter: 'drakehorn_forge',
-    hp: 800,
-    atk: 25,
-    def: 15,
+  hp: 1600,
+  atk: 38,
+  def: 22,
+  speed: 85,
+  basicAttackSkillId: 'boss.rimefang.ice_bite',
+  skillIds: [
+    'boss.rimefang.frostbite_aegis',
+    'boss.rimefang.regrow_head',
+    'boss.rimefang.tail_whip',
+  ],
   phases: [
     {
       hpThreshold: 0.75,

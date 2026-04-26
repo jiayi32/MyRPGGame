@@ -6,6 +6,151 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed — Sign-in not-found error / first production deploy of new callables (2026-04-26)
+
+- **Root cause**: app's `playerStore.bootstrap` calls `getOrCreatePlayer` immediately after Firebase Auth succeeds, but the callable had never been deployed to production (only the original `helloWorld` from P0 was live). The error surfaced as `not-found: NOT_FOUND` on sign-in.
+- **Diagnostics**: [src/services/firebase.ts](src/services/firebase.ts) startup log now prints `projectId=...` alongside `target=...`, plus a hint when targeting production explaining `firebase deploy --only functions` is required. [src/services/runApi.ts](src/services/runApi.ts) `formatCallableError` now appends a contextual hint for `functions/not-found` / `not-found` codes — emulator path suggests restart, production path suggests deploy.
+- **Deploy**: ran `npx firebase deploy --only functions --project myrpggame-c6f35`. Created (first time live in production): `getOrCreatePlayer`, `devSkipStage`, `devGrantAllClasses`, `devResetPlayer`, `devSetCurrencies`. Updated: `helloWorld`, `startRun`, `submitStageOutcome`, `bankCheckpoint`, `endRun`. **Caveat**: `auditRunCompletion` (Firestore trigger) failed first time with Eventarc Service Agent propagation delay — Firebase's known first-2nd-gen-deploy timing issue. Retry deploy succeeded after ~3 min wait. The audit trigger is non-critical (background invariant check on terminal run transition); sign-in and the run loop work without it.
+- [.env.example](.env.example): added quick-reference comment block listing the four valid `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST` values (empty / `10.0.2.2` / `localhost` / `<LAN IP>`) with their device targets.
+- [documentation/OPERATIONS.md](documentation/OPERATIONS.md): rewrote the "Deploying functions" section with the production-deploy command + listing of every export. Added a new "Switching between production and emulator (alpha workflow)" section walking through both directions, including the emulator hot-reload trap (functions emulator caches exports at startup; new exports may need an emulator restart).
+
+### Added — Stage 4.5 Alpha Pass (2026-04-26)
+
+Three items closed to make Stages 1–4 a self-testable alpha for solo dogfooding.
+
+#### Item C — Email+password auth migration
+
+- [src/stores/playerStore.ts](src/stores/playerStore.ts): rewrote bootstrap. New status enum adds `'awaiting_sign_in'` and `'signing_in'`. Bootstrap now checks `currentUser()` (Firebase persists session across launches): if signed in, refresh token + load profile; if not, transitions to `awaiting_sign_in` for SignInScreen to drive. New actions: `signIn(email, password)`, `register(email, password)`, `signOutAndReset()`. Removed `signInAnonymously` from app code.
+- [src/stores/runStore.ts](src/stores/runStore.ts): bootstrap returns to `idle` when player is `null` (awaiting sign-in) instead of crashing on `player.currentRunId`.
+- [src/screens/SignInScreen.tsx](src/screens/SignInScreen.tsx): new screen with email + password inputs, Sign In / Register tabs, `KeyboardAvoidingView`, `ActivityIndicator` while signing in, error surfacing from `playerStore.error`. In `__DEV__` mode pre-fills `testuser@test.com` / `1234567890` so launch → tap Sign In is one tap.
+- [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx): top-level navigator now gates on `playerStore.status`. Renders `BootstrapGate` (loader) during init, `SignInScreen` while awaiting/signing/error, `MainStack` once `ready`. Auto-runs `playerStore.bootstrap()` on mount.
+- [src/screens/ProfileScreen.tsx](src/screens/ProfileScreen.tsx): added Sign Out button with confirmation `Alert`. Calls `clearCombat`, `resetRun`, then `signOutAndReset` so post-sign-out state is fully clean.
+
+#### Item A — Dev iteration tooling
+
+- [firebase/functions/src/getOrCreatePlayer.ts](firebase/functions/src/getOrCreatePlayer.ts): starter pack now includes all 5 Drakehorn classes (T1 ember_initiate → T5 apocalypse_bringer) instead of just T1. Lets the solo dev test any build path on day-1 without grinding the unlock chain.
+- [firebase/functions/src/shared/guards.ts](firebase/functions/src/shared/guards.ts): added `requireDevTools()` gate — passes when `process.env.ALLOW_DEV_TOOLS === 'true'` OR running under the Firebase emulator (`FUNCTIONS_EMULATOR === 'true'`). Production calls without the env flag fail with `permission-denied`.
+- [firebase/functions/src/dev.ts](firebase/functions/src/dev.ts): new file exporting four dev callables, each composed of `requireDevTools` + `requireAuth` + `requirePayloadSize` + `requireRateLimit`:
+  - `devSkipStage(runId, targetStage)` — write `runs/{runId}.stage = targetStage` (1..30) on the caller's active run.
+  - `devGrantAllClasses()` — append all 5 Drakehorn class IDs to the caller's `ownedClassIds`, deduplicated.
+  - `devResetPlayer()` — wipe player profile, all gear sub-collection docs, and all runs (with checkpoint sub-collections) for the caller. Idempotent.
+  - `devSetCurrencies({goldBank?, ascensionCells?, xpScrollMinor?, ...})` — bulk absolute-set; missing fields preserved.
+- [firebase/functions/src/index.ts](firebase/functions/src/index.ts): exported the four dev callables.
+- [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): added payload + response types for all four dev callables.
+- [src/services/runApi.ts](src/services/runApi.ts): added `devSkipStage` / `devGrantAllClasses` / `devResetPlayer` / `devSetCurrencies` client wrappers.
+- [src/screens/DevToolsScreen.tsx](src/screens/DevToolsScreen.tsx): new screen — dark theme dev panel with: skip-stage input + button (refreshes run snapshot), grant-all-classes button, currency setters (gold + cells, blank fields preserve), reset-save destructive button with confirm Alert, plus live JSON dump of `playerStore` and `runStore` state for inspection. Shows last action result inline.
+- [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx): added `DevTools` route to the root stack, gated by `__DEV__` so release builds don't ship it.
+- [src/screens/ProfileScreen.tsx](src/screens/ProfileScreen.tsx): added "🛠 Dev Tools" link visible only in `__DEV__`.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): added **Forfeit Run** button (visible while a run is active and not ending) that calls `runStore.endRun('fled')` after confirm Alert, then clears combat + navigates back to MainTabs.
+- [src/screens/HubScreen.tsx](src/screens/HubScreen.tsx): added "Forfeit Run" link inside the active-run card for the off-battle case.
+
+#### Item B — Visual juice
+
+- [src/hooks/useCombatEventStream.ts](src/hooks/useCombatEventStream.ts): new hook that subscribes to Zustand `combatStore` log changes via `useCombatStore.subscribe`. Tracks last-seen log index in a ref and invokes a handler with each newly-appended `BattleEvent`. Resets cursor when the engine instance changes (battle restart).
+- [src/components/AnimatedHpBar.tsx](src/components/AnimatedHpBar.tsx): drop-in HP bar using Reanimated `useSharedValue` + `withTiming` (280ms, ease-out cubic) for smooth width transitions. Replaces the inline static bar in BattleScreen.
+- [src/components/DamagePopup.tsx](src/components/DamagePopup.tsx): `DamagePopupOverlay({ unitId })` listens on the event stream and spawns float-and-fade text ("−42", "+8", "miss", crit "−92!"). Uses `useSharedValue` + `withTiming` for translateY rise (-36px over 700ms) + opacity fade. Self-removes via `runOnJS(onComplete)` callback. Color-coded: damage red, crit orange-red and larger font, heal green, dot purple, hot light green, miss grey.
+- [src/components/CastPulse.tsx](src/components/CastPulse.tsx): wraps a unit card with a brief scale pulse (1.0 → 1.04 → 1.0 over 330ms) + glow border on `skill_cast` events for the matching unit. Uses `withSequence`.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): wired the new components — player card now uses `<CastPulse>` wrapper with `<DamagePopupOverlay>` overlay; each enemy row also gets its own `<DamagePopupOverlay>`. Static `HpBar` internals replaced by `<AnimatedHpBar>`.
+
+### Verification
+
+- Client typecheck clean.
+- Client tests: **95/95 pass** (17 suites).
+- Functions build clean; functions tests: **41/41 pass**.
+- Reanimated previously unused; now drives 4 distinct combat animations.
+
+---
+
+### Added — Stage 4: boss combat unblocked + 3 real bosses authored (2026-04-25)
+
+- **Critical bugfix**: boss stages (5/10/30) previously threw `MVP stage simulation currently supports procedural stages only` from [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts) — runs could not progress past stage 4. Stage 4's first deliverable is unblocking the loop end-to-end.
+- [src/content/skills/bosses.ts](src/content/skills/bosses.ts): new file — 10 boss skills authored as `BOSS_SKILLS`. Three thematic ability sets:
+  - **Pyre Warden** (stage 5): `boss.pyre.scorch` (basic fire), `boss.pyre.heat_surge` (fire + DoT), `boss.pyre.ignite_aura` (self-buff +25% damage).
+  - **Vortex Colossus** (stage 10): `boss.vortex.crush` (basic physical), `boss.vortex.ct_rewind` (CT shift +30 + glance damage), `boss.vortex.gravity_well` (area arcane + defense −15% debuff).
+  - **Rimefang Hydra** (stage 30): `boss.rimefang.ice_bite` (basic ice), `boss.rimefang.frostbite_aegis` (shield + defense buff), `boss.rimefang.regrow_head` (15% max HP heal), `boss.rimefang.tail_whip` (cone ice + speed −20% debuff).
+  - All magnitudes are playable placeholders, flagged as P6 retune candidates.
+- [src/content/skills.ts](src/content/skills.ts): registered `BOSS_SKILLS` in `SKILLS` and `SKILL_BY_ID`.
+- [src/content/types/boss.ts](src/content/types/boss.ts): extended `BossDef` with optional `skillIds: SkillId[]`, `basicAttackSkillId: UnspecifiedOr<SkillId>`, and `speed: number`.
+- [src/content/bosses.ts](src/content/bosses.ts): 3 real bosses now have wired skill sets, basic attacks, and speed; HP/atk/def magnitudes scaled up (Pyre 320/18/8, Vortex 720/26/14, Rimefang 1600/38/22) so each boss feels meaningfully harder than a tier-equivalent procedural enemy.
+- [src/domain/combat/factory.ts](src/domain/combat/factory.ts): added `buildBossUnit(boss, opts)` factory — converts `BossDef` to `Unit`, defaults speed to 80 and crit to 8% / 1.6×, falls back to synthetic basic attack when boss has no `basicAttackSkillId`.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `prepareStage` now branches on `selection.kind`. Boss stages build a single boss unit via `buildBossUnit`, encounter is labeled `boss.<bossId>`, and rewards come from a new `resolveBossRewards(stage, bossName)` helper (stage 5: 250g/2 cells/3 scrolls; stage 10: 600g/5 cells/3 scrolls; stage 30: 1500g/12 cells/3 scrolls + 2 grand). Procedural path unchanged.
+- [src/features/run/__tests__/orchestratorBoss.test.ts](src/features/run/__tests__/orchestratorBoss.test.ts): 4 new tests covering stage-5/10/30 boss prep, terminal-state auto-play, reward magnitudes on win, and a regression check that procedural stages still work. All green; full client suite now 95 tests across 17 suites.
+
+### Notes — Stage 4 scope
+
+- **Phase mechanics deferred**: BossDef.phases description text remains flavor-only. The combat engine has no on-HP-threshold hook; mechanically, bosses are tougher enemies with a unique skill set. User chose "Simple stat-block" scope; multi-phase ability swaps + on-trigger mechanics are a follow-up.
+- **Bull Cathedral / Tide Shell / Thorn Ledger / gear T1–T4** — out of scope for this session; tracked for a future Stage 4 sub-iteration. Sentinel audit unchanged for those areas.
+
+### Added — Stage 3 follow-up: gear inventory + interactive battle (2026-04-25)
+
+- [src/content/gear.ts](src/content/gear.ts): added `lookupGearTemplate(templateId)` helper that resolves either a unique T5 `GearItem` (via `GEAR_BY_ID`) or a procedural T1–T4 `GearTemplate` (via new `GEAR_TEMPLATES_BY_ID`); returns a unified `GearLookupResult` shape (name, slot, tier, rarity, source). Re-exported `GearRarity`/`GearSlot`/`GearTier`/`GearRole`/`GearItem`/`GearTemplate` types from the module barrel so screens/hooks can import without dipping into `./types`.
+- [src/hooks/useGearInventory.ts](src/hooks/useGearInventory.ts): new hook that subscribes to `players/{uid}/gear` via `onSnapshot`, resolves each instance's template metadata, exposes `bySlot`/`equippedBySlot` views, and provides `equip(instanceId)` (atomic batch — flips equipped flags so only one item per slot is equipped) / `unequip(instanceId)` helpers. Empty until playerStore has bootstrapped.
+- [src/screens/EquipmentScreen.tsx](src/screens/EquipmentScreen.tsx): replaced the stub with a full inventory view — three slot sections (Weapon/Armor/Accessory) with rarity-coloured tier badges, currently-equipped indicator, equip/unequip buttons with busy state, empty-state hints, error surfacing, and unknown-template fallback.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): refactored to expose `prepareStage(input)` (engine + encounter metadata), `autoPlayStage(prepared)` (basic-attack loop to terminal), `buildStageReport(prepared, engine)` (terminal-state report builder). `simulateProceduralStage` now composes these three. Lets interactive and auto-play modes share setup.
+- [src/stores/combatStore.ts](src/stores/combatStore.ts): added interactive mode — store now holds the live `engine` + `prepared` stage. New actions: `beginInteractive` (setup without auto-play), `tickAdvance` (engine.advance when no unit ready), `step` (single action; returns StepError reason on rejection without throwing), `autoPlayToFinish` (run to terminal from current state). Status enum extended with `preparing`/`in_progress`. Selectors `selectPlayerUnit`/`selectAliveEnemies`/`selectReadyUnitId` for component subscriptions.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): rewritten for interactive combat. Player card with HP bar (green), MP bar (blue), CT chip ("READY" when actionable), status chips. Enemy rows with HP bars, CT chips, status chips, tap-to-target highlighting. Ability button grid (basic attack + each owned skill); each button shows MP/HP cost, cooldown, and a `canCast`-derived disabled reason. Auto-play toggle in stage banner runs `autoPlayToFinish` when flipped on. Enemy AI auto-acts via `setTimeout` when a non-player unit is ready (250ms delay). Time auto-advances via `tickAdvance` (50ms tick) when no unit is ready. Event log of last 8 events at bottom. Result card with submit-and-continue button when battle ends. Auto-prepares on stage advance (clears stale `combatStatus === 'finished'` from previous stage).
+
+### Added — Stage 3 UI screens & tab navigator (2026-04-25)
+
+- [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx): replaced the flat stack navigator with a root stack + bottom tab navigator. Tab navigator (`@react-navigation/bottom-tabs`) wraps the three always-accessible screens (Hub, Equipment, Profile). In-run screens (ClassSelect, Battle, RunMap, RewardResolution) are pushed as full-screen root stack screens over the tab bar. Placeholder/diagnostics retained as a root stack screen accessible from Profile.
+- [src/screens/ClassSelectScreen.tsx](src/screens/ClassSelectScreen.tsx): new pre-run class selection screen. Shows owned classes as selectable cards (name, tier badge, role badge, description). Shows reachable-but-locked evolution targets dimmed with a lock indicator. Calls `runStore.startRun(classId)` on "Begin Run" and replaces itself with BattleScreen.
+- [src/screens/RunMapScreen.tsx](src/screens/RunMapScreen.tsx): new 30-stage visual run map. Renders stage nodes in a `ScrollView` with type markers (Mini-Boss at 5, Checkpoint Gate at 10/20, Counter Boss at 30). Completed stages, current stage, and future stages are visually distinct. Accessible via "View Map" links in BattleScreen and RewardResolutionScreen.
+- [src/screens/EquipmentScreen.tsx](src/screens/EquipmentScreen.tsx): new Equipment tab screen. Currently a stub showing "no gear yet" with owned-class count; gear instance rendering will be added once the Firestore gear sub-collection fetch is wired in Stage 4+.
+- [src/screens/ProfileScreen.tsx](src/screens/ProfileScreen.tsx): new Profile tab screen. Shows UID, gold bank, ascension cells, per-lineage ranks (filtered to non-zero), owned classes with tier badges, and a link to the Diagnostics screen.
+- [src/screens/HubScreen.tsx](src/screens/HubScreen.tsx): rewritten to be a tab-nested screen. Uses `useNavigation<NativeStackNavigationProp<RootStackParamList>>()` to navigate to ClassSelect (root stack). Shows active-run resume card if `runStore.status === 'run_active'`. No longer calls `startRun` directly.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): replaced diagnostic text cards with a stage-type banner (coloured by stage type, with "View Map →" link), active class card (name, tier, role, description), and simulation result card (WIN/LOSS badge, enemy/tick/time summary, reward row with emoji labels). Navigation fallback changed from `'Hub'` to `'MainTabs'`.
+- [src/screens/RewardResolutionScreen.tsx](src/screens/RewardResolutionScreen.tsx): replaced flat text list with typed reward blocks (banked/vaulted, left-colour-coded), run result badge, and a progression delta card that appears after `endRun` settles (ascension cells earned, lineage rank delta, newly unlocked classes). Stores `ProgressionDelta` from the `endRun` response in component state. "Play Again" now navigates to `'MainTabs'`.
+
+### Added — Stage 2 meta-progression & player profile (2026-04-25)
+
+- [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): extended `PlayerDoc` with `goldBank`, `xpScrolls`, `currentRunId`, `createdAt`/`updatedAt`; extended `RunDoc` with `activeLineageId` and `evolutionTargetClassId`; added `XpScrollPouch`, `GearInstanceDoc`, `ProgressionDelta`, `GetOrCreatePlayerResponse` types.
+- [firebase/functions/src/shared/progression.ts](firebase/functions/src/shared/progression.ts): new pure-arithmetic server-side module mirroring client formulas — `rankDeltaForOutcome`, `ascensionCellsForOutcome`, `clampLineageRank`, `computeProgression`. No content registry lookup; `evolutionTargetClassId` is stamped onto the run doc at `startRun` time by the client.
+- [firebase/functions/src/getOrCreatePlayer.ts](firebase/functions/src/getOrCreatePlayer.ts): new idempotent `getOrCreatePlayer` callable. Creates starter profile (`ownedClassIds: ['drakehorn_forge.ember_initiate']`, all counters zeroed, `currentRunId: null`) in a Firestore transaction on first call; returns existing profile on subsequent calls.
+- [firebase/functions/src/startRun.ts](firebase/functions/src/startRun.ts): extended to accept `activeLineageId` + `evolutionTargetClassId` in the payload; validates class ownership; auto-creates player profile if missing; rejects start if `player.currentRunId` already set; stamps `currentRunId = runRef.id` on the player doc atomically with run creation.
+- [firebase/functions/src/endRun.ts](firebase/functions/src/endRun.ts): extended to perform full meta-progression settle — reads player doc in the same transaction as run settlement; calls `computeProgression`; updates `goldBank`, `xpScrolls`, `ascensionCells`, `lineageRanks`, `ownedClassIds`, and clears `currentRunId` on the player doc; creates gear instance docs in `players/{uid}/gear/` sub-collection; returns `ProgressionDelta` with `playerTotals` snapshot.
+- [firebase/functions/src/index.ts](firebase/functions/src/index.ts): exported new `getOrCreatePlayer` callable.
+- [firebase/functions/src/__tests__/progression.test.ts](firebase/functions/src/__tests__/progression.test.ts): 14 new `node:test` cases covering `isCompletedRun`, `rankDeltaForOutcome`, `ascensionCellsForOutcome`, `clampLineageRank`, and `computeProgression` (unlock logic, rank capping, fled/zero-stage edge cases).
+- [firebase/functions/src/scripts/smokeRun.ts](firebase/functions/src/scripts/smokeRun.ts): extended smoke test to call `getOrCreatePlayer` (idempotence check), pass `activeLineageId`/`evolutionTargetClassId` in `startRun`, verify `player.currentRunId` is set mid-run, and after `endRun` verify `player.goldBank`, `ascensionCells`, `lineageRanks`, and `currentRunId = null` from the Firestore doc.
+- [src/features/run/types.ts](src/features/run/types.ts): added `XpScrollPouch`/`EMPTY_XP_SCROLLS`; updated `StartRunPayload` with `activeLineageId` + `evolutionTargetClassId`; updated `EndRunResponse` with `progression: ProgressionDelta`; added `PlayerSnapshot`, `GetOrCreatePlayerResponse`, `ProgressionDelta`; added `activeLineageId`/`evolutionTargetClassId` to `RunSnapshot`.
+- [src/services/runApi.ts](src/services/runApi.ts): added normalizer helpers (`asNullableString`, `asStringArray`, `asIntRecord`, `normalizeXpScrolls`, `normalizeProgressionDelta`, `normalizePlayerSnapshot`); new exports `getOrCreatePlayer()` and `getPlayerSnapshot(uid)` (Firestore read); updated `startRun` to send new payload fields; updated `endRun` to decode `progression`; updated `getRunSnapshot` to decode new run fields.
+- [src/domain/run/progression.ts](src/domain/run/progression.ts): exported `findSameLineageEvolutionTarget` (was private `nextSameLineageTierTarget`) so `runStore.startRun` can compute the evolution target from content without duplicating the lookup.
+- [src/stores/playerStore.ts](src/stores/playerStore.ts): new Zustand player store — `bootstrap` (Firebase init → anonymous auth → `getOrCreatePlayer`), `refresh` (Firestore `getPlayerSnapshot`), `applyEndRunDelta` (applies `ProgressionDelta` locally post-settle without a round-trip), `reset`. Mirrors `runStore` status machine (`idle → initializing → ready → error`).
+- [src/stores/runStore.ts](src/stores/runStore.ts): `bootstrap` now delegates to `playerStore.bootstrap` for auth and player init; on bootstrap, if `player.currentRunId !== null`, fetches the run snapshot and hydrates the store (`run_active` status for ongoing runs); `startRun` uses `CLASS_BY_ID` + `findSameLineageEvolutionTarget` to compute `activeLineageId`/`evolutionTargetClassId` before calling the server; `endRun` calls `playerStore.applyEndRunDelta` after settlement; removed `userId` field (now sourced from `playerStore.uid`); `resetRun` defers to `playerStore.status` for the post-reset status.
+- [src/stores/index.ts](src/stores/index.ts): exported `playerStore` from the barrel.
+- [src/screens/HubScreen.tsx](src/screens/HubScreen.tsx): updated Auth UID display to source `uid` from `playerStore` instead of the removed `runStore.userId`.
+
+### Added — Stage 1 backend hardening (2026-04-25)
+
+
+- [firebase/functions/src/shared/guards.ts](firebase/functions/src/shared/guards.ts): added `requirePayloadSize` (16 KiB default cap, exact UTF-8 byte counting via `Buffer.byteLength`) and `requireRateLimit` (per-uid sliding-window throttle, in-memory per warm instance, bounded to 5000 keys). Plus `__resetRateLimitsForTest` helper for unit tests.
+- [firebase/functions/src/startRun.ts](firebase/functions/src/startRun.ts), [submitStageOutcome.ts](firebase/functions/src/submitStageOutcome.ts), [bankCheckpoint.ts](firebase/functions/src/bankCheckpoint.ts), [endRun.ts](firebase/functions/src/endRun.ts): wired payload size + rate-limit guards (per-callable budgets: 6/min start, 60/min submit, 12/min bank/end). Added `maxInstances`, `timeoutSeconds`, `memory` runtime options to bound cost and catch runaways.
+- [firebase/functions/src/auditReplay.ts](firebase/functions/src/auditReplay.ts): new `auditRunCompletion` Firestore trigger on `runs/{runId}` that fires on transition into terminal state. Recomputes expected aggregates from the stage outcome ledger (using shared `splitRewards`/`addRewards`) and writes an `audit: { ok, discrepancies, checkpointCount, auditedAt }` field back onto the run doc. Catches reward inflation, gear fabrication, and won-run vault/banked invariant violations. Engine-level replay deferred until shared module structure is set up in Stage 2.
+- [firebase/functions/src/index.ts](firebase/functions/src/index.ts): exported the new `auditRunCompletion` trigger.
+- [firebase/functions/src/scripts/smokeRun.ts](firebase/functions/src/scripts/smokeRun.ts): new end-to-end emulator smoke driving the full lifecycle (`startRun → submitStageOutcome ×9 → bankCheckpoint @ stage 10 → endRun(won)`). Verifies callable responses, Firestore doc state, and the audit trigger writes `audit.ok=true`. Uses raw `fetch` against auth/functions/firestore emulators with anonymous sign-in for Bearer token.
+- [firebase/functions/package.json](firebase/functions/package.json): added `smoke` script; switched `test` script to directory-mode `node --test lib/__tests__/` (Windows shell glob expansion was unreliable).
+- [package.json](package.json): added top-level `fn:test` and `fn:smoke` shortcuts mirroring the existing `fn:build` / `fn:lint` pattern.
+- [firebase/functions/src/__tests__/guards.test.ts](firebase/functions/src/__tests__/guards.test.ts): added 9 new test cases covering `requirePayloadSize` (cap, null/undefined, circular refs, multi-byte UTF-8) and `requireRateLimit` (under-cap, cap-cross, key isolation, window rollover). 19 tests, all green.
+
+### Notes — App Check deferred (2026-04-25)
+
+- App Check re-enable was originally scoped to Stage 1 but deferred to Stage 7 (launch-prep) per developer direction. Debug-token registration friction is not worth it during pre-launch iteration. [src/services/firebase.ts](src/services/firebase.ts) keeps the no-op init with a top-of-file comment block listing the re-enable steps.
+
+### Fixed — Firebase Auth bootstrap and callable connectivity (2026-04-25)
+
+- [.env](.env): cleared `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST` (was `10.0.2.2`, routing all traffic to a non-running emulator and causing `auth/network-request-failed` on every launch).
+- [src/env.d.ts](src/env.d.ts): new file — `process.env` TypeScript declarations for `EXPO_PUBLIC_FIREBASE_EMULATOR_HOST` and `EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN`; module augmentation stub for `ReactNativeFirebaseAppCheckProvider` constructor signature.
+- [src/services/firebase.ts](src/services/firebase.ts): removed App Check initialization entirely (TODO P3 — re-enable after registering a valid debug token); added startup `console.log` showing active backend target and emulator host.
+- [src/services/auth.ts](src/services/auth.ts): made `signInAnonymously` idempotent (returns existing user when already signed in); added `ensureUsableToken` that detects unsigned/emulator-leaked JWTs and forces token refresh; added `waitForIdTokenPropagation` helper that gates on `onIdTokenChanged` (up to 1 200 ms) so the Bearer token is valid before any callable is dispatched.
+- [src/services/runApi.ts](src/services/runApi.ts): introduced `callCallable` wrapper — attempts the `@react-native-firebase/functions` SDK callable first, then falls back to an explicit `fetch` with `Authorization: Bearer <token>` on `UNAUTHENTICATED` errors; added `callableEndpoint` that resolves the correct URL for both emulator and production; updated `startRun`, `submitStageOutcome`, and `endRun` to use the new wrapper.
+- [src/screens/PlaceholderScreen.tsx](src/screens/PlaceholderScreen.tsx): diagnostics flow now labels errors by phase (`[init]` / `[auth]` / `[helloWorld]`); added `callHelloWorldViaFetch` explicit-Bearer fetch path used in the unauthenticated retry branch (sign-out → re-sign-in → fetch fallback).
+- [src/stores/runStore.ts](src/stores/runStore.ts): `bootstrap` now always calls `await signInAnonymously()` directly instead of the `currentUser() ??` shortcut that previously bypassed token validation.
+- [firebase.json](firebase.json): added `predeploy: ["npm run fn:build"]` hook to the functions config so a stale build can no longer be deployed accidentally.
+
+### Changed — Documentation (2026-04-25)
+
+- [documentation/OPERATIONS.md](documentation/OPERATIONS.md): added backend mode quick-reference table (real Firebase vs. emulator env-var matrix) and a troubleshooting section for `auth/network-request-failed` / emulator-not-running scenarios.
+- [.env.example](.env.example): rewrote inline comments with explicit "real Firebase (leave blank)" vs. "Android emulator" mode labels for each `EXPO_PUBLIC_*` variable.
+
 ### Added — P3 MVP backend run lifecycle (Firebase Functions)
 
 - [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): introduced standalone backend contracts for `RewardBundle`, `RunDoc`, `StageOutcomeDoc`, and callable payload/response types.

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(node --test lib/__tests__/guards.test.js)",
+      "Bash(npx tsc *)",
+      "Bash(npx firebase *)"
+    ]
+  }
+}

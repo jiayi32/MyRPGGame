@@ -2,11 +2,14 @@ import {
   UNSPECIFIED,
   type GearId,
   type GearItem,
+  type GearRarity,
   type GearRole,
   type GearSlot,
   type GearTemplate,
   type GearTier,
 } from './types';
+
+export type { GearRarity, GearSlot, GearTier, GearRole, GearItem, GearTemplate } from './types';
 
 const worldbreakerFang: GearItem = {
   id: 'drakehorn_forge.worldbreaker_fang',
@@ -125,3 +128,71 @@ export const GEAR_TEMPLATES: readonly GearTemplate[] = ROLES.flatMap((role) =>
 export const GEAR_ITEMS: readonly GearItem[] = [...DRAGON_T5_SET];
 
 export const GEAR_BY_ID: ReadonlyMap<GearId, GearItem> = new Map(GEAR_ITEMS.map((g) => [g.id, g]));
+
+export const GEAR_TEMPLATES_BY_ID: ReadonlyMap<string, GearTemplate> = new Map(
+  GEAR_TEMPLATES.map((t) => [t.id, t]),
+);
+
+/**
+ * Resolved metadata for a gear instance — either a unique T5 item or a procedural T1–T4 template.
+ * Surfaces the minimum the UI needs (name, slot, tier, optional rarity/description) without
+ * forcing callers to discriminate the source.
+ */
+export interface GearLookupResult {
+  templateId: string;
+  source: 'unique' | 'template';
+  name: string;
+  slot: GearSlot;
+  tier: GearTier;
+  rarity?: GearRarity;
+  description?: string;
+  /** Set only for unique items, useful for stat panels. */
+  item?: GearItem;
+  /** Set only for procedural templates. */
+  template?: GearTemplate;
+}
+
+/**
+ * Look up gear template metadata by id. Returns undefined if the id matches neither
+ * a unique T5 item nor a procedural T1–T4 template — callers should treat unknown
+ * gear as opaque (display the raw id) rather than crash.
+ */
+export function lookupGearTemplate(templateId: string): GearLookupResult | undefined {
+  const item = GEAR_BY_ID.get(templateId as GearId);
+  if (item !== undefined) {
+    return {
+      templateId,
+      source: 'unique',
+      name: item.name,
+      slot: item.slot,
+      tier: item.tier,
+      rarity: item.rarity,
+      ...(item.description !== undefined ? { description: item.description } : {}),
+      item,
+    };
+  }
+  const template = GEAR_TEMPLATES_BY_ID.get(templateId);
+  if (template !== undefined) {
+    return {
+      templateId,
+      source: 'template',
+      name: humanizeTemplateId(templateId),
+      slot: template.slot,
+      tier: template.tier,
+      description: template.description,
+      template,
+    };
+  }
+  return undefined;
+}
+
+function humanizeTemplateId(id: string): string {
+  // 'dps.t2.weapon' → 'DPS T2 Weapon'.
+  return id
+    .split('.')
+    .map((part) => {
+      if (/^t\d+$/.test(part)) return part.toUpperCase();
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .join(' ');
+}

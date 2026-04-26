@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "emulators": "firebase emulators:start --only auth,firestore,functions",
     "fn:build": "tsc -p firebase/functions",
-    "fn:lint": "eslint \"firebase/functions/src/**/*.ts\""
+    "fn:lint": "eslint \"firebase/functions/src/**/*.ts\"",
+    "fn:test": "npm --prefix firebase/functions test",
+    "fn:smoke": "npm --prefix firebase/functions run smoke"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.0",

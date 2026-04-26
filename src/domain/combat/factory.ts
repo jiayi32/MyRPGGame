@@ -1,5 +1,6 @@
 import {
   isSpecified,
+  type BossDef,
   type ClassData,
   type ClassTier,
   type EnemyArchetype,
@@ -159,6 +160,62 @@ export const buildEnemyUnit = (
     baseStats: stats,
     skillIds: [],
     basicAttackSkillId: SYNTHETIC_BASIC_ATTACK_ID,
+    cooldowns: {},
+    statuses: [],
+    insertionIndex: opts.insertionIndex ?? 0,
+    isDead: false,
+  };
+};
+
+export interface BossUnitOptions {
+  readonly instanceId: string;
+  readonly team?: Team;
+  readonly insertionIndex?: number;
+}
+
+/**
+ * Build a Unit from a `BossDef`. Falls back to sane defaults if any of hp/atk/def
+ * is `UNSPECIFIED` so stub bosses don't crash the engine.
+ *
+ * The boss takes its skillIds + basicAttackSkillId directly from BossDef. If
+ * basicAttackSkillId is missing, the synthetic basic attack is used.
+ */
+export const buildBossUnit = (boss: BossDef, opts: BossUnitOptions): Unit => {
+  const stageScale = boss.stage; // 5/10/30
+  const hp = isSpecified(boss.hp) ? boss.hp : 200 * stageScale;
+  const atk = isSpecified(boss.atk) ? boss.atk : 12 + stageScale;
+  const def = isSpecified(boss.def) ? boss.def : 6 + Math.floor(stageScale / 2);
+  const speed = boss.speed ?? 80;
+
+  const stats = makeBaseStats({
+    strength: atk,
+    intellect: atk,
+    agility: 30,
+    stamina: Math.round(hp / HP_PER_STAMINA),
+    defense: def,
+    magicDefense: def,
+    speed,
+    critChance: 0.08,
+    critMultiplier: 1.6,
+  });
+
+  const id = toInstanceId(opts.instanceId);
+  const rawBasic = boss.basicAttackSkillId;
+  const basicAttackSkillId: SkillId =
+    rawBasic !== undefined && isSpecified(rawBasic) ? rawBasic : SYNTHETIC_BASIC_ATTACK_ID;
+
+  return {
+    id,
+    team: opts.team ?? 'enemy',
+    displayName: boss.name,
+    hp,
+    hpMax: hp,
+    mp: 0,
+    mpMax: 0,
+    ct: 0,
+    baseStats: stats,
+    skillIds: boss.skillIds ?? [],
+    basicAttackSkillId,
     cooldowns: {},
     statuses: [],
     insertionIndex: opts.insertionIndex ?? 0,
