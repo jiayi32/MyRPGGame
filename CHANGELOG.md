@@ -6,6 +6,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Changed — Beta usability pass: pacing, button visuals, ability descriptions (2026-04-27)
+
+- **Auto-battle pacing**: the auto-play toggle previously called `combatStore.autoPlayToFinish` synchronously, which ran the entire engine to terminal in microseconds with no visible animations. [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx) now extends the existing AI-tick `useEffect` with a "player ready + auto-play on" branch that issues a basic-attack on a 350 ms timer (slightly slower than the 250 ms enemy AI to preserve readability). Auto-play now plays *visibly* through the same animation pipeline as manual combat. Removed the unused `handleAutoPlay` and the unused `autoPlayToFinish` selector.
+- **Button visual states**: React Native's stock `<Button>` renders muted on Android Material — making *enabled* buttons look "greyed out". Added [src/components/PrimaryButton.tsx](src/components/PrimaryButton.tsx), a TouchableOpacity-based component with three variants (`primary`/`secondary`/`destructive`), explicit enabled (solid colour) vs disabled (faded) styling, busy-state spinner support. Swapped every `<Button>` in the alpha critical path: [HubScreen](src/screens/HubScreen.tsx) Start/Resume Run, [ClassSelectScreen](src/screens/ClassSelectScreen.tsx) Begin Run, [BattleScreen](src/screens/BattleScreen.tsx) Submit & Continue + Clear Battle (now `__DEV__`-gated), [RewardResolutionScreen](src/screens/RewardResolutionScreen.tsx) Back/End Run/Play Again.
+- **Ability descriptions on long-press**: new [src/components/AbilityDetailsModal.tsx](src/components/AbilityDetailsModal.tsx) — semi-transparent scrim Modal showing the skill's name, full description, cost/CT/cooldown/target stats row, tag chips, and a structured per-effect breakdown (kind, magnitude formatted by unit, damage type, duration, stacks, chance, statTag). Resolves both `SKILL_BY_ID` registry skills and the synthetic basic attack. [BattleScreen](src/screens/BattleScreen.tsx) `AbilityButton` accepts a new required `onLongPress` prop with a 350 ms threshold; long-press works even on currently-disabled abilities so the player can read what they don't yet have access to. Tap-outside-to-close.
+
+### Verification
+
+- Client typecheck clean.
+- Client tests: 95/95 pass (no engine behavior change).
+- Manual on Android emulator: auto-play toggle on now shows each player action with the 350 ms cadence and the existing damage-popup / HP-drain animations. Begin Run / Submit & Continue / End Run buttons are visibly highlighted when enabled. Long-press any ability button to inspect its full effect list.
+
+### Fixed — Begin Run / Resume Run infinite-loop crash (2026-04-26)
+
+**Root cause**: [src/stores/combatStore.ts](src/stores/combatStore.ts) `selectAliveEnemies` selector ran `Object.values(...).filter(...)` and returned a fresh array on every call. Zustand v5's `useSyncExternalStore` integration uses `Object.is` to detect selector-result changes — a fresh array fails that check on every render, so React thinks the snapshot changed → re-render → selector runs again → another fresh array → React aborts the render with `Maximum update depth exceeded` and the canonical `The result of getSnapshot should be cached to avoid an infinite loop` warning.
+
+The bug fired only after `startRun` succeeded and `navigation.replace('Battle')` mounted the BattleScreen, which is the first consumer of `selectAliveEnemies`. The "Resume Run greyed out" report on app reopen was a symptom of the same crash — tapping Resume mounts BattleScreen, which loops, blocking the React render commit so the Button looks non-interactive (the TouchableOpacity Forfeit link in the run card stayed responsive because tapping it doesn't mount BattleScreen).
+
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): wrap `selectAliveEnemies` with `useShallow` from `zustand/react/shallow`. The selector still computes a fresh array each call, but `useShallow` does an element-wise identity compare so React only re-renders when an enemy unit reference actually changes (i.e., when the engine produces a new BattleState). `selectPlayerUnit` (returns a stable Unit ref) and `selectReadyUnitId` (returns a string id) are already reference-stable and don't need wrapping.
+- [src/screens/DevToolsScreen.tsx](src/screens/DevToolsScreen.tsx): replaced the bare `usePlayerStore()` and `useRunStore()` whole-store subscribes with `useShallow`-wrapped object projections (only the fields the JSON dump renders). Whole-store identity changes on every `set()`, so without shallow-equality DevToolsScreen would have triggered the same loop the moment any store updated while it was mounted.
+
+### Verification
+
+- Client typecheck: clean.
+- Client tests: 95/95 pass (no behavior change in engine).
+- Manual on Android emulator (production target): sign in → Start New Run → pick Ember Initiate → Begin Run navigates cleanly to BattleScreen with no `Maximum update depth` error in logcat. Force-quit mid-stage and reopen → Resume Run renders and is interactive. Profile → Dev Tools → JSON dump renders without looping; dev callables fire normally.
+
 ### Fixed — Sign-in not-found error / first production deploy of new callables (2026-04-26)
 
 - **Root cause**: app's `playerStore.bootstrap` calls `getOrCreatePlayer` immediately after Firebase Auth succeeds, but the callable had never been deployed to production (only the original `helloWorld` from P0 was live). The error surfaced as `not-found: NOT_FOUND` on sign-in.

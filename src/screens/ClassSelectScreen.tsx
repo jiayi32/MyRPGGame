@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Button,
   FlatList,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassData, ClassId } from '@/content/types';
 import { usePlayerStore, useRunStore } from '@/stores';
+import { PrimaryButton } from '@/components/PrimaryButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClassSelect'>;
 
@@ -145,12 +145,13 @@ export function ClassSelectScreen({ navigation }: Props) {
       />
 
       <View style={styles.footer}>
-        <Button
-          title={isStarting ? 'Starting…' : 'Begin Run'}
+        <PrimaryButton
+          title="Begin Run"
           onPress={() => {
             handleBeginRun().catch(() => undefined);
           }}
           disabled={selectedId === null || isStarting}
+          busy={isStarting}
         />
       </View>
     </View>

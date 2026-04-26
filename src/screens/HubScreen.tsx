@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { Alert, Button, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { useCombatStore } from '@/stores/combatStore';
+import { PrimaryButton } from '@/components/PrimaryButton';
 
 export function HubScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -88,12 +89,13 @@ export function HubScreen() {
 
       <View style={styles.actions}>
         {hasActiveRun ? (
-          <Button title="Resume Run" onPress={handleResume} />
+          <PrimaryButton title="Resume Run" variant="secondary" onPress={handleResume} />
         ) : (
-          <Button
+          <PrimaryButton
             title="Start New Run"
             onPress={handleStartNew}
             disabled={isLoading || playerStatus !== 'ready'}
+            busy={isLoading}
           />
         )}
       </View>

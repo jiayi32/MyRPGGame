@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Button,
   ScrollView,
   StyleSheet,
   Switch,
@@ -9,6 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { AbilityDetailsModal } from '@/components/AbilityDetailsModal';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
@@ -165,6 +167,7 @@ function AbilityButton({
   label,
   cost,
   onPress,
+  onLongPress,
   disabled,
   cooldown,
   reason,
@@ -172,6 +175,7 @@ function AbilityButton({
   label: string;
   cost: string;
   onPress: () => void;
+  onLongPress: () => void;
   disabled: boolean;
   cooldown?: number;
   reason?: string;
@@ -179,6 +183,10 @@ function AbilityButton({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      // Long-press still works on disabled-looking buttons so the player can read what an
+      // ability does even when they can't currently cast it. Pass-through onLongPress regardless.
       disabled={disabled}
       style={[styles.abilityBtn, disabled && styles.abilityBtnDisabled]}
     >
@@ -261,16 +269,18 @@ export function BattleScreen({ navigation }: Props) {
   const beginInteractive = useCombatStore((state) => state.beginInteractive);
   const tickAdvance = useCombatStore((state) => state.tickAdvance);
   const stepCombat = useCombatStore((state) => state.step);
-  const autoPlayToFinish = useCombatStore((state) => state.autoPlayToFinish);
   const clearCombat = useCombatStore((state) => state.clear);
 
   const player = useCombatStore(selectPlayerUnit);
-  const enemies = useCombatStore(selectAliveEnemies);
+  // useShallow: selectAliveEnemies returns a fresh array each call (Object.values + filter).
+  // Without shallow-equality, Zustand re-renders this component every commit → infinite loop.
+  const enemies = useCombatStore(useShallow(selectAliveEnemies));
   const readyUnitId = useCombatStore(selectReadyUnitId);
 
   const [autoPlay, setAutoPlay] = useState(false);
   const [targetId, setTargetId] = useState<InstanceId | null>(null);
   const [lastReason, setLastReason] = useState<string | null>(null);
+  const [detailsSkillId, setDetailsSkillId] = useState<SkillId | null>(null);
 
   const stageType: StageType = stage !== null ? (STAGE_TYPES[stage] ?? 'normal') : 'normal';
   const classData = activeClassId ? CLASS_BY_ID.get(activeClassId as ClassId) : null;
@@ -309,23 +319,30 @@ export function BattleScreen({ navigation }: Props) {
     if (!stillAlive) setTargetId(enemies[0]?.id ?? null);
   }, [enemies, targetId]);
 
-  // Enemy AI: when a non-player unit is ready, auto-step them with a basic attack on the player.
+  // Enemy AI + auto-play AI: drive units on a visible timer instead of a synchronous loop.
+  // - Nobody ready → tickAdvance every 50 ms (just simulated time passing).
+  // - Enemy ready → auto-attack the player after 250 ms (gives the user time to read).
+  // - Player ready AND auto-play toggle on → auto-attack the current target after 350 ms.
   useEffect(() => {
     if (engineState === null || battleEnded) return;
     if (readyUnitId === null) {
-      // No one ready — advance simulated time by one tick.
       const t = setTimeout(() => tickAdvance(), 50);
       return () => clearTimeout(t);
     }
     if (player !== null && readyUnitId !== player.id) {
-      // It's an enemy's turn. Auto-attack the player.
       const t = setTimeout(() => {
         stepCombat({ kind: 'basic_attack', unitId: readyUnitId, targetId: player.id });
       }, 250);
       return () => clearTimeout(t);
     }
+    if (autoPlay && player !== null && readyUnitId === player.id && targetId !== null) {
+      const t = setTimeout(() => {
+        stepCombat({ kind: 'basic_attack', unitId: player.id, targetId });
+      }, 350);
+      return () => clearTimeout(t);
+    }
     return undefined;
-  }, [battleEnded, engineState, player, readyUnitId, stepCombat, tickAdvance]);
+  }, [autoPlay, battleEnded, engineState, player, readyUnitId, stepCombat, targetId, tickAdvance]);
 
   // Submit outcome to backend after report finalizes.
   const handleSubmit = async () => {
@@ -341,14 +358,6 @@ export function BattleScreen({ navigation }: Props) {
       navigation.navigate('RewardResolution');
     } catch {
       // Surfaced by run store.
-    }
-  };
-
-  const handleAutoPlay = () => {
-    try {
-      autoPlayToFinish();
-    } catch {
-      // Surfaced by store.
     }
   };
 
@@ -402,6 +411,7 @@ export function BattleScreen({ navigation }: Props) {
   }, [player]);
 
   return (
+    <>
     <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
       {stage !== null && (
         <View style={[styles.stageBanner, { backgroundColor: STAGE_TYPE_BG[stageType], borderColor: STAGE_TYPE_COLORS[stageType] }]}>
@@ -412,13 +422,7 @@ export function BattleScreen({ navigation }: Props) {
             </View>
             <View style={styles.autoPlayToggle}>
               <Text style={styles.autoPlayLabel}>Auto-play</Text>
-              <Switch
-                value={autoPlay}
-                onValueChange={(v) => {
-                  setAutoPlay(v);
-                  if (v && !battleEnded) handleAutoPlay();
-                }}
-              />
+              <Switch value={autoPlay} onValueChange={setAutoPlay} />
             </View>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('RunMap')} style={styles.mapLink}>
@@ -426,6 +430,9 @@ export function BattleScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Event log */}
+      {engineState !== null && <EventLog events={engineState.log} />}
 
       {/* Player unit panel */}
       {player !== null && (
@@ -497,6 +504,7 @@ export function BattleScreen({ navigation }: Props) {
                   disabled={disabled}
                   {...(reason !== undefined ? { reason } : {})}
                   onPress={() => handleAbility(skillId)}
+                  onLongPress={() => setDetailsSkillId(skillId)}
                 />
               );
             })}
@@ -543,17 +551,18 @@ export function BattleScreen({ navigation }: Props) {
             )}
           </View>
           <View style={styles.actions}>
-            <Button
-              title={runStatus === 'submitting_outcome' ? 'Submitting…' : 'Submit & Continue'}
+            <PrimaryButton
+              title="Submit & Continue"
+              variant="secondary"
               onPress={() => { handleSubmit().catch(() => undefined); }}
               disabled={runStatus === 'submitting_outcome'}
+              busy={runStatus === 'submitting_outcome'}
             />
           </View>
         </View>
       )}
 
-      {/* Event log */}
-      {engineState !== null && <EventLog events={engineState.log} />}
+      
 
       {/* Forfeit Run — visible while a run is active and not already settled */}
       {!battleEnded && runId !== null && runStatus !== 'ending_run' && (
@@ -565,10 +574,23 @@ export function BattleScreen({ navigation }: Props) {
       )}
 
       {/* Debug actions */}
-      <View style={styles.actions}>
-        <Button title="Clear Battle" onPress={clearCombat} disabled={combatStatus === 'simulating'} />
-      </View>
+      {__DEV__ && (
+        <View style={styles.actions}>
+          <PrimaryButton
+            title="Clear Battle"
+            variant="destructive"
+            onPress={clearCombat}
+            disabled={combatStatus === 'simulating'}
+          />
+        </View>
+      )}
     </ScrollView>
+
+    <AbilityDetailsModal
+      skillId={detailsSkillId}
+      onClose={() => setDetailsSkillId(null)}
+    />
+    </>
   );
 }
 

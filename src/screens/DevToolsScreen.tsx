@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/stores';
 import { useRunStore } from '@/stores/runStore';
 import { useCombatStore } from '@/stores/combatStore';
@@ -51,11 +52,32 @@ function ToolButton({ label, description, onPress, busy, destructive }: ToolButt
 export function DevToolsScreen() {
   const playerRefresh = usePlayerStore((state) => state.refresh);
   const playerReset = usePlayerStore((state) => state.reset);
-  const playerStore = usePlayerStore();
+  // Shallow-equality projection of the player fields the JSON dump renders. Subscribing to the
+  // whole store via `usePlayerStore()` returned a fresh object reference on every set() and
+  // triggered React's "getSnapshot should be cached" infinite-loop warning.
+  const playerSnapshot = usePlayerStore(
+    useShallow((s) => ({
+      status: s.status,
+      uid: s.uid,
+      goldBank: s.goldBank,
+      ascensionCells: s.ascensionCells,
+      xpScrolls: s.xpScrolls,
+      ownedClassIds: s.ownedClassIds,
+      currentRunId: s.currentRunId,
+    })),
+  );
 
-  const runStore = useRunStore();
   const runRefresh = useRunStore((state) => state.refreshRunSnapshot);
   const runReset = useRunStore((state) => state.resetRun);
+  const runSnapshot = useRunStore(
+    useShallow((s) => ({
+      status: s.status,
+      runId: s.runId,
+      stage: s.stage,
+      activeClassId: s.activeClassId,
+      runResult: s.runResult,
+    })),
+  );
   const clearCombat = useCombatStore((state) => state.clear);
 
   const [skipTarget, setSkipTarget] = useState('30');
@@ -89,7 +111,7 @@ export function DevToolsScreen() {
       Alert.alert('Invalid stage', 'Enter a stage between 1 and 30.');
       return;
     }
-    const runId = runStore.runId;
+    const runId = runSnapshot.runId;
     if (runId === null) {
       Alert.alert('No active run', 'Start a run first.');
       return;
@@ -235,33 +257,11 @@ export function DevToolsScreen() {
         <Text style={styles.sectionTitle}>Live State</Text>
         <Text style={styles.codeLabel}>playerStore</Text>
         <Text style={styles.code} selectable>
-          {JSON.stringify(
-            {
-              status: playerStore.status,
-              uid: playerStore.uid,
-              goldBank: playerStore.goldBank,
-              ascensionCells: playerStore.ascensionCells,
-              xpScrolls: playerStore.xpScrolls,
-              ownedClassIds: playerStore.ownedClassIds,
-              currentRunId: playerStore.currentRunId,
-            },
-            null,
-            2,
-          )}
+          {JSON.stringify(playerSnapshot, null, 2)}
         </Text>
         <Text style={styles.codeLabel}>runStore</Text>
         <Text style={styles.code} selectable>
-          {JSON.stringify(
-            {
-              status: runStore.status,
-              runId: runStore.runId,
-              stage: runStore.stage,
-              activeClassId: runStore.activeClassId,
-              runResult: runStore.runResult,
-            },
-            null,
-            2,
-          )}
+          {JSON.stringify(runSnapshot, null, 2)}
         </Text>
       </View>
 

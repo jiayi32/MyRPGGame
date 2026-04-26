@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 import type { ProgressionDelta, RewardBundle } from '@/features/run/types';
@@ -53,7 +54,6 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
   const stage = useRunStore((state) => state.stage);
   const runResult = useRunStore((state) => state.runResult);
-  const runStatus = useRunStore((state) => state.status);
   const runError = useRunStore((state) => state.error);
   const bankedRewards = useRunStore((state) => state.bankedRewards);
   const vaultedRewards = useRunStore((state) => state.vaultedRewards);
@@ -151,23 +151,32 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
       {!isRunEnded && (
         <View style={styles.actions}>
-          <Button title="Back to Battle" onPress={() => navigation.replace('Battle')} />
+          <PrimaryButton
+            title="Back to Battle"
+            variant="secondary"
+            onPress={() => navigation.replace('Battle')}
+          />
         </View>
       )}
 
       {canEndRun && (
         <View style={styles.actions}>
-          <Button
-            title={settling ? 'Settling…' : 'End Run & Settle'}
+          <PrimaryButton
+            title="End Run & Settle"
             onPress={() => { handleEndRun().catch(() => undefined); }}
             disabled={settling}
+            busy={settling}
           />
         </View>
       )}
 
       {(isRunEnded || progression !== null) && (
         <View style={styles.actions}>
-          <Button title="Play Again" onPress={handlePlayAgain} />
+          <PrimaryButton
+            title="Play Again"
+            variant="secondary"
+            onPress={handlePlayAgain}
+          />
         </View>
       )}
     </ScrollView>
