@@ -30,6 +30,24 @@ const RARITY_COLORS: Record<GearRarity, string> = {
   mythic: '#c81e3a',
 };
 
+const formatStatSummary = (instance: GearInstance): string | null => {
+  const resolved = instance.resolved;
+  if (resolved === undefined) return null;
+  const baseStats =
+    resolved.source === 'unique' ? resolved.item?.baseStats : resolved.template?.baseStatsHint;
+  if (!baseStats || typeof baseStats !== 'object') return null;
+  const labels: Record<string, string> = {
+    strength: 'STR',
+    intellect: 'INT',
+    constitution: 'CON',
+    dexterity: 'DEX',
+  };
+  const parts = Object.entries(baseStats)
+    .filter(([, value]) => typeof value === 'number' && Number.isFinite(value) && value !== 0)
+    .map(([key, value]) => `${labels[key] ?? key.toUpperCase()} +${Math.round(value)}`);
+  return parts.length > 0 ? parts.join('  ') : null;
+};
+
 function GearRow({
   instance,
   onToggleEquip,
@@ -44,6 +62,7 @@ function GearRow({
   const tier = resolved?.tier ?? '?';
   const rarity = resolved?.rarity;
   const rarityColor = rarity ? RARITY_COLORS[rarity] : '#888';
+  const statSummary = formatStatSummary(instance);
 
   return (
     <View style={[styles.gearRow, instance.equipped && styles.gearRowEquipped]}>
@@ -59,6 +78,7 @@ function GearRow({
         {rarity !== undefined && (
           <Text style={[styles.rarityLabel, { color: rarityColor }]}>{rarity}</Text>
         )}
+        {statSummary !== null && <Text style={styles.statSummary}>{statSummary}</Text>}
         {resolved === undefined && (
           <Text style={styles.unknownTemplate}>unknown template</Text>
         )}
@@ -292,6 +312,7 @@ const styles = StyleSheet.create({
   },
   tierBadgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
   rarityLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statSummary: { fontSize: 11, color: '#5d4d35', marginTop: 1 },
   unknownTemplate: { fontSize: 10, color: '#a04040', fontStyle: 'italic' },
   equipBtn: {
     borderRadius: 6,

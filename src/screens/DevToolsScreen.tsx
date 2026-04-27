@@ -9,9 +9,13 @@ import {
   View,
 } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore } from '@/stores';
 import { useRunStore } from '@/stores/runStore';
 import { useCombatStore } from '@/stores/combatStore';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import {
   devGrantAllClasses,
   devResetPlayer,
@@ -19,6 +23,7 @@ import {
   devSkipStage,
   formatCallableError,
 } from '@/services/runApi';
+import type { StageOutcomeResult } from '@/features/run/types';
 
 interface ToolButtonProps {
   label: string;
@@ -79,6 +84,10 @@ export function DevToolsScreen() {
     })),
   );
   const clearCombat = useCombatStore((state) => state.clear);
+  const forceFinish = useCombatStore((state) => state.forceFinish);
+  const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
+
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [skipTarget, setSkipTarget] = useState('30');
   const [goldInput, setGoldInput] = useState('');
@@ -154,6 +163,24 @@ export function DevToolsScreen() {
     );
   };
 
+  const handleForceOutcome = (result: StageOutcomeResult): void => {
+    if (preparedStageIndex === null) {
+      Alert.alert('No prepared stage', 'Begin a battle first (Hub → Start Run → Begin Run).');
+      return;
+    }
+    try {
+      forceFinish(result);
+      setLastResult(`Force ${result}: ok — return to Battle to submit`);
+      // Navigate back to the Battle screen so the user immediately sees the result card.
+      navigation.navigate('MainTabs', {
+        screen: 'HomeStack',
+        params: { screen: 'Battle' },
+      });
+    } catch (e) {
+      surfaceError(`Force ${result}`, e);
+    }
+  };
+
   const handleSetCurrencies = async (): Promise<void> => {
     const goldNum = goldInput.length === 0 ? undefined : Number.parseInt(goldInput, 10);
     const cellsNum = cellsInput.length === 0 ? undefined : Number.parseInt(cellsInput, 10);
@@ -204,6 +231,41 @@ export function DevToolsScreen() {
         </View>
         <Text style={styles.hint}>
           Sets the active run's stage pointer. You still play stage outcomes from there.
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Force outcome</Text>
+        <View style={styles.forceRow}>
+          <PrimaryButton
+            title="Force: Won"
+            variant="secondary"
+            onPress={() => handleForceOutcome('won')}
+            disabled={preparedStageIndex === null}
+            fullWidth={false}
+            style={styles.forceBtn}
+          />
+          <PrimaryButton
+            title="Force: Lost"
+            variant="destructive"
+            onPress={() => handleForceOutcome('lost')}
+            disabled={preparedStageIndex === null}
+            fullWidth={false}
+            style={styles.forceBtn}
+          />
+          <PrimaryButton
+            title="Force: Fled"
+            variant="secondary"
+            onPress={() => handleForceOutcome('fled')}
+            disabled={preparedStageIndex === null}
+            fullWidth={false}
+            style={styles.forceBtn}
+          />
+        </View>
+        <Text style={styles.hint}>
+          Synthesises a terminal report for the current stage without running combat. Returns you
+          to the Battle screen with the result card; tap Submit & Continue to apply normally.
+          Requires a prepared stage (start a run first).
         </Text>
       </View>
 
@@ -327,6 +389,8 @@ const styles = StyleSheet.create({
   toolBtnLabelDestructive: { color: '#fff' },
   toolBtnDescription: { fontSize: 11, color: '#d0e0d0', marginTop: 2 },
   hint: { fontSize: 11, color: '#7a8090', fontStyle: 'italic' },
+  forceRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  forceBtn: { flex: 1, minWidth: 96 },
   codeLabel: { fontSize: 10, color: '#7a8090', textTransform: 'uppercase', letterSpacing: 0.5 },
   code: {
     fontFamily: 'monospace',

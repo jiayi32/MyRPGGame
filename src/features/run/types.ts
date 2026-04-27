@@ -57,6 +57,14 @@ export interface SubmitStageOutcomeResponse {
   nextStage: number;
 }
 
+export interface BankCheckpointPayload {
+  runId: string;
+}
+
+export interface BankCheckpointResponse {
+  banked: RewardBundle;
+}
+
 export interface EndRunPayload {
   runId: string;
   finalResult: StageOutcomeResult;
@@ -72,6 +80,7 @@ export interface ProgressionDelta {
     xpScrolls: XpScrollPouch;
     ownedClassIds: string[];
     lineageRanks: Record<string, number>;
+    classRanks: Record<string, number>;
   };
   gearInstancesCreated: number;
 }
@@ -104,6 +113,7 @@ export interface PlayerSnapshot {
   xpScrolls: XpScrollPouch;
   ascensionCells: number;
   lineageRanks: Record<string, number>;
+  classRanks: Record<string, number>;
   ownedClassIds: string[];
   currentRunId: string | null;
 }
@@ -146,4 +156,42 @@ export interface DevSetCurrenciesResponse {
   goldBank: number;
   ascensionCells: number;
   xpScrolls: XpScrollPouch;
+}
+
+export interface ShopOffer {
+  templateId: string;
+  priceGold: number;
+}
+
+export interface GetShopOfferResponse {
+  offers: ShopOffer[];
+}
+
+export interface BuyGearPayload {
+  templateId: string;
+}
+
+export interface BuyGearResponse {
+  ok: boolean;
+  purchasedInstanceId: string;
+  templateId: string;
+  goldSpent: number;
+  player: PlayerSnapshot;
+}
+
+export interface UpgradeClassPayload {
+  classId: string;
+}
+
+export interface UpgradeClassResponse {
+  ok: boolean;
+  classId: string;
+  newRank: number;
+  costs: {
+    gold: number;
+    ascensionCells: number;
+    xpScrollKind: keyof XpScrollPouch;
+    xpScrollCost: number;
+  };
+  player: PlayerSnapshot;
 }

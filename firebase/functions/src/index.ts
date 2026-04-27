@@ -10,6 +10,9 @@ export { startRun } from './startRun';
 export { submitStageOutcome } from './submitStageOutcome';
 export { bankCheckpoint } from './bankCheckpoint';
 export { endRun } from './endRun';
+export { getShopOffer } from './getShopOffer';
+export { buyGear } from './buyGear';
+export { upgradeClass } from './upgradeClass';
 
 // Replay audit (background trigger; not user-callable)
 export { auditRunCompletion } from './auditReplay';

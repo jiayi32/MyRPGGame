@@ -6,6 +6,100 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed — Miss rates too high + vault rewards disappearing + ascensionCells accumulation (2026-04-27)
+
+Three coordinated balance and data persistence fixes addressing post-beta combat and progression feedback.
+
+#### Combat hit accuracy rebalanced (miss rates 45% → 10% at parity)
+
+**Root cause**: The d20 baseline hit threshold was too restrictive. At parity agility, a player had 45% miss rate on every attack, making the game feel clunky. Inspiration from Pokémon-style hit mechanics plus skill-level accuracy customization.
+
+- [src/domain/combat/d20.ts](src/domain/combat/d20.ts): lowered `DEFAULT_HIT_THRESHOLDS.failThreshold` from 9 to 2 (reducing miss from 45% to 10% at parity). Dynamic agility-based threshold now computes `failThreshold = clamp(2 + Math.floor(agilityDelta / 10), 1, strongThreshold - 1)` instead of the old `9 + ...` formula. Miss rate table with new formula:
+  - Parity (agility ±0): 2 → 10% miss
+  - Player advantage (e.g., T5 agi=40 vs enemy agi=30, delta=−10): 1 → 5% miss (clamped)
+  - Player disadvantage (e.g., agi=30 vs player agi=60, delta=+30): 5 → 25% miss
+- [src/content/types/skill.ts](src/content/types/skill.ts): added two optional Skill fields to let individual abilities override hit behavior:
+  - `neverMiss?: boolean` — when true, skill cannot miss regardless of agility (e.g., basic attacks)
+  - `accuracyBonus?: number` — adjusts hit threshold (positive = easier to hit, subtracts from failThreshold)
+- [src/domain/combat/factory.ts](src/domain/combat/factory.ts): `SYNTHETIC_BASIC_ATTACK` now has `neverMiss: true` so basic attacks are guaranteed to connect.
+- [src/domain/combat/step.ts](src/domain/combat/step.ts): in `castSkillInternal`, after computing `hitThresholds`, apply skill-level modifiers before `rollHit`:
+  ```typescript
+  const rawFail = skill.neverMiss ? 0 : Math.max(0, hitThresholds.failThreshold - (skill.accuracyBonus ?? 0));
+  const adjustedThresholds = { ...hitThresholds, failThreshold: rawFail };
+  const hit = rollHit(state.seed, state.rngCursor, adjustedThresholds);
+  ```
+- [src/components/AbilityDetailsModal.tsx](src/components/AbilityDetailsModal.tsx): damage preview now applies same `neverMiss`/`accuracyBonus` logic as the engine; when `failPct === 0`, shows "Guaranteed Hit" label instead of "Miss (0%)".
+- [src/domain/combat/__tests__/d20.test.ts](src/domain/combat/__tests__/d20.test.ts): updated all `computeHitThresholds` expected values to reflect the new baseline (e.g., parity case now has `failThreshold: 2` instead of `9`). All 9 tests pass.
+
+#### Vault rewards disappearing on run forfeit (messaging + checkpoint reinforcement)
+
+**Root cause**: When a player vaulted gear and then fled or lost the run, those items were lost silently. The banking system is working correctly; the issue was player communication and checkpoint incentive clarity.
+
+- [src/screens/RewardResolutionScreen.tsx](src/screens/RewardResolutionScreen.tsx): three UI changes to reinforce vault safety:
+  1. Gear names now resolved via `lookupGearTemplate` per item (replaces raw template ID join). Gear items display with resolved name and rarity badge. Fixed React key uniqueness error by using index-based keys (`key={`gear-${index}`}`) to handle duplicate gear template IDs in rewards arrays.
+  2. When `runOngoing === true` (run is still active) and `gearIds.length > 0`, show warning:
+     > ⚠ Gear is at risk — flee or defeat forfeits all vaulted gear. Bank at a checkpoint to keep it.
+  3. Checkpoint banking success card text updated to explicitly call out gear safety:
+     > Checkpoint banked! All vaulted rewards — including gear — are now safe.
+- [src/screens/RewardResolutionScreen.tsx](src/screens/RewardResolutionScreen.tsx): added `gearItem` and `gearAtRisk` style entries to `StyleSheet.create` for consistent typesetting.
+- No backend code change. Gear always vaults (0% goes to baseline per design decision); the UI now communicates this constraint more clearly.
+
+#### ascensionCells dropped at endRun settlement
+
+**Root cause**: [firebase/functions/src/endRun.ts](firebase/functions/src/endRun.ts) was computing `newAscensionCells` from `playerData.ascensionCells + progression.awardedAscensionCells` but **never adding `settledBank.ascensionCells`** (stage-earned cells from the just-completed run). Those cells were committed to the run doc and vault state but silently discarded during player-profile settlement.
+
+- [firebase/functions/src/endRun.ts](firebase/functions/src/endRun.ts): one-line fix:
+  ```typescript
+  // Before:
+  const newAscensionCells = playerData.ascensionCells + progression.awardedAscensionCells;
+  
+  // After:
+  const newAscensionCells = playerData.ascensionCells + settledBank.ascensionCells + progression.awardedAscensionCells;
+  ```
+- The `delta.playerTotals.ascensionCells` audit field now correctly derives from the fixed `newAscensionCells`.
+- **Requires redeploy** to production. Ran `firebase deploy --only functions` and confirmed all 14 functions updated successfully (exit code 0).
+
+### Verification
+
+- Client typecheck: clean.
+- Client tests: **103/103 pass** (17 suites). D20 tests updated and verified (9/9 pass).
+- Functions tests: **47/47 pass** (11 suites).
+- Firebase deploy: **complete** with all functions live on `myrpggame-c6f35`.
+- Manual testing: miss rates visibly lower at parity; basic attacks display "Guaranteed Hit"; vault at-risk warning appears during active runs; gear names resolve; checkpoint banking surfaces safety messaging.
+
+---
+
+### Fixed — Auto-play could not be turned off + force-outcome dev tool + test coverage gap (2026-04-27)
+
+Three coordinated changes addressing post-beta findings.
+
+#### Auto-play toggle could not be turned off
+
+**Root cause** was ergonomic, not functional: auto-play state was local React `useState` in BattleScreen, the toggle was a tiny `<Switch>` between two other tappable elements in a row that re-renders every 50–350 ms during auto-play, and `autoPlay` was never reset on stage advance — winning a stage carried the toggle into stage 2 silently.
+
+- [src/stores/combatStore.ts](src/stores/combatStore.ts): lifted `autoPlay: boolean` + `setAutoPlay(value)` into the store. `beginInteractive`, `tickAdvance` (terminal branch), `step` (terminal branch), `autoPlayToFinish`, `simulateStage`, and `clear` all now reset `autoPlay = false` so it never bleeds across stages or battles.
+- [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx): dropped local `autoPlay` state, subscribed via `useCombatStore`. Replaced the `<Switch>` with a full-width `<PrimaryButton>` whose label/colour mirrors state — `"Auto: OFF"` (secondary) when off, `"Auto: ON — Tap to Stop"` (destructive red) when on. Added a separate **AUTO-PLAY ACTIVE** banner strip directly below the stage banner that's also tappable to disable. Two independent ≥44-px hit targets vs the previous ~32-px Switch.
+
+#### Force-outcome dev tool
+
+The original Stage 4.5 spec listed "Force next stage outcome" but it was never built.
+
+- [src/stores/combatStore.ts](src/stores/combatStore.ts): new action `forceFinish(result: StageOutcomeResult)` that synthesises a terminal-state `StageSimulationReport` from the current `prepared` stage *without* running the engine — outcome = `result`, claimedRewards = full stage rewards (won) or empty (lost/fled), tickCount/elapsedSec = 0. Sets `status = 'finished'`, `report` populated. The existing battle-ended UI in BattleScreen takes over — user submits via the normal `submitStageOutcome` callable.
+- [src/screens/DevToolsScreen.tsx](src/screens/DevToolsScreen.tsx): new "Force outcome" section with three `<PrimaryButton>` options — `Force: Won` (secondary), `Force: Lost` (destructive), `Force: Fled` (secondary). Disabled when no `prepared` stage. After tapping, navigates back to the Battle screen so the user immediately sees the result card.
+- No server-side surface. Forced outcomes ride the normal `submitStageOutcome` payload with `tickCount = 0` and a coherent reward bundle; the audit trigger sees a plausible terminal record.
+
+#### Test coverage for dev callables and auth state transitions
+
+- New [firebase/functions/src/__tests__/dev.test.ts](firebase/functions/src/__tests__/dev.test.ts): 6 `node:test` cases covering `requireDevTools` — both flags unset, ALLOW_DEV_TOOLS set to non-`"true"` value, ALLOW_DEV_TOOLS exactly `"true"`, FUNCTIONS_EMULATOR exactly `"true"`, both set, and case-sensitivity (`"TRUE"` rejected). The four dev callables' transactional behavior remains exercised end-to-end by the existing emulator smoke. Backend total: 41 → **47**.
+- Extended [src/__tests__/smoke.test.ts](src/__tests__/smoke.test.ts) with `playerStore auth lifecycle` describe block — 5 jest cases covering: initial idle status, bootstrap → awaiting_sign_in when no user, signIn success → ready with profile loaded, signIn failure → awaiting_sign_in with error surfaced, signOutAndReset → awaiting_sign_in with state cleared. Mocks the auth + firebase + runApi service modules. Client total: 95 → **100**.
+
+### Verification
+
+- Client typecheck clean.
+- Client tests: **100/100 pass** (17 suites).
+- Functions tests: **47/47 pass** (11 suites).
+- Manual on Android emulator: tap Auto: OFF → button flips to red `Auto: ON — Tap to Stop` and the AUTO-PLAY ACTIVE strip appears; tap either to disable. Win a stage with auto on → next stage auto-resets to OFF. From DevToolsScreen, "Force: Won" jumps to the Battle screen with the WIN result card immediately visible.
+
 ### Changed — Beta usability pass: pacing, button visuals, ability descriptions (2026-04-27)
 
 - **Auto-battle pacing**: the auto-play toggle previously called `combatStore.autoPlayToFinish` synchronously, which ran the entire engine to terminal in microseconds with no visible animations. [src/screens/BattleScreen.tsx](src/screens/BattleScreen.tsx) now extends the existing AI-tick `useEffect` with a "player ready + auto-play on" branch that issues a basic-attack on a 350 ms timer (slightly slower than the 250 ms enemy AI to preserve readability). Auto-play now plays *visibly* through the same animation pipeline as manual combat. Removed the unused `handleAutoPlay` and the unused `autoPlayToFinish` selector.

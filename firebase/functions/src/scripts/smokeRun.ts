@@ -298,7 +298,12 @@ async function main(): Promise<void> {
         awardedAscensionCells: number;
         lineageRankDelta: number;
         newlyUnlockedClassIds: string[];
-        playerTotals: { goldBank: number; ascensionCells: number; lineageRanks: Record<string, number> };
+        playerTotals: {
+          goldBank: number;
+          ascensionCells: number;
+          lineageRanks: Record<string, number>;
+          classRanks: Record<string, number>;
+        };
       };
     }
   >(

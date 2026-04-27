@@ -108,6 +108,38 @@ const ROLES: readonly GearRole[] = ['tank', 'dps', 'support', 'hybrid', 'control
 const SLOTS: readonly GearSlot[] = ['weapon', 'armor', 'accessory'];
 const T1_4_TIERS: readonly Exclude<GearTier, 5>[] = [1, 2, 3, 4];
 
+const ROLE_BASE: Readonly<Record<GearRole, Record<string, number>>> = {
+  tank: { strength: 2, constitution: 5, intellect: 1, dexterity: 1 },
+  dps: { strength: 5, constitution: 2, intellect: 1, dexterity: 3 },
+  support: { strength: 1, constitution: 2, intellect: 5, dexterity: 2 },
+  hybrid: { strength: 3, constitution: 3, intellect: 3, dexterity: 3 },
+  control: { strength: 2, constitution: 2, intellect: 4, dexterity: 4 },
+};
+
+const SLOT_MULT: Readonly<Record<GearSlot, number>> = {
+  weapon: 1.2,
+  armor: 1.1,
+  accessory: 0.9,
+};
+
+const round = (value: number): number => Math.max(1, Math.round(value));
+
+function templateStats(role: GearRole, tier: Exclude<GearTier, 5>, slot: GearSlot): Record<string, number> {
+  const roleBase = ROLE_BASE[role];
+  const tierScale = 1 + (tier - 1) * 0.55;
+  const slotScale = SLOT_MULT[slot];
+  const strength = roleBase['strength'] ?? 0;
+  const intellect = roleBase['intellect'] ?? 0;
+  const constitution = roleBase['constitution'] ?? 0;
+  const dexterity = roleBase['dexterity'] ?? 0;
+  return {
+    strength: round(strength * tierScale * slotScale),
+    intellect: round(intellect * tierScale * slotScale),
+    constitution: round(constitution * tierScale * slotScale),
+    dexterity: round(dexterity * tierScale * slotScale),
+  };
+}
+
 function makeTemplate(role: GearRole, tier: Exclude<GearTier, 5>, slot: GearSlot): GearTemplate {
   return {
     id: `${role}.t${tier}.${slot}`,
@@ -115,7 +147,7 @@ function makeTemplate(role: GearRole, tier: Exclude<GearTier, 5>, slot: GearSlot
     role,
     slot,
     description: `Procedural template: ${role} ${slot} at tier ${tier}.`,
-    baseStatsHint: UNSPECIFIED,
+    baseStatsHint: templateStats(role, tier, slot),
     passives: [],
     triggers: [],
   };

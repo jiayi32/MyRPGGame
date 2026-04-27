@@ -34,6 +34,7 @@ interface PlayerStoreState {
   xpScrolls: XpScrollPouch;
   ascensionCells: number;
   lineageRanks: Record<string, number>;
+  classRanks: Record<string, number>;
   ownedClassIds: string[];
   currentRunId: string | null;
   /**
@@ -49,6 +50,7 @@ interface PlayerStoreState {
   /** Sign out and reset local state. */
   signOutAndReset: () => Promise<void>;
   refresh: () => Promise<PlayerSnapshot>;
+  applyPlayerSnapshot: (snapshot: PlayerSnapshot) => void;
   applyEndRunDelta: (delta: ProgressionDelta, currentRunId: string | null) => void;
   reset: () => void;
 }
@@ -65,19 +67,28 @@ const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => 
   xpScrolls: cloneXpScrolls(snap.xpScrolls),
   ascensionCells: snap.ascensionCells,
   lineageRanks: { ...snap.lineageRanks },
+  classRanks: { ...snap.classRanks },
   ownedClassIds: [...snap.ownedClassIds],
   currentRunId: snap.currentRunId,
 });
 
 const EMPTY_STATE: Pick<
   PlayerStoreState,
-  'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'lineageRanks' | 'ownedClassIds' | 'currentRunId'
+  | 'uid'
+  | 'goldBank'
+  | 'xpScrolls'
+  | 'ascensionCells'
+  | 'lineageRanks'
+  | 'classRanks'
+  | 'ownedClassIds'
+  | 'currentRunId'
 > = {
   uid: null,
   goldBank: 0,
   xpScrolls: cloneXpScrolls(EMPTY_XP_SCROLLS),
   ascensionCells: 0,
   lineageRanks: {},
+  classRanks: {},
   ownedClassIds: [],
   currentRunId: null,
 };
@@ -170,6 +181,10 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
     return snap;
   },
 
+  applyPlayerSnapshot: (snapshot) => {
+    set({ ...applyPlayerToState(snapshot), status: 'ready', error: null });
+  },
+
   applyEndRunDelta: (delta, currentRunId) => {
     const totals = delta.playerTotals;
     set({
@@ -177,6 +192,7 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
       xpScrolls: cloneXpScrolls(totals.xpScrolls),
       ascensionCells: totals.ascensionCells,
       lineageRanks: { ...totals.lineageRanks },
+      classRanks: { ...totals.classRanks },
       ownedClassIds: [...totals.ownedClassIds],
       currentRunId,
     });

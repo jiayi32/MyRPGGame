@@ -3,11 +3,12 @@ import {
   type Skill,
   type SkillId,
 } from '../../content/types';
-import { rollHit, type HitRoll } from './d20';
+import { computeHitThresholds, rollHit, type HitRoll } from './d20';
 import { applySkillEffects } from './effects';
 import { resolveSkillOrSynthetic, SYNTHETIC_BASIC_ATTACK_ID } from './factory';
 import { sortedTurnOrder } from './queue';
 import { appendLog, patchUnit } from './stateUtils';
+import { effectiveStats } from './stats';
 import { canCast, resolveTargets } from './validate';
 import type {
   Action,
@@ -101,8 +102,29 @@ const castSkillInternal = (
   const validation = canCast(state, caster, skill, requestedTargetIds);
   if (!validation.ok) return fail(state, validation.reason);
 
+  const resolvedTargets = resolveTargets(state, caster, skill, requestedTargetIds);
+  const comparisonTarget = resolvedTargets
+    .map((id) => state.units[id])
+    .find((unit): unit is Unit => unit !== undefined && !unit.isDead);
+  const casterStats = effectiveStats(caster);
+  const targetStats = comparisonTarget !== undefined ? effectiveStats(comparisonTarget) : null;
+  const hitThresholds =
+    targetStats === null
+      ? computeHitThresholds(casterStats.agility, casterStats.agility, casterStats.critChance)
+      : computeHitThresholds(
+          casterStats.agility,
+          targetStats.agility,
+          casterStats.critChance,
+        );
+
+  // Apply per-skill accuracy modifiers before rolling.
+  const rawFail = skill.neverMiss
+    ? 0
+    : Math.max(0, hitThresholds.failThreshold - (skill.accuracyBonus ?? 0));
+  const adjustedThresholds: typeof hitThresholds = { ...hitThresholds, failThreshold: rawFail };
+
   const tick = state.tick + 1;
-  const hit: HitRoll = rollHit(state.seed, state.rngCursor);
+  const hit: HitRoll = rollHit(state.seed, state.rngCursor, adjustedThresholds);
   let cursor = hit.nextCursor;
 
   let next = payResourceCosts(state, caster, validation.mpCost, validation.hpCost);
@@ -110,8 +132,6 @@ const castSkillInternal = (
   next = chargeCt(next, casterAfterCost, validation.ctCost);
   const casterAfterCt = next.units[caster.id] ?? caster;
   next = setCooldown(next, casterAfterCt, skill);
-
-  const resolvedTargets = resolveTargets(next, casterAfterCt, skill, requestedTargetIds);
 
   next = appendLog(next, [
     {

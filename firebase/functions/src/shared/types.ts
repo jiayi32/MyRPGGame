@@ -76,6 +76,8 @@ export interface PlayerDoc {
   ascensionCells: number;
   /** Per-lineage rank, 0..10, +1 per completed run (won/lost). */
   lineageRanks: Record<string, number>;
+  /** Per-class mastery rank, 0..10, spent from currencies via upgradeClass. */
+  classRanks: Record<string, number>;
   /** Class IDs the player has unlocked. New profiles start with the canonical T5 starter. */
   ownedClassIds: string[];
   /** ID of an in-progress run, or null. Set by startRun, cleared by endRun. */
@@ -161,6 +163,7 @@ export interface ProgressionDelta {
     xpScrolls: XpScrollPouch;
     ownedClassIds: string[];
     lineageRanks: Record<string, number>;
+    classRanks: Record<string, number>;
   };
   /** Number of gear instance docs the server created in this settle. */
   gearInstancesCreated: number;
@@ -170,6 +173,50 @@ export interface EndRunResponse {
   settled: boolean;
   bankedRewards: RewardBundle;
   progression: ProgressionDelta;
+}
+
+export interface ShopOffer {
+  templateId: string;
+  priceGold: number;
+}
+
+export interface GetShopOfferPayload {
+  // Empty.
+}
+
+export interface GetShopOfferResponse {
+  offers: ShopOffer[];
+}
+
+export interface BuyGearPayload {
+  templateId: string;
+}
+
+export interface BuyGearResponse {
+  ok: boolean;
+  purchasedInstanceId: string;
+  templateId: string;
+  goldSpent: number;
+  player: Pick<PlayerDoc, 'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'lineageRanks' | 'classRanks' | 'ownedClassIds' | 'currentRunId'>;
+}
+
+export type XpScrollKind = keyof XpScrollPouch;
+
+export interface UpgradeClassPayload {
+  classId: string;
+}
+
+export interface UpgradeClassResponse {
+  ok: boolean;
+  classId: string;
+  newRank: number;
+  costs: {
+    gold: number;
+    ascensionCells: number;
+    xpScrollKind: XpScrollKind;
+    xpScrollCost: number;
+  };
+  player: Pick<PlayerDoc, 'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'lineageRanks' | 'classRanks' | 'ownedClassIds' | 'currentRunId'>;
 }
 
 // ---------------------------------------------------------------------------

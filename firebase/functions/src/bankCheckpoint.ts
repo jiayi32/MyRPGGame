@@ -2,11 +2,11 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import {
+  CHECKPOINT_STAGES,
   requireAuth,
   requireDoc,
   requireOwnership,
   requireOngoing,
-  requireCheckpointStage,
   requirePayloadSize,
   requireRateLimit,
 } from './shared/guards';
@@ -35,7 +35,14 @@ export const bankCheckpoint = onCall<BankCheckpointPayload, Promise<BankCheckpoi
 
       requireOwnership(runData, uid);
       requireOngoing(runData);
-      requireCheckpointStage(runData);
+
+      const checkpointStage = runData.stage - 1;
+      if (!CHECKPOINT_STAGES.has(checkpointStage)) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Checkpoint banking is only allowed after stages 10, 20, or 30 (current stage cursor: ${runData.stage}).`,
+        );
+      }
 
       const { banked, vaulted } = mergeVaultIntoBank(runData.bankedRewards, runData.vaultedRewards);
 

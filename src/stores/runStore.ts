@@ -3,6 +3,7 @@ import type { ClassId } from '@/content';
 import { CLASS_BY_ID } from '@/content';
 import { findSameLineageEvolutionTarget } from '@/domain/run/progression';
 import {
+  bankCheckpoint as bankCheckpointApi,
   endRun as endRunApi,
   formatCallableError,
   getRunSnapshot,
@@ -19,6 +20,8 @@ import {
   type SubmitStageOutcomeResponse,
 } from '@/features/run/types';
 import { usePlayerStore } from './playerStore';
+
+const CHECKPOINT_STAGES = new Set([10, 20, 30]);
 
 export type RunStoreStatus =
   | 'idle'
@@ -50,9 +53,13 @@ interface RunStoreState {
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
   lastSubmittedResult: StageOutcomeResult | null;
+  pendingCheckpointStage: number | null;
+  checkpointBankError: string | null;
+  lastCheckpointBankedStage: number | null;
   bootstrap: () => Promise<void>;
   startRun: (activeClassId: ClassId) => Promise<void>;
   submitStageOutcome: (input: SubmitOutcomeInput) => Promise<SubmitStageOutcomeResponse>;
+  retryCheckpointBanking: () => Promise<void>;
   endRun: (finalResult: StageOutcomeResult) => Promise<EndRunResponse>;
   refreshRunSnapshot: () => Promise<RunSnapshot>;
   resetRun: () => void;
@@ -98,6 +105,9 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
   vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
   lastSubmittedResult: null,
+  pendingCheckpointStage: null,
+  checkpointBankError: null,
+  lastCheckpointBankedStage: null,
 
   bootstrap: async () => {
     if (get().status !== 'idle' && get().status !== 'error') {
@@ -157,6 +167,7 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       });
       const snapshot = await getRunSnapshot(response.runId);
       applySnapshot(set, snapshot);
+      set({ pendingCheckpointStage: null, checkpointBankError: null, lastCheckpointBankedStage: null });
     } catch (error) {
       set({ status: 'error', error: formatCallableError(error) });
       throw error;
@@ -182,10 +193,57 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
 
       const snapshot = await getRunSnapshot(runId);
       applySnapshot(set, snapshot);
+
+      const shouldBankCheckpoint =
+        input.result === 'won' && CHECKPOINT_STAGES.has(input.stageIndex);
+
+      if (shouldBankCheckpoint) {
+        try {
+          await bankCheckpointApi({ runId });
+          const afterBank = await getRunSnapshot(runId);
+          applySnapshot(set, afterBank);
+          set({
+            lastCheckpointBankedStage: input.stageIndex,
+            pendingCheckpointStage: null,
+            checkpointBankError: null,
+          });
+        } catch (bankError) {
+          set({
+            pendingCheckpointStage: input.stageIndex,
+            checkpointBankError: formatCallableError(bankError),
+          });
+        }
+      } else {
+        set({ pendingCheckpointStage: null, checkpointBankError: null });
+      }
+
       set({ lastSubmittedResult: input.result });
       return response;
     } catch (error) {
       set({ status: 'error', error: formatCallableError(error) });
+      throw error;
+    }
+  },
+
+  retryCheckpointBanking: async () => {
+    const runId = get().runId;
+    const pendingStage = get().pendingCheckpointStage;
+    if (runId === null || pendingStage === null) {
+      return;
+    }
+
+    set({ checkpointBankError: null });
+    try {
+      await bankCheckpointApi({ runId });
+      const snapshot = await getRunSnapshot(runId);
+      applySnapshot(set, snapshot);
+      set({
+        lastCheckpointBankedStage: pendingStage,
+        pendingCheckpointStage: null,
+        checkpointBankError: null,
+      });
+    } catch (error) {
+      set({ checkpointBankError: formatCallableError(error) });
       throw error;
     }
   },
@@ -243,6 +301,9 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
       vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
       lastSubmittedResult: null,
+      pendingCheckpointStage: null,
+      checkpointBankError: null,
+      lastCheckpointBankedStage: null,
     });
   },
 }));

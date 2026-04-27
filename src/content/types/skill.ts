@@ -100,4 +100,8 @@ export interface Skill {
   target: SkillTarget;
   tags: SkillTag[];
   effects: SkillEffect[];
+  /** When true, this skill never misses regardless of agility differential. */
+  neverMiss?: boolean;
+  /** Adjusts hit threshold: positive = easier to hit (subtracts from failThreshold), negative = harder. */
+  accuracyBonus?: number;
 }

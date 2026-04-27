@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { useRunStore } from '@/stores';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'RunMap'>;
+type Props = NativeStackScreenProps<HomeStackParamList, 'RunMap'>;
 
 const TOTAL_STAGES = 30;
 

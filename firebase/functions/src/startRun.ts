@@ -52,6 +52,7 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
           xpScrolls: { ...EMPTY_XP_SCROLLS },
           ascensionCells: 0,
           lineageRanks: {},
+          classRanks: {},
           ownedClassIds: [STARTER_CLASS_ID],
           currentRunId: null,
           createdAt: now,

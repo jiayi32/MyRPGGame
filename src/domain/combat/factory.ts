@@ -30,6 +30,7 @@ export const SYNTHETIC_BASIC_ATTACK: Skill = {
   resource: { type: 'none', cost: 0 },
   target: 'single',
   tags: ['physical', 'single-target'],
+  neverMiss: true,
   effects: [
     {
       kind: 'damage',
@@ -56,12 +57,16 @@ export interface PlayerUnitOptions {
   readonly instanceId: string;
   readonly team?: Team;
   readonly insertionIndex?: number;
+  readonly classRank?: number;
+  readonly statOverlays?: Partial<ResolvedStats>;
 }
 
 export const buildPlayerUnit = (
   classData: ClassData,
   opts: PlayerUnitOptions,
 ): Unit => {
+  const classRank = Math.max(0, Math.trunc(opts.classRank ?? 0));
+  const passiveScale = 1 + classRank * 0.02;
   const baseline = CLASS_TIER_BASELINE[classData.tier];
   const overlays: Partial<ResolvedStats> = { ...baseline };
 
@@ -74,11 +79,34 @@ export const buildPlayerUnit = (
     const baselineValue =
       tag in baseline ? (baseline as Record<string, number>)[tag] ?? 0 : 0;
     const delta =
-      unit === 'flat' ? passive.magnitude : baselineValue * passive.magnitude;
+      unit === 'flat'
+        ? passive.magnitude * passiveScale
+        : baselineValue * passive.magnitude * passiveScale;
     const key = tag as keyof ResolvedStats;
     if (key === 'resistances') continue;
     const prior = (overlays as Record<string, number>)[key] ?? baselineValue;
     (overlays as Record<string, number>)[key] = prior + delta;
+  }
+
+  if (opts.statOverlays !== undefined) {
+    const keys: ReadonlyArray<keyof Omit<ResolvedStats, 'resistances'>> = [
+      'strength',
+      'intellect',
+      'agility',
+      'stamina',
+      'defense',
+      'magicDefense',
+      'speed',
+      'critChance',
+      'critMultiplier',
+      'ctReductionPct',
+    ];
+    for (const key of keys) {
+      const bonus = opts.statOverlays[key] ?? 0;
+      if (bonus === 0) continue;
+      const prior = (overlays as Record<string, number>)[key] ?? 0;
+      (overlays as Record<string, number>)[key] = prior + bonus;
+    }
   }
 
   const stats = makeBaseStats(overlays);

@@ -82,7 +82,7 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
         standard: playerData.xpScrolls.standard + settledBank.xpScrollStandard,
         grand: playerData.xpScrolls.grand + settledBank.xpScrollGrand,
       };
-      const newAscensionCells = playerData.ascensionCells + progression.awardedAscensionCells;
+      const newAscensionCells = playerData.ascensionCells + settledBank.ascensionCells + progression.awardedAscensionCells;
       const newLineageRanks = {
         ...playerData.lineageRanks,
         [runData.activeLineageId]: progression.newRank,
@@ -90,6 +90,7 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
       const newOwnedClassIds = progression.newlyUnlockedClassIds.length > 0
         ? [...playerData.ownedClassIds, ...progression.newlyUnlockedClassIds]
         : playerData.ownedClassIds;
+      const existingClassRanks = playerData.classRanks ?? {};
 
       // Create one gear instance doc per gearId in the settled bank.
       const gearCollection = playerRef.collection('gear');
@@ -137,6 +138,7 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
           xpScrolls: newXpScrolls,
           ownedClassIds: newOwnedClassIds,
           lineageRanks: newLineageRanks,
+          classRanks: existingClassRanks,
         },
         gearInstancesCreated,
       };

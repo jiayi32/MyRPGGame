@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  BackHandler,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useShallow } from 'zustand/react/shallow';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { AbilityDetailsModal } from '@/components/AbilityDetailsModal';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
 import type { ClassId, SkillId } from '@/content/types';
 import { canCast, type InstanceId, type Unit, SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
@@ -22,12 +23,13 @@ import {
   selectReadyUnitId,
   useCombatStore,
 } from '@/stores/combatStore';
-import { useRunStore } from '@/stores';
+import { usePlayerStore, useRunStore } from '@/stores';
 import { AnimatedHpBar } from '@/components/AnimatedHpBar';
 import { DamagePopupOverlay } from '@/components/DamagePopup';
 import { CastPulse } from '@/components/CastPulse';
+import { useGearInventory } from '@/hooks/useGearInventory';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Battle'>;
+type Props = NativeStackScreenProps<HomeStackParamList, 'Battle'>;
 
 type StageType = 'normal' | 'mini_boss' | 'gate' | 'counter';
 
@@ -260,12 +262,16 @@ export function BattleScreen({ navigation }: Props) {
   const runError = useRunStore((state) => state.error);
   const submitStageOutcome = useRunStore((state) => state.submitStageOutcome);
   const endRunAction = useRunStore((state) => state.endRun);
+  const classRanks = usePlayerStore((state) => state.classRanks);
+  const { equippedBySlot } = useGearInventory();
 
   const combatStatus = useCombatStore((state) => state.status);
   const combatError = useCombatStore((state) => state.error);
   const report = useCombatStore((state) => state.report);
   const engineState = useCombatStore((state) => state.engine?.state ?? null);
   const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
+  const autoPlay = useCombatStore((state) => state.autoPlay);
+  const setAutoPlay = useCombatStore((state) => state.setAutoPlay);
   const beginInteractive = useCombatStore((state) => state.beginInteractive);
   const tickAdvance = useCombatStore((state) => state.tickAdvance);
   const stepCombat = useCombatStore((state) => state.step);
@@ -277,19 +283,34 @@ export function BattleScreen({ navigation }: Props) {
   const enemies = useCombatStore(useShallow(selectAliveEnemies));
   const readyUnitId = useCombatStore(selectReadyUnitId);
 
-  const [autoPlay, setAutoPlay] = useState(false);
   const [targetId, setTargetId] = useState<InstanceId | null>(null);
   const [lastReason, setLastReason] = useState<string | null>(null);
   const [detailsSkillId, setDetailsSkillId] = useState<SkillId | null>(null);
 
   const stageType: StageType = stage !== null ? (STAGE_TYPES[stage] ?? 'normal') : 'normal';
   const classData = activeClassId ? CLASS_BY_ID.get(activeClassId as ClassId) : null;
+  const classRank =
+    activeClassId !== null ? Math.max(0, Math.trunc(classRanks[activeClassId] ?? 0)) : 0;
+  const equippedGearTemplateIds = useMemo(
+    () =>
+      [
+        equippedBySlot.weapon?.templateId,
+        equippedBySlot.armor?.templateId,
+        equippedBySlot.accessory?.templateId,
+      ].filter((id): id is string => typeof id === 'string' && id.length > 0),
+    [equippedBySlot.accessory?.templateId, equippedBySlot.armor?.templateId, equippedBySlot.weapon?.templateId],
+  );
   const battleEnded = engineState !== null && engineState.result !== 'ongoing';
   const playerReady = player !== null && readyUnitId === player.id;
 
+  useFocusEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  });
+
   // Bounce out if there's no active run.
   useEffect(() => {
-    if (runId === null) navigation.replace('MainTabs');
+    if (runId === null) navigation.replace('Hub');
   }, [navigation, runId]);
 
   // Auto-prepare a fresh battle when the screen mounts or when the stage advances.
@@ -305,9 +326,25 @@ export function BattleScreen({ navigation }: Props) {
     const needsFreshSetup =
       combatStatus === 'idle' || (combatStatus === 'finished' && preparedStageIndex !== stage);
     if (needsFreshSetup) {
-      beginInteractive({ seed, stageIndex: stage, activeClassId: activeClassId as ClassId });
+      beginInteractive({
+        seed,
+        stageIndex: stage,
+        activeClassId: activeClassId as ClassId,
+        classRank,
+        equippedGearTemplateIds,
+      });
     }
-  }, [activeClassId, beginInteractive, combatStatus, preparedStageIndex, runId, seed, stage]);
+  }, [
+    activeClassId,
+    beginInteractive,
+    classRank,
+    combatStatus,
+    equippedGearTemplateIds,
+    preparedStageIndex,
+    runId,
+    seed,
+    stage,
+  ]);
 
   // Auto-default targeting to the first alive enemy.
   useEffect(() => {
@@ -355,7 +392,7 @@ export function BattleScreen({ navigation }: Props) {
         hpRemaining: report.hpRemaining,
         elapsedSeconds: report.elapsedSeconds,
       });
-      navigation.navigate('RewardResolution');
+      navigation.replace('RewardResolution');
     } catch {
       // Surfaced by run store.
     }
@@ -375,7 +412,7 @@ export function BattleScreen({ navigation }: Props) {
               try {
                 await endRunAction('fled');
                 clearCombat();
-                navigation.replace('MainTabs');
+                navigation.replace('Hub');
               } catch {
                 // Surfaced by run store.
               }
@@ -410,6 +447,11 @@ export function BattleScreen({ navigation }: Props) {
     return [...basics, ...player.skillIds];
   }, [player]);
 
+  const selectedTarget = useMemo(() => {
+    if (targetId === null) return null;
+    return enemies.find((enemy) => enemy.id === targetId) ?? null;
+  }, [enemies, targetId]);
+
   return (
     <>
     <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
@@ -420,15 +462,27 @@ export function BattleScreen({ navigation }: Props) {
             <View style={[styles.stageTypeBadge, { backgroundColor: STAGE_TYPE_COLORS[stageType] }]}>
               <Text style={styles.stageTypeBadgeText}>{STAGE_TYPE_LABELS[stageType]}</Text>
             </View>
-            <View style={styles.autoPlayToggle}>
-              <Text style={styles.autoPlayLabel}>Auto-play</Text>
-              <Switch value={autoPlay} onValueChange={setAutoPlay} />
-            </View>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('RunMap')} style={styles.mapLink}>
-            <Text style={styles.mapLinkText}>View Map →</Text>
-          </TouchableOpacity>
+          <View style={styles.stageBannerActionsRow}>
+            <PrimaryButton
+              title={autoPlay ? 'Auto: ON — Tap to Stop' : 'Auto: OFF'}
+              variant={autoPlay ? 'destructive' : 'secondary'}
+              onPress={() => setAutoPlay(!autoPlay)}
+              fullWidth={false}
+              style={styles.autoPlayBtn}
+            />
+            <TouchableOpacity onPress={() => navigation.navigate('RunMap')} style={styles.mapLink}>
+              <Text style={styles.mapLinkText}>View Map →</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+      )}
+
+      {/* AUTO PLAYING strip — extra-large tap target while auto is on, also disables */}
+      {autoPlay && !battleEnded && (
+        <TouchableOpacity onPress={() => setAutoPlay(false)} style={styles.autoActiveStrip}>
+          <Text style={styles.autoActiveStripText}>⚡ AUTO-PLAY ACTIVE — tap to stop</Text>
+        </TouchableOpacity>
       )}
 
       {/* Event log */}
@@ -588,6 +642,8 @@ export function BattleScreen({ navigation }: Props) {
 
     <AbilityDetailsModal
       skillId={detailsSkillId}
+      caster={player}
+      target={selectedTarget}
       onClose={() => setDetailsSkillId(null)}
     />
     </>
@@ -607,6 +663,23 @@ const styles = StyleSheet.create({
   stageNum: { fontSize: 18, fontWeight: '800' },
   stageTypeBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   stageTypeBadgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+  stageBannerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+  },
+  autoPlayBtn: { flex: 1 },
+  autoActiveStrip: {
+    backgroundColor: '#a04040',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  autoActiveStripText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  // Legacy Switch styles kept for layout reference; no longer rendered.
   autoPlayToggle: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
   autoPlayLabel: { fontSize: 11, color: '#4a3a28' },
   mapLink: { alignSelf: 'flex-end' },

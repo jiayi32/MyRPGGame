@@ -7,14 +7,46 @@ import {
   View,
 } from 'react-native';
 import { SKILL_BY_ID } from '@/content';
-import { isSpecified, type Skill, type SkillEffect, type SkillId } from '@/content/types';
-import { SYNTHETIC_BASIC_ATTACK } from '@/domain/combat';
+import { isSpecified, type DamageType, type Skill, type SkillEffect, type SkillId } from '@/content/types';
+import {
+  computeHitThresholds,
+  SEVERITY_CRIT_MAX,
+  SEVERITY_CRIT_MIN,
+  SEVERITY_NORMAL,
+  SEVERITY_STRONG,
+  SYNTHETIC_BASIC_ATTACK,
+  applyResistance,
+  defenseFor,
+  effectiveStats,
+  mitigate,
+  resistanceFor,
+  type Unit,
+} from '@/domain/combat';
 
 interface AbilityDetailsModalProps {
   /** SkillId to show details for, or null when modal is hidden. */
   skillId: SkillId | null;
+  /** Current caster (player) for stat-aware previews. */
+  caster: Unit | null;
+  /** Current selected target for enemy-defense-aware previews. */
+  target: Unit | null;
   onClose: () => void;
 }
+
+type DamagePreview =
+  | { kind: 'needs_target' }
+  | { kind: 'no_damage' }
+  | {
+      kind: 'range';
+      failPct: number;
+      normalPct: number;
+      strongPct: number;
+      critPct: number;
+      normalHit: number;
+      strongHit: number;
+      critMin: number;
+      critMax: number;
+    };
 
 /** Resolve the skill record for display, including the synthetic basic attack fallback. */
 function resolveSkill(skillId: SkillId): Skill | undefined {
@@ -80,9 +112,98 @@ function describeCooldown(skill: Skill): string {
   return `${skill.cooldownSec}s`;
 }
 
-export function AbilityDetailsModal({ skillId, onClose }: AbilityDetailsModalProps) {
+function computePowerBase(
+  caster: Unit,
+  magnitude: number,
+  magnitudeUnit: SkillEffect['magnitudeUnit'],
+  damageType: DamageType,
+  target: Unit,
+): number {
+  const casterStats = effectiveStats(caster);
+  switch (magnitudeUnit) {
+    case 'flat':
+      return magnitude;
+    case 'max_hp_percent':
+      return target.hpMax * magnitude;
+    case 'hp_percent':
+      return target.hp * magnitude;
+    case 'mp_percent':
+      return target.mp * magnitude;
+    case 'percent':
+    case 'multiplier':
+    default: {
+      const power = damageType === 'physical' ? casterStats.strength : casterStats.intellect;
+      return power * magnitude;
+    }
+  }
+}
+
+function damagePreviewForSkill(
+  skill: Skill,
+  caster: Unit | null,
+  target: Unit | null,
+): DamagePreview {
+  if (caster === null || target === null) {
+    return { kind: 'needs_target' };
+  }
+
+  const targetStats = effectiveStats(target);
+  let baseResisted = 0;
+  let foundDamageEffect = false;
+
+  for (const effect of skill.effects) {
+    if (effect.kind !== 'damage') continue;
+    if (effect.magnitude === undefined || !isSpecified(effect.magnitude)) continue;
+
+    foundDamageEffect = true;
+    const damageType = effect.damageType ?? 'physical';
+    const raw = computePowerBase(
+      caster,
+      effect.magnitude,
+      effect.magnitudeUnit,
+      damageType,
+      target,
+    );
+    const mitigated = mitigate(raw, defenseFor(targetStats, damageType));
+    const resisted = applyResistance(mitigated, resistanceFor(targetStats, damageType));
+    baseResisted += Math.max(0, resisted);
+  }
+
+  if (!foundDamageEffect) {
+    return { kind: 'no_damage' };
+  }
+
+  const casterStats = effectiveStats(caster);
+  const hitThresholds = computeHitThresholds(
+    casterStats.agility,
+    targetStats.agility,
+    casterStats.critChance,
+  );
+  const rawFail = skill.neverMiss
+    ? 0
+    : Math.max(0, hitThresholds.failThreshold - (skill.accuracyBonus ?? 0));
+  const failPct = rawFail * 5;
+  const critPct = (21 - hitThresholds.critThreshold) * 5;
+  const strongPct = (hitThresholds.critThreshold - hitThresholds.strongThreshold) * 5;
+  const normalPct = Math.max(0, 100 - failPct - strongPct - critPct);
+
+  return {
+    kind: 'range',
+    failPct,
+    normalPct,
+    strongPct,
+    critPct,
+    normalHit: Math.max(0, Math.round(baseResisted * SEVERITY_NORMAL)),
+    strongHit: Math.max(0, Math.round(baseResisted * SEVERITY_STRONG)),
+    critMin: Math.max(0, Math.round(baseResisted * SEVERITY_CRIT_MIN)),
+    critMax: Math.max(0, Math.round(baseResisted * SEVERITY_CRIT_MAX)),
+  };
+}
+
+export function AbilityDetailsModal({ skillId, caster, target, onClose }: AbilityDetailsModalProps) {
   const visible = skillId !== null;
   const skill = skillId !== null ? resolveSkill(skillId) : undefined;
+  const damagePreview = skill !== undefined ? damagePreviewForSkill(skill, caster, target) : null;
 
   return (
     <Modal
@@ -120,6 +241,43 @@ export function AbilityDetailsModal({ skillId, onClose }: AbilityDetailsModalPro
                   <Text style={styles.statLabel}>Target</Text>
                   <Text style={styles.statValue}>{skill.target}</Text>
                 </View>
+              </View>
+
+              <View style={styles.damageRangeCard}>
+                <Text style={styles.damageRangeTitle}>Damage Preview</Text>
+                {damagePreview?.kind === 'needs_target' && (
+                  <Text style={styles.damageRangeText}>Select an enemy target to preview damage.</Text>
+                )}
+                {damagePreview?.kind === 'no_damage' && (
+                  <Text style={styles.damageRangeText}>No direct damage effects.</Text>
+                )}
+                {damagePreview?.kind === 'range' && (
+                  <>
+                    <View style={styles.damageRow}>
+                      <Text style={styles.damageTierLabel}>
+                        {damagePreview.failPct === 0 ? 'Guaranteed Hit' : `Miss (${damagePreview.failPct}%)`}
+                      </Text>
+                      <Text style={styles.damageTierValue}>{damagePreview.failPct === 0 ? '—' : '0'}</Text>
+                    </View>
+                    <View style={styles.damageRow}>
+                      <Text style={styles.damageTierLabel}>Hit ({damagePreview.normalPct}%)</Text>
+                      <Text style={styles.damageTierValue}>{damagePreview.normalHit}</Text>
+                    </View>
+                    <View style={styles.damageRow}>
+                      <Text style={styles.damageTierLabel}>Strong ({damagePreview.strongPct}%)</Text>
+                      <Text style={styles.damageTierValue}>{damagePreview.strongHit}</Text>
+                    </View>
+                    <View style={styles.damageRow}>
+                      <Text style={styles.damageTierLabel}>Crit ({damagePreview.critPct}%)</Text>
+                      <Text style={[styles.damageTierValue, styles.damageCritValue]}>
+                        {damagePreview.critMin}–{damagePreview.critMax}
+                      </Text>
+                    </View>
+                  </>
+                )}
+                <Text style={styles.damageRangeFootnote}>
+                  Odds use caster agility and crit chance versus target agility; damage uses current caster stats and selected enemy defense/resistance.
+                </Text>
               </View>
 
               {skill.tags.length > 0 && (
@@ -188,6 +346,22 @@ const styles = StyleSheet.create({
   statBlock: { flexBasis: '40%', flexGrow: 1 },
   statLabel: { fontSize: 10, color: '#7b684a', textTransform: 'uppercase', letterSpacing: 0.5 },
   statValue: { fontSize: 13, color: '#2b1f10', fontWeight: '600' },
+  damageRangeCard: {
+    borderWidth: 1,
+    borderColor: '#e8e0d4',
+    borderRadius: 8,
+    backgroundColor: '#f8f4ec',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  damageRangeTitle: { fontSize: 11, color: '#7b684a', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  damageRangeText: { fontSize: 13, color: '#2b1f10', fontWeight: '700' },
+  damageRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 2 },
+  damageTierLabel: { fontSize: 12, color: '#5a4838' },
+  damageTierValue: { fontSize: 13, color: '#2b1f10', fontWeight: '700' },
+  damageCritValue: { color: '#b84a00' },
+  damageRangeFootnote: { fontSize: 11, color: '#7b684a', marginTop: 4 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
   tag: {
     fontSize: 10,

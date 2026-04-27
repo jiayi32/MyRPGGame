@@ -2,6 +2,10 @@ import { getApp, getAuth, getFirestore, getFunctions } from './firebase';
 import { httpsCallable } from '@react-native-firebase/functions';
 import { collection, doc } from '@react-native-firebase/firestore';
 import {
+  type BuyGearPayload,
+  type BuyGearResponse,
+  type BankCheckpointPayload,
+  type BankCheckpointResponse,
   EMPTY_REWARD_BUNDLE,
   EMPTY_XP_SCROLLS,
   type DevGrantAllClassesResponse,
@@ -11,6 +15,7 @@ import {
   type DevSkipStageResponse,
   type EndRunPayload,
   type EndRunResponse,
+  type GetShopOfferResponse,
   type GetOrCreatePlayerResponse,
   type PlayerSnapshot,
   type ProgressionDelta,
@@ -20,6 +25,8 @@ import {
   type StartRunResponse,
   type SubmitStageOutcomePayload,
   type SubmitStageOutcomeResponse,
+  type UpgradeClassPayload,
+  type UpgradeClassResponse,
   type XpScrollPouch,
 } from '@/features/run/types';
 
@@ -86,6 +93,7 @@ const normalizeProgressionDelta = (value: unknown): ProgressionDelta => {
       xpScrolls: normalizeXpScrolls(totals['xpScrolls']),
       ownedClassIds: asStringArray(totals['ownedClassIds']),
       lineageRanks: asIntRecord(totals['lineageRanks']),
+      classRanks: asIntRecord(totals['classRanks']),
     },
     gearInstancesCreated: Math.max(0, asInt(obj['gearInstancesCreated'])),
   };
@@ -99,6 +107,7 @@ const normalizePlayerSnapshot = (value: unknown): PlayerSnapshot => {
     xpScrolls: normalizeXpScrolls(obj['xpScrolls']),
     ascensionCells: Math.max(0, asInt(obj['ascensionCells'])),
     lineageRanks: asIntRecord(obj['lineageRanks']),
+    classRanks: asIntRecord(obj['classRanks']),
     ownedClassIds: asStringArray(obj['ownedClassIds']),
     currentRunId: asNullableString(obj['currentRunId']),
   };
@@ -289,6 +298,18 @@ export const endRun = async (payload: EndRunPayload): Promise<EndRunResponse> =>
   };
 };
 
+export const bankCheckpoint = async (
+  payload: BankCheckpointPayload,
+): Promise<BankCheckpointResponse> => {
+  const data = asRecord(
+    await callCallable<BankCheckpointPayload, unknown>('bankCheckpoint', payload),
+  );
+
+  return {
+    banked: normalizeRewardBundle(data['banked']),
+  };
+};
+
 export const getRunSnapshot = async (runId: string): Promise<RunSnapshot> => {
   const snap = await doc(collection(getFirestore(), 'runs'), runId).get();
   if (!snap.exists) {
@@ -361,6 +382,59 @@ export const devSetCurrencies = async (
   };
 };
 
+export const getShopOffer = async (): Promise<GetShopOfferResponse> => {
+  const data = asRecord(
+    await callCallable<Record<string, never>, unknown>('getShopOffer', {}),
+  );
+  const offersRaw = Array.isArray(data['offers']) ? data['offers'] : [];
+  const offers = offersRaw
+    .map((entry) => {
+      const obj = asRecord(entry);
+      const templateId = asString(obj['templateId']);
+      const priceGold = Math.max(0, asInt(obj['priceGold']));
+      if (templateId.length === 0) return null;
+      return { templateId, priceGold };
+    })
+    .filter((entry): entry is { templateId: string; priceGold: number } => entry !== null);
+  return { offers };
+};
+
+export const buyGear = async (payload: BuyGearPayload): Promise<BuyGearResponse> => {
+  const data = asRecord(await callCallable<BuyGearPayload, unknown>('buyGear', payload));
+  return {
+    ok: asBoolean(data['ok']),
+    purchasedInstanceId: asString(data['purchasedInstanceId']),
+    templateId: asString(data['templateId']),
+    goldSpent: Math.max(0, asInt(data['goldSpent'])),
+    player: normalizePlayerSnapshot(data['player']),
+  };
+};
+
+export const upgradeClass = async (
+  payload: UpgradeClassPayload,
+): Promise<UpgradeClassResponse> => {
+  const data = asRecord(
+    await callCallable<UpgradeClassPayload, unknown>('upgradeClass', payload),
+  );
+  const costs = asRecord(data['costs']);
+  const kind = asString(costs['xpScrollKind']);
+  const xpScrollKind: keyof XpScrollPouch =
+    kind === 'minor' || kind === 'standard' || kind === 'grand' ? kind : 'minor';
+
+  return {
+    ok: asBoolean(data['ok']),
+    classId: asString(data['classId']),
+    newRank: Math.max(0, asInt(data['newRank'])),
+    costs: {
+      gold: Math.max(0, asInt(costs['gold'])),
+      ascensionCells: Math.max(0, asInt(costs['ascensionCells'])),
+      xpScrollKind,
+      xpScrollCost: Math.max(0, asInt(costs['xpScrollCost'])),
+    },
+    player: normalizePlayerSnapshot(data['player']),
+  };
+};
+
 export const getPlayerSnapshot = async (uid: string): Promise<PlayerSnapshot | null> => {
   const snap = await doc(collection(getFirestore(), 'players'), uid).get();
   if (!snap.exists) return null;
@@ -372,6 +446,7 @@ export const getPlayerSnapshot = async (uid: string): Promise<PlayerSnapshot | n
     xpScrolls: normalizeXpScrolls(data['xpScrolls'] ?? EMPTY_XP_SCROLLS),
     ascensionCells: Math.max(0, asInt(data['ascensionCells'])),
     lineageRanks: asIntRecord(data['lineageRanks']),
+    classRanks: asIntRecord(data['classRanks']),
     ownedClassIds: asStringArray(data['ownedClassIds']),
     currentRunId: asNullableString(data['currentRunId']),
   };

@@ -13,6 +13,10 @@ import {
   type PreparedStage,
   type StageSimulationReport,
 } from '@/features/run/orchestrator';
+import {
+  EMPTY_REWARD_BUNDLE,
+  type StageOutcomeResult,
+} from '@/features/run/types';
 
 export type CombatStoreStatus = 'idle' | 'preparing' | 'in_progress' | 'simulating' | 'finished' | 'error';
 
@@ -20,6 +24,8 @@ export interface SimulateStageInput {
   seed: number;
   stageIndex: number;
   activeClassId: ClassId;
+  classRank?: number;
+  equippedGearTemplateIds?: readonly string[];
 }
 
 interface CombatStoreState {
@@ -32,6 +38,13 @@ interface CombatStoreState {
   engine: CombatEngine | null;
   prepared: PreparedStage | null;
 
+  /**
+   * Auto-play toggle. When true, BattleScreen drives the player's basic-attack on a 350 ms
+   * timer instead of waiting for manual input. Auto-resets to false when a new stage begins
+   * or when a battle ends so the dev gets fresh manual control on each stage.
+   */
+  autoPlay: boolean;
+
   /** Setup an interactive battle (does not auto-play). */
   beginInteractive: (input: SimulateStageInput) => void;
   /** Engine.advance() — call when no unit is ready. Returns whether a unit became ready. */
@@ -40,6 +53,17 @@ interface CombatStoreState {
   step: (action: Action) => StepError | null;
   /** Run the prepared engine to terminal using basic attacks; finalizes the report. */
   autoPlayToFinish: () => StageSimulationReport;
+
+  /** Toggle auto-play. */
+  setAutoPlay: (value: boolean) => void;
+
+  /**
+   * Dev-only: synthesise a terminal report from the current prepared stage WITHOUT running
+   * the engine. Used by DevToolsScreen "Force outcome" buttons. Sets status='finished' and
+   * populates `report` so BattleScreen's existing battle-ended UI takes over and the user
+   * can submit normally via submitStageOutcome.
+   */
+  forceFinish: (result: StageOutcomeResult) => void;
 
   /** One-shot auto-play helper (legacy entry point used by Battle's "Simulate & Submit"). */
   simulateStage: (input: SimulateStageInput) => Promise<StageSimulationReport>;
@@ -60,9 +84,11 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
   report: null,
   engine: null,
   prepared: null,
+  autoPlay: false,
 
   beginInteractive: (input) => {
-    set({ status: 'preparing', error: null, report: null });
+    // Always reset auto-play on new stage prep — never let a previous stage's setting bleed in.
+    set({ status: 'preparing', error: null, report: null, autoPlay: false });
     try {
       const prepared = prepareStage(input);
       set({
@@ -84,10 +110,12 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
     if (status === 'finished') return;
     const next = engine.advance();
     const report = finalizeIfTerminal(prepared, next);
-    set({
-      engine: next,
-      ...(report !== null ? { report, status: 'finished' as const } : { status: 'in_progress' as const }),
-    });
+    if (report !== null) {
+      // Battle ended — clear auto-play so the dev gets manual control on next stage.
+      set({ engine: next, report, status: 'finished', autoPlay: false });
+    } else {
+      set({ engine: next, status: 'in_progress' });
+    }
   },
 
   step: (action) => {
@@ -101,10 +129,11 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
       return stepped.result.reason;
     }
     const report = finalizeIfTerminal(prepared, stepped.engine);
-    set({
-      engine: stepped.engine,
-      ...(report !== null ? { report, status: 'finished' as const } : { status: 'in_progress' as const }),
-    });
+    if (report !== null) {
+      set({ engine: stepped.engine, report, status: 'finished', autoPlay: false });
+    } else {
+      set({ engine: stepped.engine, status: 'in_progress' });
+    }
     return null;
   },
 
@@ -119,7 +148,7 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
       // but starting from the current engine state.
       const finishedEngine = autoPlayStage({ ...prepared, engine });
       const report = buildStageReport(prepared, finishedEngine);
-      set({ status: 'finished', engine: finishedEngine, report, error: null });
+      set({ status: 'finished', engine: finishedEngine, report, error: null, autoPlay: false });
       return report;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -128,8 +157,40 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
     }
   },
 
+  setAutoPlay: (value) => {
+    set({ autoPlay: value });
+  },
+
+  forceFinish: (result) => {
+    const { prepared, engine } = get();
+    if (prepared === null || engine === null) {
+      throw new Error('No prepared engine. Call beginInteractive first.');
+    }
+    // Synthesise a terminal-state report without running the engine.
+    const player = Object.values(engine.state.units).find((u) => u.team === 'player');
+    const playerHpMax = player?.hpMax ?? 0;
+    const isWon = result === 'won';
+    const claimedRewards = isWon
+      ? prepared.rewards
+      : { ...EMPTY_REWARD_BUNDLE, gearIds: [] };
+    const battleResult: 'won' | 'lost' | 'draw' = isWon ? 'won' : 'lost';
+    const report: StageSimulationReport = {
+      stageIndex: prepared.stageIndex,
+      encounterId: prepared.encounterId,
+      battleResult,
+      outcomeResult: result,
+      claimedRewards,
+      hpRemaining: isWon ? playerHpMax : 0,
+      elapsedSeconds: 0,
+      tickCount: 0,
+      logLength: 0,
+      enemyCount: prepared.enemyCount,
+    };
+    set({ status: 'finished', report, autoPlay: false });
+  },
+
   simulateStage: async (input) => {
-    set({ status: 'simulating', error: null, report: null, engine: null, prepared: null });
+    set({ status: 'simulating', error: null, report: null, engine: null, prepared: null, autoPlay: false });
     try {
       const prepared = prepareStage(input);
       const finishedEngine = autoPlayStage(prepared);
@@ -150,7 +211,7 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
   },
 
   clear: () => {
-    set({ status: 'idle', error: null, report: null, engine: null, prepared: null });
+    set({ status: 'idle', error: null, report: null, engine: null, prepared: null, autoPlay: false });
   },
 }));
 

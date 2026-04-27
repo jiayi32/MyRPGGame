@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
+import { formatCallableError, upgradeClass } from '@/services/runApi';
 import { usePlayerStore } from '@/stores';
 import { useRunStore } from '@/stores/runStore';
 import { useCombatStore } from '@/stores/combatStore';
@@ -24,14 +26,32 @@ export function ProfileScreen() {
   const goldBank = usePlayerStore((state) => state.goldBank);
   const ascensionCells = usePlayerStore((state) => state.ascensionCells);
   const lineageRanks = usePlayerStore((state) => state.lineageRanks);
+  const classRanks = usePlayerStore((state) => state.classRanks);
+  const xpScrolls = usePlayerStore((state) => state.xpScrolls);
   const ownedClassIds = usePlayerStore((state) => state.ownedClassIds);
   const playerStatus = usePlayerStore((state) => state.status);
+  const applyPlayerSnapshot = usePlayerStore((state) => state.applyPlayerSnapshot);
 
   const signOutAndReset = usePlayerStore((state) => state.signOutAndReset);
   const resetRun = useRunStore((state) => state.resetRun);
   const clearCombat = useCombatStore((state) => state.clear);
 
   const lineageEntries = Object.entries(lineageRanks).filter(([, rank]) => rank > 0);
+  const [busyClassId, setBusyClassId] = useState<string | null>(null);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+
+  const handleUpgradeClass = async (classId: string): Promise<void> => {
+    setBusyClassId(classId);
+    setUpgradeError(null);
+    try {
+      const response = await upgradeClass({ classId });
+      applyPlayerSnapshot(response.player);
+    } catch (error) {
+      setUpgradeError(formatCallableError(error));
+    } finally {
+      setBusyClassId(null);
+    }
+  };
 
   const handleSignOut = (): void => {
     Alert.alert(
@@ -71,6 +91,7 @@ export function ProfileScreen() {
           <Text style={styles.cardTitle}>Resources</Text>
           <StatRow label="Gold" value={goldBank} />
           <StatRow label="Ascension Cells" value={ascensionCells} />
+          <StatRow label="XP Scrolls" value={`M ${xpScrolls.minor} / S ${xpScrolls.standard} / G ${xpScrolls.grand}`} />
         </View>
 
         {lineageEntries.length > 0 && (
@@ -84,12 +105,27 @@ export function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Owned Classes ({ownedClassIds.length})</Text>
+          {upgradeError !== null && <Text style={styles.errorText}>{upgradeError}</Text>}
           {ownedClassIds.map((id) => {
             const c = CLASS_BY_ID.get(id as ClassId);
+            const rank = Math.max(0, Math.trunc(classRanks[id] ?? 0));
+            const maxed = rank >= 10;
+            const busy = busyClassId === id;
             return (
               <View key={id} style={styles.classRow}>
-                <Text style={styles.className}>{c?.name ?? id}</Text>
-                <Text style={styles.classTier}>T{c?.tier ?? '?'}</Text>
+                <View style={styles.classMeta}>
+                  <Text style={styles.className}>{c?.name ?? id}</Text>
+                  <Text style={styles.classTier}>T{c?.tier ?? '?'}  Rank {rank}</Text>
+                </View>
+                <TouchableOpacity
+                  disabled={maxed || busy}
+                  onPress={() => {
+                    handleUpgradeClass(id).catch(() => undefined);
+                  }}
+                  style={[styles.upgradeBtn, (maxed || busy) && styles.upgradeBtnDisabled]}
+                >
+                  <Text style={styles.upgradeBtnText}>{maxed ? 'MAX' : busy ? '...' : 'Upgrade'}</Text>
+                </TouchableOpacity>
               </View>
             );
           })}
@@ -116,7 +152,12 @@ export function ProfileScreen() {
 
         <TouchableOpacity
           style={styles.diagBtn}
-          onPress={() => navigation.navigate('Placeholder')}
+          onPress={() =>
+            navigation.navigate('MainTabs', {
+              screen: 'HomeStack',
+              params: { screen: 'Placeholder' },
+            })
+          }
         >
           <Text style={styles.diagBtnText}>Diagnostics</Text>
         </TouchableOpacity>
@@ -150,8 +191,20 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 13, color: '#7b684a' },
   statValue: { fontSize: 13, fontWeight: '600', color: '#2b1f10' },
   classRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  classMeta: { flex: 1, gap: 2 },
   className: { fontSize: 14, color: '#2b1f10' },
   classTier: { fontSize: 12, color: '#7b684a', fontWeight: '600' },
+  upgradeBtn: {
+    borderRadius: 6,
+    backgroundColor: '#7a3b00',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  upgradeBtnDisabled: { backgroundColor: '#b9ab96' },
+  upgradeBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  errorText: { fontSize: 12, color: '#8b1a1a' },
   emptyHint: { fontSize: 13, color: '#9e8870', fontStyle: 'italic' },
   diagBtn: {
     alignSelf: 'center',

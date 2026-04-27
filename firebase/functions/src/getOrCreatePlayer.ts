@@ -50,6 +50,7 @@ export const getOrCreatePlayer = onCall<
         xpScrolls: { ...EMPTY_XP_SCROLLS },
         ascensionCells: 0,
         lineageRanks: {},
+        classRanks: {},
         ownedClassIds: [...STARTER_CLASS_IDS],
         currentRunId: null,
         createdAt: now,

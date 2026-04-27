@@ -1,10 +1,11 @@
 import { useEffect, type ReactElement } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { NavigationContainer, type NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HubScreen } from '@/screens/HubScreen';
 import { EquipmentScreen } from '@/screens/EquipmentScreen';
+import { ShopScreen } from '@/screens/ShopScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { ClassSelectScreen } from '@/screens/ClassSelectScreen';
 import { BattleScreen } from '@/screens/BattleScreen';
@@ -13,29 +14,35 @@ import { RewardResolutionScreen } from '@/screens/RewardResolutionScreen';
 import { PlaceholderScreen } from '@/screens/PlaceholderScreen';
 import { SignInScreen } from '@/screens/SignInScreen';
 import { DevToolsScreen } from '@/screens/DevToolsScreen';
-import { usePlayerStore } from '@/stores';
+import { usePlayerStore, useRunStore } from '@/stores';
 
-export type MainTabParamList = {
-  Home: undefined;
-  Equipment: undefined;
-  Profile: undefined;
-};
-
-export type RootStackParamList = {
-  MainTabs: undefined;
+export type HomeStackParamList = {
+  Hub: undefined;
   ClassSelect: undefined;
   Battle: undefined;
   RunMap: undefined;
   RewardResolution: undefined;
   Placeholder: undefined;
+};
+
+export type MainTabParamList = {
+  HomeStack: NavigatorScreenParams<HomeStackParamList> | undefined;
+  Shop: undefined;
+  Equipment: undefined;
+  Profile: undefined;
+};
+
+export type RootStackParamList = {
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   DevTools: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  const icons: Record<string, string> = { Home: '⚔', Equipment: '🛡', Profile: '👤' };
+  const icons: Record<string, string> = { HomeStack: '⚔', Shop: '🧰', Equipment: '🛡', Profile: '👤' };
   return (
     <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>
       {icons[label] ?? label[0]}
@@ -43,7 +50,51 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
   );
 }
 
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator initialRouteName="Hub">
+      <HomeStack.Screen name="Hub" component={HubScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen name="ClassSelect" component={ClassSelectScreen} options={{ title: 'Choose Class' }} />
+      <HomeStack.Screen
+        name="Battle"
+        component={BattleScreen}
+        options={{
+          title: 'Battle',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen name="RunMap" component={RunMapScreen} options={{ title: 'Run Map' }} />
+      <HomeStack.Screen
+        name="RewardResolution"
+        component={RewardResolutionScreen}
+        options={{
+          title: 'Reward Resolution',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen name="Placeholder" component={PlaceholderScreen} options={{ title: 'Diagnostics' }} />
+    </HomeStack.Navigator>
+  );
+}
+
 function MainTabs() {
+  const runStatus = useRunStore((state) => state.status);
+
+  const tabsBlocked =
+    runStatus === 'starting_run' ||
+    runStatus === 'submitting_outcome' ||
+    runStatus === 'ending_run';
+
+  const withTabGuard = () => ({
+    tabPress: (event: { preventDefault: () => void }) => {
+      if (!tabsBlocked) return;
+      event.preventDefault();
+      Alert.alert('Action in progress', 'Please wait for the current run action to finish.');
+    },
+  });
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -54,9 +105,30 @@ function MainTabs() {
         tabBarStyle: { backgroundColor: '#fffdf8', borderTopColor: '#d8cdbb' },
       })}
     >
-      <Tab.Screen name="Home" component={HubScreen} options={{ tabBarLabel: 'Hub' }} />
-      <Tab.Screen name="Equipment" component={EquipmentScreen} options={{ tabBarLabel: 'Equipment' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen
+        name="HomeStack"
+        component={HomeStackNavigator}
+        options={{ tabBarLabel: 'Hub' }}
+        listeners={withTabGuard}
+      />
+      <Tab.Screen
+        name="Shop"
+        component={ShopScreen}
+        options={{ tabBarLabel: 'Shop' }}
+        listeners={withTabGuard}
+      />
+      <Tab.Screen
+        name="Equipment"
+        component={EquipmentScreen}
+        options={{ tabBarLabel: 'Equipment' }}
+        listeners={withTabGuard}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: 'Profile' }}
+        listeners={withTabGuard}
+      />
     </Tab.Navigator>
   );
 }
@@ -65,11 +137,6 @@ function MainStack() {
   return (
     <Stack.Navigator initialRouteName="MainTabs">
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="ClassSelect" component={ClassSelectScreen} options={{ title: 'Choose Class' }} />
-      <Stack.Screen name="Battle" component={BattleScreen} options={{ title: 'Battle' }} />
-      <Stack.Screen name="RunMap" component={RunMapScreen} options={{ title: 'Run Map' }} />
-      <Stack.Screen name="RewardResolution" component={RewardResolutionScreen} options={{ title: 'Reward Resolution' }} />
-      <Stack.Screen name="Placeholder" component={PlaceholderScreen} options={{ title: 'Diagnostics' }} />
       {__DEV__ && (
         <Stack.Screen name="DevTools" component={DevToolsScreen} options={{ title: 'Dev Tools' }} />
       )}

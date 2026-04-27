@@ -7,13 +7,13 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassData, ClassId } from '@/content/types';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { PrimaryButton } from '@/components/PrimaryButton';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'ClassSelect'>;
+type Props = NativeStackScreenProps<HomeStackParamList, 'ClassSelect'>;
 
 const TIER_LABELS: Record<number, string> = { 1: 'T1', 2: 'T2', 3: 'T3', 4: 'T4', 5: 'T5' };
 const ROLE_COLORS: Record<string, string> = {

@@ -2,7 +2,9 @@ import {
   BOSS_BY_ID,
   CLASS_BY_ID,
   ENEMY_ARCHETYPE_BY_ID,
+  isSpecified,
   SKILL_BY_ID,
+  lookupGearTemplate,
   type ClassId,
 } from '@/content';
 import {
@@ -11,6 +13,7 @@ import {
   buildPlayerUnit,
   createEngine,
   type CombatEngine,
+  type ResolvedStats,
 } from '@/domain/combat';
 import { selectStage } from '@/domain/run/director';
 import type { RewardBundle as DomainRewardBundle } from '@/domain/run/types';
@@ -24,6 +27,8 @@ export interface StageSimulationInput {
   seed: number;
   stageIndex: number;
   activeClassId: ClassId;
+  classRank?: number;
+  equippedGearTemplateIds?: readonly string[];
 }
 
 export interface StageSimulationReport {
@@ -64,6 +69,122 @@ const countEnemies = (entries: readonly { count: number }[]): number =>
 const outcomeFromBattle = (
   battleResult: 'won' | 'lost' | 'draw' | 'ongoing',
 ): StageOutcomeResult => (battleResult === 'won' ? 'won' : 'lost');
+
+type MutableOverlay = {
+  strength: number;
+  intellect: number;
+  agility: number;
+  stamina: number;
+  defense: number;
+  magicDefense: number;
+  speed: number;
+  critChance: number;
+  critMultiplier: number;
+  ctReductionPct: number;
+};
+
+const EMPTY_OVERLAY: MutableOverlay = {
+  strength: 0,
+  intellect: 0,
+  agility: 0,
+  stamina: 0,
+  defense: 0,
+  magicDefense: 0,
+  speed: 0,
+  critChance: 0,
+  critMultiplier: 0,
+  ctReductionPct: 0,
+};
+
+const toMutableOverlay = (stats: Partial<ResolvedStats>): MutableOverlay => ({
+  strength: stats.strength ?? 0,
+  intellect: stats.intellect ?? 0,
+  agility: stats.agility ?? 0,
+  stamina: stats.stamina ?? 0,
+  defense: stats.defense ?? 0,
+  magicDefense: stats.magicDefense ?? 0,
+  speed: stats.speed ?? 0,
+  critChance: stats.critChance ?? 0,
+  critMultiplier: stats.critMultiplier ?? 0,
+  ctReductionPct: stats.ctReductionPct ?? 0,
+});
+
+const mergeOverlay = (
+  target: Partial<ResolvedStats>,
+  next: Partial<ResolvedStats>,
+): Partial<ResolvedStats> => {
+  const merged = toMutableOverlay(target);
+  const delta = toMutableOverlay(next);
+  return {
+    strength: merged.strength + delta.strength,
+    intellect: merged.intellect + delta.intellect,
+    agility: merged.agility + delta.agility,
+    stamina: merged.stamina + delta.stamina,
+    defense: merged.defense + delta.defense,
+    magicDefense: merged.magicDefense + delta.magicDefense,
+    speed: merged.speed + delta.speed,
+    critChance: merged.critChance + delta.critChance,
+    critMultiplier: merged.critMultiplier + delta.critMultiplier,
+    ctReductionPct: merged.ctReductionPct + delta.ctReductionPct,
+  };
+};
+
+const parseGearStats = (stats: unknown): Record<string, number> => {
+  if (typeof stats !== 'object' || stats === null) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(stats as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v)) out[k.toLowerCase()] = v;
+  }
+  return out;
+};
+
+const overlayFromGearStatRecord = (stats: Record<string, number>): Partial<ResolvedStats> => {
+  const strength = stats['strength'] ?? 0;
+  const intellect = stats['intellect'] ?? 0;
+  const constitution = stats['constitution'] ?? 0;
+  const dexterity = stats['dexterity'] ?? 0;
+  return {
+    ...EMPTY_OVERLAY,
+    strength,
+    intellect,
+    stamina: constitution,
+    defense: constitution * 0.6,
+    magicDefense: constitution * 0.35,
+    agility: dexterity,
+    speed: dexterity * 0.8,
+    critChance: dexterity * 0.0015,
+  };
+};
+
+const overlayFromEquippedGear = (templateIds: readonly string[] | undefined): Partial<ResolvedStats> => {
+  if (templateIds === undefined || templateIds.length === 0) return {};
+  let overlay: Partial<ResolvedStats> = {};
+  for (const templateId of templateIds) {
+    const resolved = lookupGearTemplate(templateId);
+    if (!resolved) continue;
+    if (
+      resolved.source === 'unique' &&
+      resolved.item !== undefined &&
+      isSpecified(resolved.item.baseStats)
+    ) {
+      overlay = mergeOverlay(
+        overlay,
+        overlayFromGearStatRecord(parseGearStats(resolved.item.baseStats)),
+      );
+    }
+    if (
+      resolved.source === 'template' &&
+      resolved.template !== undefined &&
+      isSpecified(resolved.template.baseStatsHint)
+    ) {
+      overlay = mergeOverlay(
+        overlay,
+        overlayFromGearStatRecord(parseGearStats(resolved.template.baseStatsHint)),
+      );
+    }
+  }
+  return overlay;
+};
 
 /**
  * Boss stage reward payouts — sized larger than procedural rewards.
@@ -120,6 +241,8 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
   const player = buildPlayerUnit(classData, {
     instanceId: 'player_1',
     insertionIndex: 0,
+    classRank: input.classRank ?? 0,
+    statOverlays: overlayFromEquippedGear(input.equippedGearTemplateIds),
   });
 
   // ------ Boss stage path (5 / 10 / 30) ------

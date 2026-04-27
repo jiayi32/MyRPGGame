@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import type { ProgressionDelta, RewardBundle } from '@/features/run/types';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
+import { lookupGearTemplate } from '@/content/gear';
 import { useCombatStore, useRunStore } from '@/stores';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'RewardResolution'>;
+type Props = NativeStackScreenProps<HomeStackParamList, 'RewardResolution'>;
 
 function RewardRow({ label, value }: { label: string; value: number }) {
   if (value === 0) return null;
@@ -20,7 +22,7 @@ function RewardRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-function RewardBlock({ title, rewards, tint }: { title: string; rewards: RewardBundle; tint: string }) {
+function RewardBlock({ title, rewards, tint, runOngoing }: { title: string; rewards: RewardBundle; tint: string; runOngoing?: boolean }) {
   const hasAny =
     rewards.gold > 0 ||
     rewards.ascensionCells > 0 ||
@@ -39,8 +41,20 @@ function RewardBlock({ title, rewards, tint }: { title: string; rewards: RewardB
           <RewardRow label="XP Scroll (Minor)" value={rewards.xpScrollMinor} />
           <RewardRow label="XP Scroll (Standard)" value={rewards.xpScrollStandard} />
           <RewardRow label="XP Scroll (Grand)" value={rewards.xpScrollGrand} />
-          {rewards.gearIds.length > 0 && (
-            <Text style={styles.gearIds}>Gear: {rewards.gearIds.join(', ')}</Text>
+          {rewards.gearIds.map((id, index) => {
+            const resolved = lookupGearTemplate(id);
+            const name = resolved?.name ?? id;
+            const rarity = resolved?.rarity;
+            return (
+              <Text key={`gear-${index}`} style={styles.gearItem}>
+                {name}{rarity !== undefined ? ` · ${rarity}` : ''}
+              </Text>
+            );
+          })}
+          {runOngoing === true && rewards.gearIds.length > 0 && (
+            <Text style={styles.gearAtRisk}>
+              ⚠ Gear is at risk — flee or defeat forfeits all vaulted gear. Bank at a checkpoint to keep it.
+            </Text>
           )}
         </>
       ) : (
@@ -57,6 +71,10 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const runError = useRunStore((state) => state.error);
   const bankedRewards = useRunStore((state) => state.bankedRewards);
   const vaultedRewards = useRunStore((state) => state.vaultedRewards);
+  const pendingCheckpointStage = useRunStore((state) => state.pendingCheckpointStage);
+  const checkpointBankError = useRunStore((state) => state.checkpointBankError);
+  const lastCheckpointBankedStage = useRunStore((state) => state.lastCheckpointBankedStage);
+  const retryCheckpointBanking = useRunStore((state) => state.retryCheckpointBanking);
   const endRun = useRunStore((state) => state.endRun);
   const resetRun = useRunStore((state) => state.resetRun);
 
@@ -65,9 +83,21 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
   const [progression, setProgression] = useState<ProgressionDelta | null>(null);
   const [settling, setSettling] = useState(false);
+  const [retryingCheckpoint, setRetryingCheckpoint] = useState(false);
+
+  const completedStage = report?.stageIndex ?? stage;
+  const checkpointPendingForThisStage =
+    completedStage !== null && pendingCheckpointStage === completedStage;
+  const checkpointBankedForThisStage =
+    completedStage !== null && lastCheckpointBankedStage === completedStage;
 
   const isRunEnded = runResult === 'won' || runResult === 'lost';
-  const canEndRun = runId !== null && !settling && !isRunEnded;
+  const canEndRun = runId !== null && !settling && !isRunEnded && !checkpointPendingForThisStage;
+
+  useFocusEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  });
 
   const handleEndRun = async () => {
     if (!canEndRun) return;
@@ -87,14 +117,25 @@ export function RewardResolutionScreen({ navigation }: Props) {
     clearCombat();
     resetRun();
     setProgression(null);
-    navigation.replace('MainTabs');
+    navigation.replace('Hub');
+  };
+
+  const handleRetryCheckpoint = async () => {
+    setRetryingCheckpoint(true);
+    try {
+      await retryCheckpointBanking();
+    } catch {
+      // Error surfaced by runStore.checkpointBankError.
+    } finally {
+      setRetryingCheckpoint(false);
+    }
   };
 
   return (
     <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>After Stage {stage ?? '—'}</Text>
+          <Text style={styles.title}>After Stage {completedStage ?? '—'}</Text>
           {runResult !== null && runResult !== 'ongoing' && (
             <View style={[styles.resultBadge, runResult === 'won' ? styles.resultWon : styles.resultLost]}>
               <Text style={styles.resultBadgeText}>{runResult.toUpperCase()}</Text>
@@ -114,8 +155,36 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
       <View style={styles.rewardsSection}>
         <RewardBlock title="Banked" rewards={bankedRewards} tint="#1a7a2a" />
-        <RewardBlock title="Vaulted" rewards={vaultedRewards} tint="#7a5a10" />
+        <RewardBlock title="Vaulted" rewards={vaultedRewards} tint="#7a5a10" runOngoing={!isRunEnded} />
       </View>
+
+      {checkpointBankedForThisStage && (
+        <View style={styles.checkpointSuccessCard}>
+          <Text style={styles.checkpointSuccessText}>
+            Checkpoint banked! All vaulted rewards — including gear — are now safe.
+          </Text>
+        </View>
+      )}
+
+      {checkpointPendingForThisStage && (
+        <View style={styles.checkpointErrorCard}>
+          <Text style={styles.checkpointErrorTitle}>Checkpoint Banking Pending</Text>
+          <Text style={styles.checkpointErrorBody}>
+            You need to bank this checkpoint before continuing the run.
+          </Text>
+          {checkpointBankError !== null && (
+            <Text style={styles.checkpointErrorBody}>{checkpointBankError}</Text>
+          )}
+          <View style={styles.actions}>
+            <PrimaryButton
+              title="Retry Checkpoint Banking"
+              onPress={() => { handleRetryCheckpoint().catch(() => undefined); }}
+              disabled={retryingCheckpoint}
+              busy={retryingCheckpoint}
+            />
+          </View>
+        </View>
+      )}
 
       {/* Progression delta — shown after endRun settles */}
       {progression !== null && (
@@ -155,6 +224,7 @@ export function RewardResolutionScreen({ navigation }: Props) {
             title="Back to Battle"
             variant="secondary"
             onPress={() => navigation.replace('Battle')}
+            disabled={checkpointPendingForThisStage}
           />
         </View>
       )}
@@ -211,7 +281,8 @@ const styles = StyleSheet.create({
   rewardRow: { flexDirection: 'row', justifyContent: 'space-between' },
   rewardLabel: { fontSize: 13, color: '#2f3f39' },
   rewardValue: { fontSize: 13, fontWeight: '600', color: '#1a5a2a' },
-  gearIds: { fontSize: 12, color: '#5a7a4a' },
+  gearItem: { fontSize: 12, color: '#5a7a4a' },
+  gearAtRisk: { fontSize: 11, color: '#8b4000', fontWeight: '600', marginTop: 4 },
   emptyReward: { fontSize: 13, color: '#8aaa9a' },
   progressionCard: {
     borderRadius: 12,
@@ -228,5 +299,23 @@ const styles = StyleSheet.create({
   unlockedLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#4a8a5a' },
   unlockedClass: { fontSize: 14, color: '#1a5a2a', fontWeight: '600' },
   actions: { gap: 8 },
+  checkpointSuccessCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4a9a5a',
+    backgroundColor: '#f0faf2',
+    padding: 10,
+  },
+  checkpointSuccessText: { fontSize: 13, color: '#1a5a2a', fontWeight: '600' },
+  checkpointErrorCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e08080',
+    backgroundColor: '#fff2f2',
+    padding: 10,
+    gap: 6,
+  },
+  checkpointErrorTitle: { fontSize: 13, color: '#8b1a1a', fontWeight: '700' },
+  checkpointErrorBody: { fontSize: 12, color: '#8b1a1a' },
   error: { fontSize: 13, color: '#a10f0f' },
 });

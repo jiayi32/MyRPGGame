@@ -2,13 +2,13 @@ import { useEffect } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '@/navigation/AppNavigator';
+import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { useCombatStore } from '@/stores/combatStore';
 import { PrimaryButton } from '@/components/PrimaryButton';
 
 export function HubScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
 
   const runStatus = useRunStore((state) => state.status);
   const runError = useRunStore((state) => state.error);
