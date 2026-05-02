@@ -191,6 +191,12 @@ export type BattleEvent =
     }
   | {
       readonly tick: number;
+      readonly type: 'unit_spawned';
+      readonly unitId: InstanceId;
+      readonly displayName: string;
+    }
+  | {
+      readonly tick: number;
       readonly type: 'effect_stub';
       readonly kind: string;
       readonly skillId: SkillId;

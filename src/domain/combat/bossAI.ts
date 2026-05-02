@@ -65,53 +65,64 @@ const targetIdsForSkill = (
   return [primary];
 };
 
+export interface EnemyAiContext {
+  state: BattleState;
+  unitId: InstanceId;
+  skillLookup: (id: SkillId) => Skill | undefined;
+}
+
+export const decideEnemyAction = (ctx: EnemyAiContext): Action => {
+  const unit = ctx.state.units[ctx.unitId];
+  if (unit === undefined || unit.isDead) {
+    return { kind: 'wait', unitId: ctx.unitId };
+  }
+
+  if (aliveEnemiesOf(ctx.state, unit.team).length === 0) {
+    return { kind: 'wait', unitId: unit.id };
+  }
+
+  const skillId = firstReadySkill(unit, unit.skillIds);
+  if (skillId === undefined) {
+    return { kind: 'wait', unitId: unit.id };
+  }
+
+  const skill = ctx.skillLookup(skillId);
+  if (skill === undefined) {
+    const targetId = selectPrimaryTargetId(ctx.state, unit);
+    if (targetId === undefined) {
+      return { kind: 'wait', unitId: unit.id };
+    }
+    return {
+      kind: 'basic_attack',
+      unitId: unit.id,
+      targetId,
+    };
+  }
+
+  const targetIds = targetIdsForSkill(ctx.state, unit, skill);
+  if (
+    targetIds.length === 0 &&
+    skill.target !== 'self' &&
+    skill.target !== 'global'
+  ) {
+    return { kind: 'wait', unitId: unit.id };
+  }
+
+  return {
+    kind: 'cast_skill',
+    unitId: unit.id,
+    skillId: skill.id,
+    targetIds,
+  };
+};
+
+/** @deprecated Use decideEnemyAction instead */
 export interface BossAiContext {
   state: BattleState;
   bossUnitId: InstanceId;
   skillLookup: (id: SkillId) => Skill | undefined;
 }
 
-export const decideBossAction = (ctx: BossAiContext): Action => {
-  const boss = ctx.state.units[ctx.bossUnitId];
-  if (boss === undefined || boss.isDead) {
-    return { kind: 'wait', unitId: ctx.bossUnitId };
-  }
-
-  if (aliveEnemiesOf(ctx.state, boss.team).length === 0) {
-    return { kind: 'wait', unitId: boss.id };
-  }
-
-  const skillId = firstReadySkill(boss, boss.skillIds);
-  if (skillId === undefined) {
-    return { kind: 'wait', unitId: boss.id };
-  }
-
-  const skill = ctx.skillLookup(skillId);
-  if (skill === undefined) {
-    const targetId = selectPrimaryTargetId(ctx.state, boss);
-    if (targetId === undefined) {
-      return { kind: 'wait', unitId: boss.id };
-    }
-    return {
-      kind: 'basic_attack',
-      unitId: boss.id,
-      targetId,
-    };
-  }
-
-  const targetIds = targetIdsForSkill(ctx.state, boss, skill);
-  if (
-    targetIds.length === 0 &&
-    skill.target !== 'self' &&
-    skill.target !== 'global'
-  ) {
-    return { kind: 'wait', unitId: boss.id };
-  }
-
-  return {
-    kind: 'cast_skill',
-    unitId: boss.id,
-    skillId: skill.id,
-    targetIds,
-  };
-};
+/** @deprecated Use decideEnemyAction instead */
+export const decideBossAction = (ctx: BossAiContext): Action =>
+  decideEnemyAction({ state: ctx.state, unitId: ctx.bossUnitId, skillLookup: ctx.skillLookup });

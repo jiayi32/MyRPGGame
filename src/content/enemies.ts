@@ -22,12 +22,13 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Caps damage taken per hit at maxHitPct% of max HP.',
     stressAxis: 'Forces multi-hit / DoT responses.',
     foreshadowsBossRole: 'stat_wall',
-    scaling: scalingWith({
-      1: 'maxHitPct=20',
-      2: 'maxHitPct=18',
-      3: 'maxHitPct=15',
-      4: 'maxHitPct=12',
-    }),
+    // High HP + def, low atk, slightly slower — must be ground down over multiple hits.
+    scaling: [
+      { tier: 1, hp: 160,  atk: 8,   def: 9,  ctPerTick: 0.95, notes: 'maxHitPct=20' },
+      { tier: 2, hp: 350,  atk: 18,  def: 20, ctPerTick: 1.0,  notes: 'maxHitPct=18' },
+      { tier: 3, hp: 770,  atk: 40,  def: 43, ctPerTick: 1.05, notes: 'maxHitPct=15' },
+      { tier: 4, hp: 1680, atk: 84,  def: 94, ctPerTick: 1.1,  notes: 'maxHitPct=12' },
+    ],
     description: 'Blunt-force wall that punishes single-hit burst builds.',
   },
   {
@@ -37,12 +38,13 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Always acts first every initiativeCycle CT cycles.',
     stressAxis: 'Forces burst to outpace first-strike.',
     foreshadowsBossRole: 'speed_pressure',
-    scaling: scalingWith({
-      1: 'initiativeCycle=3',
-      2: 'initiativeCycle=3',
-      3: 'initiativeCycle=2',
-      4: 'initiativeCycle=2',
-    }),
+    // Low HP + def, moderate atk, high ctPerTick — acts frequently but can't absorb punishment.
+    scaling: [
+      { tier: 1, hp: 70,  atk: 14,  def: 4,  ctPerTick: 1.25, notes: 'initiativeCycle=3' },
+      { tier: 2, hp: 155, atk: 29,  def: 9,  ctPerTick: 1.3,  notes: 'initiativeCycle=3' },
+      { tier: 3, hp: 340, atk: 62,  def: 19, ctPerTick: 1.35, notes: 'initiativeCycle=2' },
+      { tier: 4, hp: 740, atk: 132, def: 42, ctPerTick: 1.4,  notes: 'initiativeCycle=2' },
+    ],
     description: 'Tempo aggressor with guaranteed opening strikes.',
   },
   {
@@ -127,12 +129,13 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'doubleActionChance% chance to double-act per turn.',
     stressAxis: 'Forces defensive safety margins.',
     foreshadowsBossRole: 'chaos_dps',
-    scaling: scalingWith({
-      1: 'doubleActionChance=10',
-      2: 'doubleActionChance=15',
-      3: 'doubleActionChance=20',
-      4: 'doubleActionChance=25',
-    }),
+    // High atk, low HP + def, slightly fast — glass cannon that punishes low defense.
+    scaling: [
+      { tier: 1, hp: 85,  atk: 16,  def: 4,  ctPerTick: 1.05, notes: 'doubleActionChance=10' },
+      { tier: 2, hp: 190, atk: 34,  def: 8,  ctPerTick: 1.1,  notes: 'doubleActionChance=15' },
+      { tier: 3, hp: 410, atk: 73,  def: 17, ctPerTick: 1.1,  notes: 'doubleActionChance=20' },
+      { tier: 4, hp: 890, atk: 156, def: 36, ctPerTick: 1.15, notes: 'doubleActionChance=25' },
+    ],
     description: 'Unpredictable bursts — CT variance spikes without warning.',
   },
   {
@@ -142,12 +145,13 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Telegraphs false skill outcomes deceptionChance% of the time.',
     stressAxis: 'Forces adaptive, reactive play.',
     foreshadowsBossRole: 'oracle',
-    scaling: scalingWith({
-      1: 'deceptionChance=15',
-      2: 'deceptionChance=20',
-      3: 'deceptionChance=25',
-      4: 'deceptionChance=30',
-    }),
+    // Slightly lower atk, slightly higher def — wins via deception not raw power.
+    scaling: [
+      { tier: 1, hp: 100,  atk: 11,  def: 6,  ctPerTick: 1.0,  notes: 'deceptionChance=15' },
+      { tier: 2, hp: 220,  atk: 24,  def: 12, ctPerTick: 1.05, notes: 'deceptionChance=20' },
+      { tier: 3, hp: 480,  atk: 51,  def: 26, ctPerTick: 1.1,  notes: 'deceptionChance=25' },
+      { tier: 4, hp: 1050, atk: 108, def: 57, ctPerTick: 1.15, notes: 'deceptionChance=30' },
+    ],
     description: 'Misleads UI telegraphs; CT-delays player actions on deception proc.',
   },
   {
@@ -157,12 +161,13 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Field debuff: slows player CT gain by ctSlowPct% within zone.',
     stressAxis: 'Forces high CT-efficiency skills.',
     foreshadowsBossRole: 'engineer',
-    scaling: scalingWith({
-      1: 'ctSlowPct=8',
-      2: 'ctSlowPct=10',
-      3: 'ctSlowPct=12 (clamp to 10)',
-      4: 'ctSlowPct=15 (clamp to 10)',
-    }),
+    // Durable (higher HP + def), low atk — wins through zone control not damage output.
+    scaling: [
+      { tier: 1, hp: 110,  atk: 10, def: 7,  ctPerTick: 1.0,  notes: 'ctSlowPct=8' },
+      { tier: 2, hp: 240,  atk: 21, def: 14, ctPerTick: 1.05, notes: 'ctSlowPct=10' },
+      { tier: 3, hp: 530,  atk: 45, def: 31, ctPerTick: 1.1,  notes: 'ctSlowPct=12 (clamp to 10)' },
+      { tier: 4, hp: 1160, atk: 96, def: 68, ctPerTick: 1.15, notes: 'ctSlowPct=15 (clamp to 10)' },
+    ],
     description: 'Zone control — tier 3–4 values clamp to global CT-reduction cap (10%).',
   },
   {
@@ -171,12 +176,13 @@ const archetypes: readonly EnemyArchetype[] = [
     role: 'Pressure + evasion (reserve)',
     signature: 'evasionPct% dodge while any ally alive.',
     stressAxis: 'Forces execute / focus-fire.',
-    scaling: scalingWith({
-      1: 'evasionPct=20',
-      2: 'evasionPct=25',
-      3: 'evasionPct=30',
-      4: 'evasionPct=35',
-    }),
+    // Low HP + def, moderate atk, moderately fast — fragile by stats; evasion is intended real defense.
+    scaling: [
+      { tier: 1, hp: 75,  atk: 14,  def: 4,  ctPerTick: 1.15, notes: 'evasionPct=20' },
+      { tier: 2, hp: 165, atk: 29,  def: 8,  ctPerTick: 1.2,  notes: 'evasionPct=25' },
+      { tier: 3, hp: 360, atk: 62,  def: 18, ctPerTick: 1.25, notes: 'evasionPct=30' },
+      { tier: 4, hp: 790, atk: 132, def: 39, ctPerTick: 1.3,  notes: 'evasionPct=35' },
+    ],
     description: 'Reserve archetype; ally-dependent dodge stacking.',
   },
   {
@@ -185,12 +191,13 @@ const archetypes: readonly EnemyArchetype[] = [
     role: 'Buff carrier (reserve)',
     signature: 'Buffs ally damage by resonancePct% per turn.',
     stressAxis: 'Forces priority-kill target selection.',
-    scaling: scalingWith({
-      1: 'resonancePct=10',
-      2: 'resonancePct=12',
-      3: 'resonancePct=15',
-      4: 'resonancePct=18',
-    }),
+    // Very low atk, modest HP + def — a support role that is fragile when isolated.
+    scaling: [
+      { tier: 1, hp: 85,  atk: 7,  def: 5,  ctPerTick: 1.0,  notes: 'resonancePct=10' },
+      { tier: 2, hp: 190, atk: 16, def: 10, ctPerTick: 1.05, notes: 'resonancePct=12' },
+      { tier: 3, hp: 410, atk: 34, def: 22, ctPerTick: 1.1,  notes: 'resonancePct=15' },
+      { tier: 4, hp: 895, atk: 72, def: 47, ctPerTick: 1.15, notes: 'resonancePct=18' },
+    ],
     description: 'Reserve archetype; passive tempo manipulator.',
   },
 ];

@@ -4,6 +4,7 @@ import {
   type ClassData,
   type ClassTier,
   type EnemyArchetype,
+  type EnemyArchetypeId,
   type EnemyTier,
   type Skill,
   type SkillId,
@@ -20,6 +21,34 @@ import {
 } from './types';
 
 export const SYNTHETIC_BASIC_ATTACK_ID = '__synthetic.basic_attack' as SkillId;
+
+interface ArchetypeLoadout {
+  readonly basicAttackSkillId: SkillId;
+  readonly skillIds: readonly SkillId[];
+}
+
+const ARCHETYPE_SKILL_LOADOUT: Partial<Record<EnemyArchetypeId, ArchetypeLoadout>> = {
+  ct_manipulator: {
+    basicAttackSkillId: 'enemy.ct_manipulator.strike' as SkillId,
+    skillIds: ['enemy.ct_manipulator.rewind' as SkillId],
+  },
+  sustain_denial: {
+    basicAttackSkillId: 'enemy.sustain_denial.strike' as SkillId,
+    skillIds: ['enemy.sustain_denial.suppress' as SkillId],
+  },
+  dps_race: {
+    basicAttackSkillId: 'enemy.dps_race.strike' as SkillId,
+    skillIds: ['enemy.dps_race.ramp' as SkillId],
+  },
+  summoner: {
+    basicAttackSkillId: 'enemy.summoner.strike' as SkillId,
+    skillIds: ['enemy.summoner.call' as SkillId],
+  },
+  nullshield: {
+    basicAttackSkillId: 'enemy.nullshield.strike' as SkillId,
+    skillIds: ['enemy.nullshield.barrier' as SkillId],
+  },
+};
 
 export const SYNTHETIC_BASIC_ATTACK: Skill = {
   id: SYNTHETIC_BASIC_ATTACK_ID,
@@ -175,6 +204,7 @@ export const buildEnemyUnit = (
   });
 
   const id = toInstanceId(opts.instanceId);
+  const loadout = ARCHETYPE_SKILL_LOADOUT[archetype.id];
   return {
     id,
     team: opts.team ?? 'enemy',
@@ -186,8 +216,8 @@ export const buildEnemyUnit = (
     mpMax: 0,
     ct: 0,
     baseStats: stats,
-    skillIds: [],
-    basicAttackSkillId: SYNTHETIC_BASIC_ATTACK_ID,
+    skillIds: loadout?.skillIds ?? [],
+    basicAttackSkillId: loadout?.basicAttackSkillId ?? SYNTHETIC_BASIC_ATTACK_ID,
     cooldowns: {},
     statuses: [],
     insertionIndex: opts.insertionIndex ?? 0,

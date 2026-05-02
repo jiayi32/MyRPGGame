@@ -17,6 +17,7 @@ import { drawChance } from './prng';
 import { shiftCT } from './queue';
 import { appendLog, clamp, patchUnit } from './stateUtils';
 import { defenseFor, effectiveStats, resistanceFor } from './stats';
+import { SYNTHETIC_BASIC_ATTACK_ID } from './factory';
 import {
   toInstanceId,
   type BattleEvent,
@@ -159,7 +160,15 @@ const applyHealToUnit = (
   tick: number,
 ): BattleState => {
   if (target.isDead || rawAmount <= 0) return state;
-  const amount = Math.max(0, Math.round(rawAmount));
+  // Apply heal_reduction debuff(s) before rounding.
+  const totalReduction = Math.min(
+    0.9,
+    target.statuses
+      .filter((s) => s.kind === 'debuff' && s.snapshot.statTag === 'heal_reduction')
+      .reduce((sum, s) => sum + s.snapshot.magnitude, 0),
+  );
+  const reducedAmount = rawAmount * (1 - totalReduction);
+  const amount = Math.max(0, Math.round(reducedAmount));
   if (amount <= 0) return state;
   const hpAfter = clamp(target.hp + amount, 0, target.hpMax);
   const delta = hpAfter - target.hp;
@@ -176,12 +185,31 @@ const applyHealToUnit = (
   ]);
 };
 
+const resolveShieldPool = (
+  magnitude: number,
+  magnitudeUnit: StatusInstance['snapshot']['magnitudeUnit'],
+  caster: Unit,
+): { magnitude: number; magnitudeUnit: StatusInstance['snapshot']['magnitudeUnit'] } => {
+  // takeShield reads snapshot.magnitude as a flat HP value — convert at build time.
+  if (magnitudeUnit === 'max_hp_percent') {
+    return { magnitude: Math.round(caster.hpMax * magnitude), magnitudeUnit: 'flat' };
+  }
+  if (magnitudeUnit === 'percent') {
+    const casterStats = effectiveStats(caster);
+    return { magnitude: Math.round((casterStats.strength + casterStats.intellect) * magnitude), magnitudeUnit: 'flat' };
+  }
+  return { magnitude, magnitudeUnit };
+};
+
 const buildStatus = (
   ctx: EffectContext,
   kind: StatusKind,
   target: Unit,
 ): StatusInstance => {
-  const { magnitude, magnitudeUnit } = resolveMagnitude(ctx.effect);
+  let { magnitude, magnitudeUnit } = resolveMagnitude(ctx.effect);
+  if (kind === 'shield') {
+    ({ magnitude, magnitudeUnit } = resolveShieldPool(magnitude, magnitudeUnit, ctx.caster));
+  }
   const durationSec = resolveDurationSec(ctx.effect);
   const stacks = resolveStacks(ctx.effect);
   const casterStats = effectiveStats(ctx.caster);
@@ -325,23 +353,65 @@ const applyUtilityEffect = (ctx: EffectContext): EffectOutcome => {
   return { state, cursor: ctx.cursor };
 };
 
+const HP_PER_STAMINA = 4; // must match factory.ts
+
+const MAX_THRALLS_PER_SUMMONER = 2;
+
 const applySummonEffect = (ctx: EffectContext): EffectOutcome => {
-  const state = forEachTarget(ctx, (s, target) => {
-    const summonStatus = buildStatus(
-      {
-        ...ctx,
-        state: s,
-        effect: {
-          ...ctx.effect,
-          statTag: ctx.effect.statTag ?? 'summon_power',
-        },
-      },
-      'buff',
-      target,
-    );
-    return addStatus(s, target, summonStatus, ctx.tick);
-  });
-  return { state, cursor: ctx.cursor };
+  const caster = ctx.state.units[ctx.caster.id];
+  if (caster === undefined || caster.isDead) return { state: ctx.state, cursor: ctx.cursor };
+
+  const allUnits = Object.values(ctx.state.units);
+
+  // Prevent unbounded summons: count live Thralls already on caster's team.
+  const thrallCount = allUnits.filter(
+    (u) => !u.isDead && u.team === caster.team && u.displayName === 'Thrall',
+  ).length;
+  if (thrallCount >= MAX_THRALLS_PER_SUMMONER) return { state: ctx.state, cursor: ctx.cursor };
+
+  const nextInsertionIndex =
+    allUnits.reduce((max, u) => Math.max(max, u.insertionIndex), 0) + 1;
+
+  const baseStrength = Math.round(caster.baseStats.strength * 0.4);
+  const baseStamina = Math.round(caster.baseStats.stamina * 0.3);
+  const hpMax = Math.max(1, baseStamina * HP_PER_STAMINA);
+
+  const minionId = toInstanceId(`minion_${ctx.tick}_${nextInsertionIndex}`);
+  const minion: Unit = {
+    id: minionId,
+    team: caster.team,
+    displayName: 'Thrall',
+    hp: hpMax,
+    hpMax,
+    mp: 0,
+    mpMax: 0,
+    ct: 0,
+    baseStats: {
+      strength: baseStrength,
+      intellect: 0,
+      agility: caster.baseStats.agility,
+      stamina: baseStamina,
+      defense: Math.round(caster.baseStats.defense * 0.5),
+      magicDefense: Math.round(caster.baseStats.magicDefense * 0.5),
+      speed: caster.baseStats.speed,
+      critChance: 0.05,
+      critMultiplier: 1.5,
+      ctReductionPct: 0,
+      resistances: {},
+    },
+    skillIds: [],
+    basicAttackSkillId: SYNTHETIC_BASIC_ATTACK_ID,
+    cooldowns: {},
+    statuses: [],
+    insertionIndex: nextInsertionIndex,
+    isDead: false,
+  };
+
+  const nextState = appendLog(
+    { ...ctx.state, units: { ...ctx.state.units, [minionId]: minion } },
+    [{ tick: ctx.tick, type: 'unit_spawned', unitId: minionId, displayName: minion.displayName }],
+  );
+  return { state: nextState, cursor: ctx.cursor };
 };
 
 const applyLifestealEffect = (ctx: EffectContext): EffectOutcome => {

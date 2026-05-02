@@ -191,8 +191,7 @@ const overlayFromEquippedGear = (templateIds: readonly string[] | undefined): Pa
  * Pyre Warden (5): mid-tier; Vortex (10): checkpoint gate, includes ascensionCells; Rimefang (30): apex.
  * Magnitudes are P6 retune candidates.
  */
-const resolveBossRewards = (stage: number, bossName: string): RewardBundle => {
-  const slug = bossName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+const resolveBossRewards = (stage: number): RewardBundle => {
   if (stage === 5) {
     return {
       gold: 250,
@@ -200,7 +199,7 @@ const resolveBossRewards = (stage: number, bossName: string): RewardBundle => {
       xpScrollMinor: 2,
       xpScrollStandard: 1,
       xpScrollGrand: 0,
-      gearIds: [`gear.boss.${slug}.t2`],
+      gearIds: ['dps.t2.weapon'],
     };
   }
   if (stage === 10) {
@@ -210,7 +209,7 @@ const resolveBossRewards = (stage: number, bossName: string): RewardBundle => {
       xpScrollMinor: 1,
       xpScrollStandard: 2,
       xpScrollGrand: 0,
-      gearIds: [`gear.boss.${slug}.t3`],
+      gearIds: ['hybrid.t3.weapon'],
     };
   }
   // stage 30
@@ -220,7 +219,7 @@ const resolveBossRewards = (stage: number, bossName: string): RewardBundle => {
     xpScrollMinor: 0,
     xpScrollStandard: 1,
     xpScrollGrand: 2,
-    gearIds: [`gear.boss.${slug}.t5`],
+    gearIds: ['drakehorn_forge.worldbreaker_fang'],
   };
 };
 
@@ -264,7 +263,7 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
       stageIndex: input.stageIndex,
       encounterId: `boss.${boss.id}`,
       enemyCount: 1,
-      rewards: resolveBossRewards(input.stageIndex, boss.name),
+      rewards: resolveBossRewards(input.stageIndex),
       engine,
       playerUnitId: 'player_1',
     };

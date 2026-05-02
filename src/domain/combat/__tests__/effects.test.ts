@@ -337,9 +337,12 @@ describe('effects', () => {
     expect(cooldowns['test.other' as Skill['id']]).toBeUndefined();
   });
 
-  test('summon effect applies a concrete status instead of stub event', () => {
-    const state = buildBattle(3, [{ id: 'p', team: 'player' }]);
-    const playerId = toInstanceId('p');
+  test('summon effect spawns a real Thrall unit into state.units', () => {
+    const state = buildBattle(3, [
+      { id: 'e', team: 'enemy', stats: { strength: 50, stamina: 30 } },
+      { id: 'p', team: 'player' },
+    ]);
+    const enemyId = toInstanceId('e');
     const skill = baseSkill([
       {
         kind: kind('summon'),
@@ -351,16 +354,173 @@ describe('effects', () => {
     ]);
     const result = applySkillEffects(
       state,
-      state.units[playerId]!,
-      [playerId],
+      state.units[enemyId]!,
+      [enemyId],
       skill,
       hit('normal', 1),
       0,
       1,
     );
 
-    expect(result.state.units[playerId]!.statuses.length).toBeGreaterThan(0);
-    expect(result.state.units[playerId]!.statuses[0]!.kind).toBe('buff');
-    expect(result.state.log.some((e) => e.type === 'effect_stub')).toBe(false);
+    const units = Object.values(result.state.units);
+    const spawned = units.find((u) => u.displayName === 'Thrall');
+    expect(spawned).toBeDefined();
+    expect(spawned?.team).toBe('enemy');
+    expect(spawned?.basicAttackSkillId).toBe('__synthetic.basic_attack');
+    expect(result.state.log.some((e) => e.type === 'unit_spawned')).toBe(true);
+  });
+});
+
+describe('heal_reduction mechanic', () => {
+  const makeHealSkill = (): Skill =>
+    ({
+      id: 'test.heal' as Skill['id'],
+      name: 'Heal',
+      description: '',
+      ctCost: 40,
+      cooldownSec: 0,
+      resource: { type: 'none', cost: 0 },
+      target: 'single',
+      tags: [],
+      effects: [
+        { kind: 'heal' as const, description: '', magnitude: 1.0, magnitudeUnit: 'multiplier' as const },
+      ],
+    }) as Skill;
+
+  const makeHealReductionStatus = (id: string, magnitude: number) => ({
+    id: toInstanceId(id),
+    kind: 'debuff' as const,
+    sourceUnitId: toInstanceId('e'),
+    skillId: 'enemy.sustain_denial.suppress' as Skill['id'],
+    snapshot: {
+      magnitude,
+      magnitudeUnit: 'percent' as const,
+      sourceStrength: 0,
+      sourceIntellect: 0,
+      sourceAgility: 0,
+      statTag: 'heal_reduction',
+    },
+    remainingSec: 20,
+    stacks: 1,
+    tickIntervalSec: 1,
+    secSinceLastTick: 0,
+    tags: [],
+  });
+
+  test('heal_reduction debuff at 50% halves the heal received', () => {
+    const rawState = buildBattle(1, [
+      { id: 'healer', team: 'player', stats: { intellect: 100 } },
+      { id: 'target', team: 'player', hp: 200 },
+    ]);
+    const healerId = toInstanceId('healer');
+    const targetId = toInstanceId('target');
+    // Damage the target first so there's room to heal
+    const state: BattleState = {
+      ...rawState,
+      units: {
+        ...rawState.units,
+        [targetId]: { ...rawState.units[targetId]!, hp: 50 },
+      },
+    };
+
+    const stateWithDebuff: BattleState = {
+      ...state,
+      units: {
+        ...state.units,
+        [targetId]: {
+          ...state.units[targetId]!,
+          statuses: [makeHealReductionStatus('hr1', 0.5)],
+        },
+      },
+    };
+
+    const result = applySkillEffects(
+      stateWithDebuff,
+      stateWithDebuff.units[healerId]!,
+      [targetId],
+      makeHealSkill(),
+      { tier: 'normal', severity: 1, nextCursor: 0 },
+      0,
+      1,
+    );
+
+    // Baseline: same heal without the debuff
+    const baseline = applySkillEffects(
+      state,
+      state.units[healerId]!,
+      [targetId],
+      makeHealSkill(),
+      { tier: 'normal', severity: 1, nextCursor: 0 },
+      0,
+      1,
+    );
+
+    const healedHp = result.state.units[targetId]!.hp;
+    const baselineHp = baseline.state.units[targetId]!.hp;
+    const healedDelta = healedHp - 50;
+    const baselineDelta = baselineHp - 50;
+
+    expect(baselineDelta).toBeGreaterThan(0);
+    // With 50% reduction, healed amount should be ~50% of baseline
+    expect(healedDelta).toBeCloseTo(baselineDelta * 0.5, 0);
+  });
+
+  test('heal_reduction debuffs stack and are capped at 90%', () => {
+    const rawState = buildBattle(1, [
+      { id: 'healer', team: 'player', stats: { intellect: 100 } },
+      { id: 'target', team: 'player', hp: 200 },
+    ]);
+    const healerId = toInstanceId('healer');
+    const targetId = toInstanceId('target');
+    // Damage the target first so there's room to heal
+    const state: BattleState = {
+      ...rawState,
+      units: {
+        ...rawState.units,
+        [targetId]: { ...rawState.units[targetId]!, hp: 50 },
+      },
+    };
+
+    // Two 60% debuffs would sum to 120% — should be capped at 90%
+    const stateWith2Debuffs: BattleState = {
+      ...state,
+      units: {
+        ...state.units,
+        [targetId]: {
+          ...state.units[targetId]!,
+          statuses: [
+            makeHealReductionStatus('hr1', 0.6),
+            makeHealReductionStatus('hr2', 0.6),
+          ],
+        },
+      },
+    };
+
+    const result = applySkillEffects(
+      stateWith2Debuffs,
+      stateWith2Debuffs.units[healerId]!,
+      [targetId],
+      makeHealSkill(),
+      { tier: 'normal', severity: 1, nextCursor: 0 },
+      0,
+      1,
+    );
+
+    const baseline = applySkillEffects(
+      state,
+      state.units[healerId]!,
+      [targetId],
+      makeHealSkill(),
+      { tier: 'normal', severity: 1, nextCursor: 0 },
+      0,
+      1,
+    );
+
+    const healedDelta = result.state.units[targetId]!.hp - 50;
+    const baselineDelta = baseline.state.units[targetId]!.hp - 50;
+
+    expect(baselineDelta).toBeGreaterThan(0);
+    // Capped at 90%, so at least 10% of baseline heal should land
+    expect(healedDelta).toBeCloseTo(baselineDelta * 0.1, 0);
   });
 });

@@ -14,9 +14,10 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { AbilityDetailsModal } from '@/components/AbilityDetailsModal';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
+import { CLASS_BY_ID, SKILL_BY_ID, ENEMY_ARCHETYPE_BY_ID } from '@/content';
 import type { ClassId, SkillId } from '@/content/types';
 import { canCast, type InstanceId, type Unit, SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
+import { decideEnemyAction } from '@/domain/combat/bossAI';
 import {
   selectAliveEnemies,
   selectPlayerUnit,
@@ -146,7 +147,14 @@ function EnemyRow({
     >
       <DamagePopupOverlay unitId={enemy.id} />
       <View style={styles.enemyHeader}>
-        <Text style={styles.enemyName}>{enemy.displayName}</Text>
+        <View style={styles.enemyNameBlock}>
+          <Text style={styles.enemyName}>{enemy.displayName}</Text>
+          {enemy.archetypeId !== undefined && enemy.skillIds.length > 0 && (
+            <Text style={styles.archetypeLabel}>
+              {ENEMY_ARCHETYPE_BY_ID.get(enemy.archetypeId)?.name ?? enemy.archetypeId}
+            </Text>
+          )}
+        </View>
         <CtIndicator unit={enemy} isReady={isReady} />
       </View>
       <HpBar unit={enemy} color={isTarget ? '#e04040' : '#7a3030'} />
@@ -368,7 +376,12 @@ export function BattleScreen({ navigation }: Props) {
     }
     if (player !== null && readyUnitId !== player.id) {
       const t = setTimeout(() => {
-        stepCombat({ kind: 'basic_attack', unitId: readyUnitId, targetId: player.id });
+        const action = decideEnemyAction({
+          state: engineState,
+          unitId: readyUnitId,
+          skillLookup: (id) => SKILL_BY_ID.get(id),
+        });
+        stepCombat(action);
       }, 250);
       return () => clearTimeout(t);
     }
@@ -714,7 +727,9 @@ const styles = StyleSheet.create({
   enemyRowReady: { borderColor: '#c08020', backgroundColor: '#fffaf0' },
   enemyRowTarget: { borderColor: '#c04040', backgroundColor: '#fff5f5', borderWidth: 1.5 },
   enemyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  enemyNameBlock: { flexDirection: 'column', flex: 1 },
   enemyName: { fontSize: 14, fontWeight: '600', color: '#2a2e44' },
+  archetypeLabel: { fontSize: 10, color: '#8892b0', marginTop: 1 },
 
   abilitiesSection: {
     borderRadius: 12,

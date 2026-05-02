@@ -1,3 +1,4 @@
+import { lookupGearTemplate } from '@/content';
 import { autoPlayStage, prepareStage, buildStageReport } from '../orchestrator';
 
 describe('orchestrator — boss stage support', () => {
@@ -48,6 +49,28 @@ describe('orchestrator — boss stage support', () => {
       expect(report.claimedRewards.gold).toBeGreaterThanOrEqual(1500);
       expect(report.claimedRewards.ascensionCells).toBeGreaterThanOrEqual(12);
     }
+  });
+
+  it('boss-stage rewards use deterministic, resolvable gear IDs', () => {
+    const expectedRewards: ReadonlyArray<readonly [5 | 10 | 30, string]> = [
+      [5, 'dps.t2.weapon'],
+      [10, 'hybrid.t3.weapon'],
+      [30, 'drakehorn_forge.worldbreaker_fang'],
+    ];
+
+    expectedRewards.forEach(([stageIndex, expectedGearId]) => {
+      const prepared = prepareStage({
+        seed: 9000 + stageIndex,
+        stageIndex,
+        activeClassId: 'drakehorn_forge.ember_initiate',
+      });
+
+      expect(prepared.encounterId).toMatch(/boss\./);
+      expect(prepared.rewards.gearIds).toEqual([expectedGearId]);
+      prepared.rewards.gearIds.forEach((gearId) => {
+        expect(lookupGearTemplate(gearId)).toBeDefined();
+      });
+    });
   });
 
   it('procedural stages still work end-to-end (regression)', () => {
