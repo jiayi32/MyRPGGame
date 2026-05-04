@@ -6,6 +6,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — Sigil Shards: third currency (2026-05-04)
+
+Introduced **Sigil Shards** as a rare third currency, earned exclusively from boss kills (stage-5 mini-boss and stage-10 gate boss). Spent exclusively on cross-lineage evolution (lateral tier-down unlocks). No UI surface yet; full wiring is schema-only ahead of Phase C hub systems.
+
+#### Schema additions
+
+- [src/features/run/types.ts](src/features/run/types.ts): `sigilShards: number` added to `RewardBundle` / `EMPTY_REWARD_BUNDLE`, `PlayerSnapshot`, `ProgressionDelta.playerTotals`, `DevSetCurrenciesPayload`, and `DevSetCurrenciesResponse`.
+- [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): same additions on the server-authoritative side — `RewardBundle` / `EMPTY_REWARD`, `PlayerDoc`, `ProgressionDelta.playerTotals`, `BuyGearResponse.player` Pick, `UpgradeClassResponse.player` Pick, `DevSetCurrenciesPayload`, and `DevSetCurrenciesResponse`.
+- [src/content/types/boss.ts](src/content/types/boss.ts): optional `sigilShardsDropWeight?: number` on `BossDef`; `undefined` means no Sigil Shard drop (procedural enemies, stage-30 counter boss). Server will use this weight to determine drop quantity on kill.
+- [src/content/bosses.ts](src/content/bosses.ts): Pyre Warden (stage 5) → `sigilShardsDropWeight: 1`; Vortex Colossus (stage 10) → `sigilShardsDropWeight: 2`. Rimefang Hydra (stage 30, deferred) left unset.
+
+#### Cascade fixes
+
+All sites that construct a `RewardBundle`, `PlayerSnapshot`, or `ProgressionDelta` literal were updated to include `sigilShards`:
+
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `toMutableReward` defaulted to `0`; boss reward tables for stages 5 and 10 now emit `sigilShards: 1` and `sigilShards: 2` respectively; stage-30 stub emits `0`.
+- [src/stores/runStore.ts](src/stores/runStore.ts): `cloneReward` propagates the new field.
+- [src/stores/playerStore.ts](src/stores/playerStore.ts): `sigilShards` added to `PlayerStoreState`, `EMPTY_STATE`, `applyPlayerToState`, and `applyEndRunDelta`.
+- [src/services/runApi.ts](src/services/runApi.ts): `normalizeRewardBundle`, `normalizeProgressionDelta`, `normalizePlayerSnapshot`, `devSetCurrencies` response normalizer, and `getPlayerSnapshot` Firestore reader all populate `sigilShards` (safe-defaulting to `0` for older docs).
+- [firebase/functions/src/shared/rewards.ts](firebase/functions/src/shared/rewards.ts): `addRewards`, `splitRewards` (Sigil Shards always vault, never baseline), and `applyVaultMultiplier` propagate `sigilShards`.
+- [firebase/functions/src/getOrCreatePlayer.ts](firebase/functions/src/getOrCreatePlayer.ts): new player doc initialized with `sigilShards: 0`.
+- [firebase/functions/src/endRun.ts](firebase/functions/src/endRun.ts): `playerTotals.sigilShards` reads current player balance (no settlement delta yet — spending logic deferred to Phase C).
+- [firebase/functions/src/buyGear.ts](firebase/functions/src/buyGear.ts), [firebase/functions/src/upgradeClass.ts](firebase/functions/src/upgradeClass.ts): `player` pick response includes `sigilShards`.
+- [firebase/functions/src/dev.ts](firebase/functions/src/dev.ts): `devSetCurrencies` now accepts and applies an optional `sigilShards` override.
+- [firebase/functions/src/scripts/smokeRun.ts](firebase/functions/src/scripts/smokeRun.ts): sample `RewardBundle` includes `sigilShards: 0`.
+- [firebase/functions/src/__tests__/rewards.test.ts](firebase/functions/src/__tests__/rewards.test.ts), [src/__tests__/smoke.test.ts](src/__tests__/smoke.test.ts): fixture literals updated with `sigilShards`.
+
+### Verification
+
+- Client typecheck: clean.
+- Client tests: **109/109 pass** (18 suites).
+- Firebase functions typecheck: clean.
+
+---
+
 ### Fixed — Miss rates too high + vault rewards disappearing + ascensionCells accumulation (2026-04-27)
 
 Three coordinated balance and data persistence fixes addressing post-beta combat and progression feedback.
