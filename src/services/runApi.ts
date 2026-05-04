@@ -73,6 +73,7 @@ const normalizeRewardBundle = (value: unknown): RewardBundle => {
   return {
     gold: Math.max(0, asInt(obj['gold'])),
     ascensionCells: Math.max(0, asInt(obj['ascensionCells'])),
+    sigilShards: Math.max(0, asInt(obj['sigilShards'])),
     xpScrollMinor: Math.max(0, asInt(obj['xpScrollMinor'])),
     xpScrollStandard: Math.max(0, asInt(obj['xpScrollStandard'])),
     xpScrollGrand: Math.max(0, asInt(obj['xpScrollGrand'])),
@@ -90,6 +91,7 @@ const normalizeProgressionDelta = (value: unknown): ProgressionDelta => {
     playerTotals: {
       goldBank: Math.max(0, asInt(totals['goldBank'])),
       ascensionCells: Math.max(0, asInt(totals['ascensionCells'])),
+      sigilShards: Math.max(0, asInt(totals['sigilShards'])),
       xpScrolls: normalizeXpScrolls(totals['xpScrolls']),
       ownedClassIds: asStringArray(totals['ownedClassIds']),
       lineageRanks: asIntRecord(totals['lineageRanks']),
@@ -106,6 +108,7 @@ const normalizePlayerSnapshot = (value: unknown): PlayerSnapshot => {
     goldBank: Math.max(0, asInt(obj['goldBank'])),
     xpScrolls: normalizeXpScrolls(obj['xpScrolls']),
     ascensionCells: Math.max(0, asInt(obj['ascensionCells'])),
+    sigilShards: Math.max(0, asInt(obj['sigilShards'])),
     lineageRanks: asIntRecord(obj['lineageRanks']),
     classRanks: asIntRecord(obj['classRanks']),
     ownedClassIds: asStringArray(obj['ownedClassIds']),
@@ -323,6 +326,7 @@ export const getRunSnapshot = async (runId: string): Promise<RunSnapshot> => {
     seed: asInt(data['seed']),
     stage: Math.max(1, asInt(data['stage'], 1)),
     turn: Math.max(0, asInt(data['turn'], 0)),
+    vaultStreak: Math.max(0, asInt(data['vaultStreak'], 0)),
     activeClassId: asString(data['activeClassId']),
     activeLineageId: asString(data['activeLineageId']),
     evolutionTargetClassId: asNullableString(data['evolutionTargetClassId']),
@@ -378,6 +382,7 @@ export const devSetCurrencies = async (
     ok: asBoolean(data['ok']),
     goldBank: asInt(data['goldBank']),
     ascensionCells: asInt(data['ascensionCells']),
+    sigilShards: Math.max(0, asInt(data['sigilShards'])),
     xpScrolls: normalizeXpScrolls(data['xpScrolls']),
   };
 };
@@ -445,6 +450,7 @@ export const getPlayerSnapshot = async (uid: string): Promise<PlayerSnapshot | n
     goldBank: Math.max(0, asInt(data['goldBank'])),
     xpScrolls: normalizeXpScrolls(data['xpScrolls'] ?? EMPTY_XP_SCROLLS),
     ascensionCells: Math.max(0, asInt(data['ascensionCells'])),
+    sigilShards: Math.max(0, asInt(data['sigilShards'])),
     lineageRanks: asIntRecord(data['lineageRanks']),
     classRanks: asIntRecord(data['classRanks']),
     ownedClassIds: asStringArray(data['ownedClassIds']),

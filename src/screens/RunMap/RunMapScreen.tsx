@@ -3,6 +3,8 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { useRunStore } from '@/stores';
+import { CLASS_BY_ID } from '@/content';
+import type { ClassId } from '@/content/types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RunMap'>;
 
@@ -77,6 +79,7 @@ function StageNode({
 export function RunMapScreen({ navigation }: Props) {
   const stage = useRunStore((state) => state.stage);
   const activeClassId = useRunStore((state) => state.activeClassId);
+  const vaultStreak = useRunStore((state) => state.vaultStreak);
   const currentStage = stage ?? 1;
 
   const stages = Array.from({ length: TOTAL_STAGES }, (_, i) => i + 1);
@@ -92,7 +95,11 @@ export function RunMapScreen({ navigation }: Props) {
           Stage {currentStage} of {TOTAL_STAGES}  ·  {completedCount} completed  ·  {remaining} remaining
         </Text>
         {activeClassId !== null && (
-          <Text style={styles.classLabel}>{activeClassId}</Text>
+          <Text style={styles.classLabel}>{CLASS_BY_ID.get(activeClassId as ClassId)?.name ?? activeClassId}</Text>
+        )}
+        {vaultStreak > 0 && (
+          <Text style={styles.vaultStreakLabel}>⚠ Vault streak: {vaultStreak} stage{vaultStreak > 1 ? 's' : ''} at risk
+          </Text>
         )}
       </View>
 
@@ -123,6 +130,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', color: '#2b1f10' },
   subtitle: { fontSize: 13, color: '#5d4d35' },
   classLabel: { fontSize: 12, color: '#7b684a', fontStyle: 'italic' },
+  vaultStreakLabel: { fontSize: 12, color: '#8b5a00', fontWeight: '600' },
   stageList: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
   node: {
     flexDirection: 'row',

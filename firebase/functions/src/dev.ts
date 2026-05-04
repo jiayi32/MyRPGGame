@@ -182,12 +182,13 @@ export const devSetCurrencies = onCall<
     const uid = requireAuth(request);
     requireRateLimit(`devSetCurrencies:${uid}`, 30, 60_000);
 
-    const { goldBank, ascensionCells, xpScrollMinor, xpScrollStandard, xpScrollGrand } =
+    const { goldBank, ascensionCells, sigilShards, xpScrollMinor, xpScrollStandard, xpScrollGrand } =
       request.data;
 
     const numericFields: ReadonlyArray<readonly [string, number | undefined]> = [
       ['goldBank', goldBank],
       ['ascensionCells', ascensionCells],
+      ['sigilShards', sigilShards],
       ['xpScrollMinor', xpScrollMinor],
       ['xpScrollStandard', xpScrollStandard],
       ['xpScrollGrand', xpScrollGrand],
@@ -205,6 +206,7 @@ export const devSetCurrencies = onCall<
       const player = requireDoc(snap, 'player') as PlayerDoc;
       const newGold = goldBank ?? player.goldBank;
       const newCells = ascensionCells ?? player.ascensionCells;
+      const newSigils = sigilShards ?? player.sigilShards ?? 0;
       const newScrolls: XpScrollPouch = {
         minor: xpScrollMinor ?? player.xpScrolls.minor,
         standard: xpScrollStandard ?? player.xpScrolls.standard,
@@ -213,16 +215,18 @@ export const devSetCurrencies = onCall<
       tx.update(playerRef, {
         goldBank: newGold,
         ascensionCells: newCells,
+        sigilShards: newSigils,
         xpScrolls: newScrolls,
         updatedAt: FieldValue.serverTimestamp(),
       });
-      return { goldBank: newGold, ascensionCells: newCells, xpScrolls: newScrolls };
+      return { goldBank: newGold, ascensionCells: newCells, sigilShards: newSigils, xpScrolls: newScrolls };
     });
 
     return {
       ok: true,
       goldBank: result.goldBank,
       ascensionCells: result.ascensionCells,
+      sigilShards: result.sigilShards,
       xpScrolls: result.xpScrolls,
     };
   },

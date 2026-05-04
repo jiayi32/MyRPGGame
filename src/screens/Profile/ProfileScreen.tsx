@@ -9,15 +9,7 @@ import { formatCallableError, upgradeClass } from '@/services/runApi';
 import { usePlayerStore } from '@/stores';
 import { useRunStore } from '@/stores/runStore';
 import { useCombatStore } from '@/stores/combatStore';
-
-function StatRow({ label, value }: { label: string; value: string | number }) {
-  return (
-    <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
-  );
-}
+import { StatRow } from './StatRow';
 
 export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -187,9 +179,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardTitle: { fontSize: 14, fontWeight: '700', color: '#4a3a28', marginBottom: 2 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statLabel: { fontSize: 13, color: '#7b684a' },
-  statValue: { fontSize: 13, fontWeight: '600', color: '#2b1f10' },
   classRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   classMeta: { flex: 1, gap: 2 },
   className: { fontSize: 14, color: '#2b1f10' },

@@ -66,6 +66,7 @@ export const buyGear = onCall<BuyGearPayload, Promise<BuyGearResponse>>(
         goldBank: newGoldBank,
         xpScrolls: player.xpScrolls,
         ascensionCells: player.ascensionCells,
+        sigilShards: player.sigilShards ?? 0,
         lineageRanks: player.lineageRanks,
         classRanks: player.classRanks ?? {},
         ownedClassIds: player.ownedClassIds,

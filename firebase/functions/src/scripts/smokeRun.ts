@@ -193,6 +193,7 @@ function fieldMapBool(doc: FirestoreDoc, mapField: string, innerField: string): 
 const sampleStageReward: RewardBundle = {
   gold: 100,
   ascensionCells: 1,
+  sigilShards: 0,
   xpScrollMinor: 2,
   xpScrollStandard: 0,
   xpScrollGrand: 0,

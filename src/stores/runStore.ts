@@ -21,8 +21,6 @@ import {
 } from '@/features/run/types';
 import { usePlayerStore } from './playerStore';
 
-const CHECKPOINT_STAGES = new Set([10, 20, 30]);
-
 export type RunStoreStatus =
   | 'idle'
   | 'initializing'
@@ -50,16 +48,16 @@ interface RunStoreState {
   stage: number | null;
   activeClassId: ClassId | null;
   runResult: RunFinalResult | null;
+  vaultStreak: number;
+  awaitingVaultDecision: boolean;
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
   lastSubmittedResult: StageOutcomeResult | null;
-  pendingCheckpointStage: number | null;
-  checkpointBankError: string | null;
-  lastCheckpointBankedStage: number | null;
   bootstrap: () => Promise<void>;
   startRun: (activeClassId: ClassId) => Promise<void>;
   submitStageOutcome: (input: SubmitOutcomeInput) => Promise<SubmitStageOutcomeResponse>;
-  retryCheckpointBanking: () => Promise<void>;
+  vaultAtStage: () => Promise<void>;
+  pressOn: () => void;
   endRun: (finalResult: StageOutcomeResult) => Promise<EndRunResponse>;
   refreshRunSnapshot: () => Promise<RunSnapshot>;
   resetRun: () => void;
@@ -68,6 +66,7 @@ interface RunStoreState {
 const cloneReward = (reward: RewardBundle): RewardBundle => ({
   gold: reward.gold,
   ascensionCells: reward.ascensionCells,
+  sigilShards: reward.sigilShards,
   xpScrollMinor: reward.xpScrollMinor,
   xpScrollStandard: reward.xpScrollStandard,
   xpScrollGrand: reward.xpScrollGrand,
@@ -87,6 +86,7 @@ const applySnapshot = (
     stage: snapshot.stage,
     activeClassId: snapshot.activeClassId as ClassId,
     runResult: snapshot.result,
+    vaultStreak: snapshot.vaultStreak,
     bankedRewards: cloneReward(snapshot.bankedRewards),
     vaultedRewards: cloneReward(snapshot.vaultedRewards),
     status: statusForRunResult(snapshot.result),
@@ -102,12 +102,11 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   stage: null,
   activeClassId: null,
   runResult: null,
+  vaultStreak: 0,
+  awaitingVaultDecision: false,
   bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
   vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
   lastSubmittedResult: null,
-  pendingCheckpointStage: null,
-  checkpointBankError: null,
-  lastCheckpointBankedStage: null,
 
   bootstrap: async () => {
     if (get().status !== 'idle' && get().status !== 'error') {
@@ -167,7 +166,7 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       });
       const snapshot = await getRunSnapshot(response.runId);
       applySnapshot(set, snapshot);
-      set({ pendingCheckpointStage: null, checkpointBankError: null, lastCheckpointBankedStage: null });
+      set({ awaitingVaultDecision: false });
     } catch (error) {
       set({ status: 'error', error: formatCallableError(error) });
       throw error;
@@ -193,29 +192,7 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
 
       const snapshot = await getRunSnapshot(runId);
       applySnapshot(set, snapshot);
-
-      const shouldBankCheckpoint =
-        input.result === 'won' && CHECKPOINT_STAGES.has(input.stageIndex);
-
-      if (shouldBankCheckpoint) {
-        try {
-          await bankCheckpointApi({ runId });
-          const afterBank = await getRunSnapshot(runId);
-          applySnapshot(set, afterBank);
-          set({
-            lastCheckpointBankedStage: input.stageIndex,
-            pendingCheckpointStage: null,
-            checkpointBankError: null,
-          });
-        } catch (bankError) {
-          set({
-            pendingCheckpointStage: input.stageIndex,
-            checkpointBankError: formatCallableError(bankError),
-          });
-        }
-      } else {
-        set({ pendingCheckpointStage: null, checkpointBankError: null });
-      }
+      set({ awaitingVaultDecision: input.result === 'won' });
 
       set({ lastSubmittedResult: input.result });
       return response;
@@ -225,27 +202,26 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
     }
   },
 
-  retryCheckpointBanking: async () => {
+  vaultAtStage: async () => {
     const runId = get().runId;
-    const pendingStage = get().pendingCheckpointStage;
-    if (runId === null || pendingStage === null) {
+    if (runId === null) {
       return;
     }
 
-    set({ checkpointBankError: null });
+    set({ error: null });
     try {
       await bankCheckpointApi({ runId });
       const snapshot = await getRunSnapshot(runId);
       applySnapshot(set, snapshot);
-      set({
-        lastCheckpointBankedStage: pendingStage,
-        pendingCheckpointStage: null,
-        checkpointBankError: null,
-      });
+      set({ awaitingVaultDecision: false });
     } catch (error) {
-      set({ checkpointBankError: formatCallableError(error) });
+      set({ error: formatCallableError(error) });
       throw error;
     }
+  },
+
+  pressOn: () => {
+    set({ awaitingVaultDecision: false });
   },
 
   endRun: async (finalResult) => {
@@ -266,6 +242,7 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
         bankedRewards: cloneReward(response.bankedRewards),
         vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
         runResult: finalResult === 'won' ? 'won' : 'lost',
+        awaitingVaultDecision: false,
       });
 
       const snapshot = await getRunSnapshot(runId);
@@ -298,12 +275,11 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       stage: null,
       activeClassId: null,
       runResult: null,
+      vaultStreak: 0,
+      awaitingVaultDecision: false,
       bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
       vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
       lastSubmittedResult: null,
-      pendingCheckpointStage: null,
-      checkpointBankError: null,
-      lastCheckpointBankedStage: null,
     });
   },
 }));

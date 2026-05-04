@@ -115,6 +115,7 @@ export const upgradeClass = onCall<UpgradeClassPayload, Promise<UpgradeClassResp
           goldBank: newGoldBank,
           xpScrolls: newXpScrolls,
           ascensionCells: newAscensionCells,
+          sigilShards: player.sigilShards ?? 0,
           lineageRanks: player.lineageRanks,
           classRanks: newClassRanks,
           ownedClassIds: player.ownedClassIds,

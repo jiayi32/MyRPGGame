@@ -81,6 +81,7 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
         seed,
         stage: 1,
         turn: 0,
+        vaultStreak: 0,
         activeClassId,
         activeLineageId,
         evolutionTargetClassId,

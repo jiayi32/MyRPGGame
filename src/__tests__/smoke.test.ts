@@ -52,6 +52,7 @@ const fakePlayer = {
   uid: 'test-uid',
   goldBank: 100,
   ascensionCells: 5,
+  sigilShards: 0,
   xpScrolls: { minor: 2, standard: 1, grand: 0 },
   lineageRanks: { drakehorn_forge: 2 },
   classRanks: { 'drakehorn_forge.ember_initiate': 1 },

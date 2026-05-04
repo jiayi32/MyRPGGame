@@ -5,7 +5,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { useCombatStore } from '@/stores/combatStore';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { useGearInventory } from '@/hooks/useGearInventory';
 
 export function HubScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList>>();
@@ -22,6 +23,7 @@ export function HubScreen() {
   const playerError = usePlayerStore((state) => state.error);
 
   const clearCombat = useCombatStore((state) => state.clear);
+  const { instances: gearInstances } = useGearInventory();
 
   useEffect(() => {
     bootstrap().catch(() => undefined);
@@ -32,6 +34,7 @@ export function HubScreen() {
     runStatus === 'starting_run';
 
   const hasActiveRun = runId !== null && runStatus === 'run_active';
+  const hasUnequippedGear = hasActiveRun && gearInstances.some((i) => !i.equipped);
 
   const handleStartNew = () => {
     clearCombat();
@@ -79,6 +82,10 @@ export function HubScreen() {
         <View style={styles.runCard}>
           <Text style={styles.runLabel}>Active Run — Stage {stage ?? '?'}</Text>
           <Text style={styles.runId}>{runId}</Text>
+          {hasUnequippedGear && (
+            <Text style={styles.gearNudge}>⚠ You have unequipped gear — check the Equipment tab before heading back.
+            </Text>
+          )}
           <TouchableOpacity onPress={handleForfeit} style={styles.forfeitLink}>
             <Text style={styles.forfeitLinkText}>Forfeit Run</Text>
           </TouchableOpacity>
@@ -157,6 +164,7 @@ const styles = StyleSheet.create({
   },
   forfeitLink: { alignSelf: 'flex-start', marginTop: 4 },
   forfeitLinkText: { fontSize: 11, color: '#a04040', textDecorationLine: 'underline' },
+  gearNudge: { fontSize: 12, color: '#8b5a00', fontStyle: 'italic' },
   actions: {
     gap: 8,
   },

@@ -33,5 +33,11 @@ export interface BossDef {
   phases: BossPhase[];
   mechanics: BossMechanic[];
   description: string;
+  /**
+   * Relative drop weight for Sigil Shards on kill.
+   * Only set on stage-5 (mini) and stage-10 (gate) bosses — undefined means no Sigil Shard drop.
+   * The server rolls a flat ±0 quantity and applies this weight to determine actual drop amount.
+   */
+  sigilShardsDropWeight?: number;
   isStub?: boolean;
 }

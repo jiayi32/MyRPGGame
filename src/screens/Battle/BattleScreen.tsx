@@ -10,13 +10,15 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useShallow } from 'zustand/react/shallow';
-import { PrimaryButton } from '@/components/PrimaryButton';
-import { AbilityDetailsModal } from '@/components/AbilityDetailsModal';
+import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { AbilityDetailsModal } from '@/components/organisms/AbilityDetailsModal';
+import { CastPulse } from '@/components/molecules/CastPulse';
+import { DamagePopupOverlay } from '@/components/molecules/DamagePopupOverlay';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import { CLASS_BY_ID, SKILL_BY_ID, ENEMY_ARCHETYPE_BY_ID } from '@/content';
+import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
 import type { ClassId, SkillId } from '@/content/types';
-import { canCast, type InstanceId, type Unit, SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
+import { canCast, type InstanceId, SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
 import { decideEnemyAction } from '@/domain/combat/bossAI';
 import {
   selectAliveEnemies,
@@ -25,10 +27,14 @@ import {
   useCombatStore,
 } from '@/stores/combatStore';
 import { usePlayerStore, useRunStore } from '@/stores';
-import { AnimatedHpBar } from '@/components/AnimatedHpBar';
-import { DamagePopupOverlay } from '@/components/DamagePopup';
-import { CastPulse } from '@/components/CastPulse';
 import { useGearInventory } from '@/hooks/useGearInventory';
+import { HpBar } from './HpBar';
+import { MpBar } from './MpBar';
+import { CtIndicator } from './CtIndicator';
+import { StatusChips } from './StatusChips';
+import { EnemyRow } from './EnemyRow';
+import { AbilityButton, describeSkillCost, reasonLabel } from './AbilityButton';
+import { EventLog } from './EventLog';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'Battle'>;
 
@@ -53,213 +59,6 @@ const STAGE_TYPE_BG: Record<StageType, string> = {
   gate: '#edfaee',
   counter: '#fde8e8',
 };
-
-const EVENT_LOG_TAIL = 8;
-
-function HpBar({ unit, color = '#4a9a5a' }: { unit: Unit; color?: string }) {
-  return <AnimatedHpBar hp={unit.hp} hpMax={unit.hpMax} color={color} />;
-}
-
-function MpBar({ unit }: { unit: Unit }) {
-  const pct = unit.mpMax > 0 ? Math.max(0, Math.min(1, unit.mp / unit.mpMax)) : 0;
-  return (
-    <View style={styles.barContainer}>
-      <View style={[styles.barTrack, { backgroundColor: '#dde4f0' }]}>
-        <View style={[styles.barFill, { width: `${pct * 100}%`, backgroundColor: '#4a6ae0' }]} />
-      </View>
-      <Text style={styles.barLabel}>MP {Math.round(unit.mp)} / {Math.round(unit.mpMax)}</Text>
-    </View>
-  );
-}
-
-function CtIndicator({ unit, isReady }: { unit: Unit; isReady: boolean }) {
-  if (isReady) {
-    return <Text style={[styles.ctChip, styles.ctChipReady]}>READY</Text>;
-  }
-  return (
-    <Text style={styles.ctChip}>
-      CT {unit.ct.toFixed(1)}s
-    </Text>
-  );
-}
-
-function StatusChips({ unit }: { unit: Unit }) {
-  if (unit.statuses.length === 0) return null;
-  return (
-    <View style={styles.statusChipsRow}>
-      {unit.statuses.map((s) => (
-        <View key={`${s.kind}_${s.skillId}_${s.id}`} style={[styles.statusChip, statusChipColor(s.kind)]}>
-          <Text style={styles.statusChipText}>
-            {abbrevStatus(s.kind)}
-            {s.stacks > 1 ? ` ×${s.stacks}` : ''}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function statusChipColor(kind: string) {
-  switch (kind) {
-    case 'dot': return { backgroundColor: '#fde0e0', borderColor: '#a04040' };
-    case 'hot': return { backgroundColor: '#e0fde0', borderColor: '#40a040' };
-    case 'buff': return { backgroundColor: '#e0e8ff', borderColor: '#4060c0' };
-    case 'debuff': return { backgroundColor: '#fde0fd', borderColor: '#a040a0' };
-    case 'shield': return { backgroundColor: '#fff8e0', borderColor: '#a08040' };
-    case 'stun': return { backgroundColor: '#e8e8e8', borderColor: '#808080' };
-    case 'counter': return { backgroundColor: '#fde8c8', borderColor: '#c08040' };
-    default: return { backgroundColor: '#f0f0f0', borderColor: '#808080' };
-  }
-}
-
-function abbrevStatus(kind: string): string {
-  switch (kind) {
-    case 'dot': return 'DoT';
-    case 'hot': return 'HoT';
-    case 'buff': return 'Buff';
-    case 'debuff': return 'Debuff';
-    case 'shield': return 'Shield';
-    case 'stun': return 'Stun';
-    case 'counter': return 'Counter';
-    default: return kind;
-  }
-}
-
-function EnemyRow({
-  enemy,
-  isReady,
-  isTarget,
-  onSelect,
-}: {
-  enemy: Unit;
-  isReady: boolean;
-  isTarget: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onSelect}
-      style={[
-        styles.enemyRow,
-        isReady && styles.enemyRowReady,
-        isTarget && styles.enemyRowTarget,
-      ]}
-    >
-      <DamagePopupOverlay unitId={enemy.id} />
-      <View style={styles.enemyHeader}>
-        <View style={styles.enemyNameBlock}>
-          <Text style={styles.enemyName}>{enemy.displayName}</Text>
-          {enemy.archetypeId !== undefined && enemy.skillIds.length > 0 && (
-            <Text style={styles.archetypeLabel}>
-              {ENEMY_ARCHETYPE_BY_ID.get(enemy.archetypeId)?.name ?? enemy.archetypeId}
-            </Text>
-          )}
-        </View>
-        <CtIndicator unit={enemy} isReady={isReady} />
-      </View>
-      <HpBar unit={enemy} color={isTarget ? '#e04040' : '#7a3030'} />
-      <StatusChips unit={enemy} />
-    </TouchableOpacity>
-  );
-}
-
-function describeSkillCost(skillId: SkillId): string {
-  if (skillId === SYNTHETIC_BASIC_ATTACK_ID) return '';
-  const skill = SKILL_BY_ID.get(skillId);
-  if (!skill) return '';
-  const r = skill.resource;
-  if (r.type === 'MP' && typeof r.cost === 'number') return `${r.cost} MP`;
-  if (r.type === 'HP' && typeof r.cost === 'number') return `${(r.cost * 100).toFixed(0)}% HP`;
-  return '';
-}
-
-function AbilityButton({
-  label,
-  cost,
-  onPress,
-  onLongPress,
-  disabled,
-  cooldown,
-  reason,
-}: {
-  label: string;
-  cost: string;
-  onPress: () => void;
-  onLongPress: () => void;
-  disabled: boolean;
-  cooldown?: number;
-  reason?: string;
-}) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={350}
-      // Long-press still works on disabled-looking buttons so the player can read what an
-      // ability does even when they can't currently cast it. Pass-through onLongPress regardless.
-      disabled={disabled}
-      style={[styles.abilityBtn, disabled && styles.abilityBtnDisabled]}
-    >
-      <Text style={[styles.abilityBtnLabel, disabled && styles.abilityBtnLabelDisabled]}>{label}</Text>
-      {cost.length > 0 && (
-        <Text style={[styles.abilityBtnCost, disabled && styles.abilityBtnCostDisabled]}>{cost}</Text>
-      )}
-      {cooldown !== undefined && cooldown > 0 && (
-        <Text style={styles.abilityBtnCooldown}>CD {cooldown.toFixed(1)}s</Text>
-      )}
-      {reason !== undefined && reason.length > 0 && disabled && (
-        <Text style={styles.abilityBtnReason}>{reason}</Text>
-      )}
-    </TouchableOpacity>
-  );
-}
-
-function reasonLabel(reason: string | undefined): string {
-  if (!reason) return '';
-  const map: Record<string, string> = {
-    not_ready: 'not ready',
-    skill_on_cooldown: 'on cooldown',
-    insufficient_resource: 'no MP/HP',
-    skill_not_owned: 'not owned',
-    invalid_target: 'no target',
-    unit_dead: 'dead',
-    unit_stunned: 'stunned',
-    battle_ended: 'ended',
-  };
-  return map[reason] ?? reason;
-}
-
-function EventLog({ events }: { events: readonly { tick: number; type: string; [k: string]: unknown }[] }) {
-  if (events.length === 0) return null;
-  const tail = events.slice(-EVENT_LOG_TAIL);
-  return (
-    <View style={styles.eventLog}>
-      <Text style={styles.eventLogTitle}>Recent Events</Text>
-      {tail.map((e, i) => (
-        <Text key={`${e.tick}_${i}`} style={styles.eventLogLine}>
-          t={e.tick} {summarizeEvent(e)}
-        </Text>
-      ))}
-    </View>
-  );
-}
-
-function summarizeEvent(e: { type: string; [k: string]: unknown }): string {
-  switch (e.type) {
-    case 'damage': return `damage ${(e['amount'] as number)?.toFixed?.(0) ?? e['amount']} (${e['hitTier']})`;
-    case 'heal': return `heal ${(e['amount'] as number)?.toFixed?.(0) ?? e['amount']}`;
-    case 'skill_cast': return `cast ${e['skillId']} (${e['hitTier']})`;
-    case 'unit_died': return `${e['unitId']} died`;
-    case 'status_applied': return `${e['statusKind']} → ${e['targetUnitId']}`;
-    case 'status_expired': return `${e['statusKind']} expired`;
-    case 'status_tick': return `${e['statusKind']} tick ${(e['amount'] as number)?.toFixed?.(0) ?? e['amount']}`;
-    case 'battle_ended': return `BATTLE ${(e['result'] as string)?.toUpperCase()}`;
-    case 'battle_started': return 'battle started';
-    case 'ct_shift': return `CT shift ${e['delta']}`;
-    case 'effect_stub': return `${e['kind']} (stub)`;
-    default: return e.type;
-  }
-}
 
 export function BattleScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
@@ -393,6 +192,29 @@ export function BattleScreen({ navigation }: Props) {
     }
     return undefined;
   }, [autoPlay, battleEnded, engineState, player, readyUnitId, stepCombat, targetId, tickAdvance]);
+
+  // Auto-submit when autoPlay is on and battle has ended — fires after a 1.5s delay so the
+  // player sees the result card briefly before advancing.
+  useEffect(() => {
+    if (!autoPlay || !battleEnded || report === null || runStatus === 'submitting_outcome') return;
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          await submitStageOutcome({
+            stageIndex: report.stageIndex,
+            result: report.outcomeResult,
+            rewards: report.claimedRewards,
+            hpRemaining: report.hpRemaining,
+            elapsedSeconds: report.elapsedSeconds,
+          });
+          navigation.replace('RewardResolution');
+        } catch {
+          // Surfaced by run store.
+        }
+      })();
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [autoPlay, battleEnded, navigation, report, runStatus, submitStageOutcome]);
 
   // Submit outcome to backend after report finalizes.
   const handleSubmit = async () => {
@@ -716,21 +538,6 @@ const styles = StyleSheet.create({
   playerName: { fontSize: 16, fontWeight: '700', color: '#1e2238' },
 
   enemiesSection: { gap: 8 },
-  enemyRow: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#dadde9',
-    backgroundColor: '#fafbff',
-    padding: 10,
-    gap: 6,
-  },
-  enemyRowReady: { borderColor: '#c08020', backgroundColor: '#fffaf0' },
-  enemyRowTarget: { borderColor: '#c04040', backgroundColor: '#fff5f5', borderWidth: 1.5 },
-  enemyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  enemyNameBlock: { flexDirection: 'column', flex: 1 },
-  enemyName: { fontSize: 14, fontWeight: '600', color: '#2a2e44' },
-  archetypeLabel: { fontSize: 10, color: '#8892b0', marginTop: 1 },
-
   abilitiesSection: {
     borderRadius: 12,
     borderWidth: 1,
@@ -740,24 +547,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   abilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  abilityBtn: {
-    minWidth: 100,
-    flexGrow: 1,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#7a3b00',
-    backgroundColor: '#7a3b00',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  abilityBtnDisabled: { backgroundColor: '#e6e6ea', borderColor: '#bbb' },
-  abilityBtnLabel: { fontSize: 13, color: '#fff', fontWeight: '600' },
-  abilityBtnLabelDisabled: { color: '#888' },
-  abilityBtnCost: { fontSize: 10, color: '#ffd9a0' },
-  abilityBtnCostDisabled: { color: '#aaa' },
-  abilityBtnCooldown: { fontSize: 10, color: '#ffd9a0', fontStyle: 'italic' },
-  abilityBtnReason: { fontSize: 10, color: '#a04040', fontStyle: 'italic' },
   lastReason: { fontSize: 11, color: '#8b1a1a', marginTop: 4 },
 
   waitingCard: {
@@ -767,43 +556,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   waitingText: { fontSize: 12, color: '#5a5a78', fontStyle: 'italic' },
-
-  barContainer: { gap: 2 },
-  barTrack: { height: 8, backgroundColor: '#e0e6f0', borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: '100%' },
-  barLabel: { fontSize: 10, color: '#5a5a78' },
-
-  ctChip: {
-    fontSize: 11,
-    color: '#5a5a78',
-    backgroundColor: '#eef0f8',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    fontWeight: '600',
-  },
-  ctChipReady: {
-    color: '#fff',
-    backgroundColor: '#3a8a5a',
-  },
-
-  statusChipsRow: { flexDirection: 'row', gap: 4, flexWrap: 'wrap' },
-  statusChip: {
-    borderRadius: 4,
-    borderWidth: 1,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  statusChipText: { fontSize: 10, fontWeight: '600' },
-
-  eventLog: {
-    borderRadius: 10,
-    backgroundColor: '#1d212e',
-    padding: 10,
-    gap: 2,
-  },
-  eventLogTitle: { fontSize: 11, fontWeight: '700', color: '#9aa0c0', marginBottom: 2 },
-  eventLogLine: { fontSize: 11, color: '#d0d4e8', fontFamily: 'monospace' },
 
   resultCard: {
     borderRadius: 12,

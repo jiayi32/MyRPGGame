@@ -49,6 +49,7 @@ export const getOrCreatePlayer = onCall<
         goldBank: 0,
         xpScrolls: { ...EMPTY_XP_SCROLLS },
         ascensionCells: 0,
+        sigilShards: 0,
         lineageRanks: {},
         classRanks: {},
         ownedClassIds: [...STARTER_CLASS_IDS],

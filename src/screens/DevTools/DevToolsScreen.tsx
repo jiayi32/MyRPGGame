@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,7 +14,8 @@ import type { RootStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore } from '@/stores';
 import { useRunStore } from '@/stores/runStore';
 import { useCombatStore } from '@/stores/combatStore';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { ToolButton } from './ToolButton';
 import {
   devGrantAllClasses,
   devResetPlayer,
@@ -24,35 +24,6 @@ import {
   formatCallableError,
 } from '@/services/runApi';
 import type { StageOutcomeResult } from '@/features/run/types';
-
-interface ToolButtonProps {
-  label: string;
-  description?: string;
-  onPress: () => void;
-  busy?: boolean;
-  destructive?: boolean;
-}
-
-function ToolButton({ label, description, onPress, busy, destructive }: ToolButtonProps) {
-  return (
-    <TouchableOpacity
-      style={[
-        styles.toolBtn,
-        destructive && styles.toolBtnDestructive,
-        busy && styles.toolBtnBusy,
-      ]}
-      onPress={onPress}
-      disabled={busy}
-    >
-      <Text style={[styles.toolBtnLabel, destructive && styles.toolBtnLabelDestructive]}>
-        {busy ? '…' : label}
-      </Text>
-      {description !== undefined && (
-        <Text style={styles.toolBtnDescription}>{description}</Text>
-      )}
-    </TouchableOpacity>
-  );
-}
 
 export function DevToolsScreen() {
   const playerRefresh = usePlayerStore((state) => state.refresh);
@@ -376,18 +347,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#363a52',
   },
-  toolBtn: {
-    backgroundColor: '#3a8a5a',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  toolBtnDestructive: { backgroundColor: '#a04040' },
-  toolBtnBusy: { opacity: 0.6 },
-  toolBtnLabel: { fontSize: 13, color: '#fff', fontWeight: '600' },
-  toolBtnLabelDestructive: { color: '#fff' },
-  toolBtnDescription: { fontSize: 11, color: '#d0e0d0', marginTop: 2 },
   hint: { fontSize: 11, color: '#7a8090', fontStyle: 'italic' },
   forceRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   forceBtn: { flex: 1, minWidth: 96 },

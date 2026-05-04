@@ -135,6 +135,7 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
         playerTotals: {
           goldBank: newGoldBank,
           ascensionCells: newAscensionCells,
+          sigilShards: playerData.sigilShards ?? 0,
           xpScrolls: newXpScrolls,
           ownedClassIds: newOwnedClassIds,
           lineageRanks: newLineageRanks,

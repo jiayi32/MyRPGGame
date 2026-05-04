@@ -57,6 +57,7 @@ export interface PreparedStage {
 const toMutableReward = (reward: DomainRewardBundle): RewardBundle => ({
   gold: reward.gold,
   ascensionCells: reward.ascensionCells,
+  sigilShards: 0,
   xpScrollMinor: reward.xpScrollMinor,
   xpScrollStandard: reward.xpScrollStandard,
   xpScrollGrand: reward.xpScrollGrand,
@@ -196,6 +197,7 @@ const resolveBossRewards = (stage: number): RewardBundle => {
     return {
       gold: 250,
       ascensionCells: 2,
+      sigilShards: 1,
       xpScrollMinor: 2,
       xpScrollStandard: 1,
       xpScrollGrand: 0,
@@ -206,6 +208,7 @@ const resolveBossRewards = (stage: number): RewardBundle => {
     return {
       gold: 600,
       ascensionCells: 5,
+      sigilShards: 2,
       xpScrollMinor: 1,
       xpScrollStandard: 2,
       xpScrollGrand: 0,
@@ -216,6 +219,7 @@ const resolveBossRewards = (stage: number): RewardBundle => {
   return {
     gold: 1500,
     ascensionCells: 12,
+    sigilShards: 0,
     xpScrollMinor: 0,
     xpScrollStandard: 1,
     xpScrollGrand: 2,

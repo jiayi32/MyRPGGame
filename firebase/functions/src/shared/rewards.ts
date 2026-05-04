@@ -6,6 +6,7 @@ export function addRewards(a: RewardBundle, b: RewardBundle): RewardBundle {
   return {
     gold: a.gold + b.gold,
     ascensionCells: a.ascensionCells + b.ascensionCells,
+    sigilShards: a.sigilShards + b.sigilShards,
     xpScrollMinor: a.xpScrollMinor + b.xpScrollMinor,
     xpScrollStandard: a.xpScrollStandard + b.xpScrollStandard,
     xpScrollGrand: a.xpScrollGrand + b.xpScrollGrand,
@@ -65,6 +66,7 @@ export function splitRewards(rewards: RewardBundle): {
     baseline: {
       gold: floor(rewards.gold),
       ascensionCells: floor(rewards.ascensionCells),
+      sigilShards: 0,
       xpScrollMinor: floor(rewards.xpScrollMinor),
       xpScrollStandard: floor(rewards.xpScrollStandard),
       xpScrollGrand: floor(rewards.xpScrollGrand),
@@ -73,10 +75,32 @@ export function splitRewards(rewards: RewardBundle): {
     vaulted: {
       gold: ceil(rewards.gold),
       ascensionCells: ceil(rewards.ascensionCells),
+      sigilShards: rewards.sigilShards,
       xpScrollMinor: ceil(rewards.xpScrollMinor),
       xpScrollStandard: ceil(rewards.xpScrollStandard),
       xpScrollGrand: ceil(rewards.xpScrollGrand),
       gearIds: [...rewards.gearIds],
     },
+  };
+}
+
+/**
+ * Multiplies only numeric vaulted reward fields by a scalar, flooring each
+ * value. Gear count is not scaled.
+ */
+export function applyVaultMultiplier(
+  vaulted: RewardBundle,
+  multiplier: number
+): RewardBundle {
+  const m = Number.isFinite(multiplier) ? Math.max(1, multiplier) : 1;
+  const scaled = (n: number) => Math.floor(n * m);
+  return {
+    gold: scaled(vaulted.gold),
+    ascensionCells: scaled(vaulted.ascensionCells),
+    sigilShards: scaled(vaulted.sigilShards),
+    xpScrollMinor: scaled(vaulted.xpScrollMinor),
+    xpScrollStandard: scaled(vaulted.xpScrollStandard),
+    xpScrollGrand: scaled(vaulted.xpScrollGrand),
+    gearIds: [...vaulted.gearIds],
   };
 }

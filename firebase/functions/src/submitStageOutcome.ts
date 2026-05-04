@@ -12,7 +12,7 @@ import {
   validateRewardBundle,
   validateRewardPlausibility,
 } from './shared/guards';
-import { splitRewards, addRewards } from './shared/rewards';
+import { addRewards, applyVaultMultiplier, splitRewards } from './shared/rewards';
 import type {
   SubmitStageOutcomePayload,
   SubmitStageOutcomeResponse,
@@ -86,14 +86,18 @@ export const submitStageOutcome = onCall<
       tx.set(checkpointRef, stageOutcome);
 
       const { baseline, vaulted } = splitRewards(rewards);
+      const streak = Math.max(0, runData.vaultStreak ?? 0);
+      const multiplier = Math.min(1 + streak * 0.2, 3);
+      const boostedVault = applyVaultMultiplier(vaulted, multiplier);
       const newBanked = addRewards(runData.bankedRewards, baseline);
-      const newVaulted = addRewards(runData.vaultedRewards, vaulted);
+      const newVaulted = addRewards(runData.vaultedRewards, boostedVault);
       const newStage = stageIndex + 1;
 
       tx.update(runRef, {
         stage: newStage,
         bankedRewards: newBanked,
         vaultedRewards: newVaulted,
+        vaultStreak: result === 'won' ? streak + 1 : streak,
         updatedAt: now,
       });
 

@@ -1,6 +1,8 @@
 export interface RewardBundle {
   gold: number;
   ascensionCells: number;
+  /** Rare drop from stage-5 mini-boss and stage-10 gate boss only. Used for cross-lineage unlocks. */
+  sigilShards: number;
   xpScrollMinor: number;
   xpScrollStandard: number;
   xpScrollGrand: number;
@@ -10,6 +12,7 @@ export interface RewardBundle {
 export const EMPTY_REWARD_BUNDLE: RewardBundle = {
   gold: 0,
   ascensionCells: 0,
+  sigilShards: 0,
   xpScrollMinor: 0,
   xpScrollStandard: 0,
   xpScrollGrand: 0,
@@ -77,6 +80,7 @@ export interface ProgressionDelta {
   playerTotals: {
     goldBank: number;
     ascensionCells: number;
+    sigilShards: number;
     xpScrolls: XpScrollPouch;
     ownedClassIds: string[];
     lineageRanks: Record<string, number>;
@@ -99,6 +103,7 @@ export interface RunSnapshot {
   seed: number;
   stage: number;
   turn: number;
+  vaultStreak: number;
   activeClassId: string;
   activeLineageId: string;
   evolutionTargetClassId: string | null;
@@ -112,6 +117,7 @@ export interface PlayerSnapshot {
   goldBank: number;
   xpScrolls: XpScrollPouch;
   ascensionCells: number;
+  sigilShards: number;
   lineageRanks: Record<string, number>;
   classRanks: Record<string, number>;
   ownedClassIds: string[];
@@ -146,6 +152,7 @@ export interface DevResetPlayerResponse {
 export interface DevSetCurrenciesPayload {
   goldBank?: number;
   ascensionCells?: number;
+  sigilShards?: number;
   xpScrollMinor?: number;
   xpScrollStandard?: number;
   xpScrollGrand?: number;
@@ -155,6 +162,7 @@ export interface DevSetCurrenciesResponse {
   ok: boolean;
   goldBank: number;
   ascensionCells: number;
+  sigilShards: number;
   xpScrolls: XpScrollPouch;
 }
 

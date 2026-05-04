@@ -1,68 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { PrimaryButton } from '@/components/PrimaryButton';
+import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { RewardBlock } from './RewardBlock';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import type { ProgressionDelta, RewardBundle } from '@/features/run/types';
+import type { ProgressionDelta } from '@/features/run/types';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
-import { lookupGearTemplate } from '@/content/gear';
 import { useCombatStore, useRunStore } from '@/stores';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RewardResolution'>;
-
-function RewardRow({ label, value }: { label: string; value: number }) {
-  if (value === 0) return null;
-  return (
-    <View style={styles.rewardRow}>
-      <Text style={styles.rewardLabel}>{label}</Text>
-      <Text style={styles.rewardValue}>+{value}</Text>
-    </View>
-  );
-}
-
-function RewardBlock({ title, rewards, tint, runOngoing }: { title: string; rewards: RewardBundle; tint: string; runOngoing?: boolean }) {
-  const hasAny =
-    rewards.gold > 0 ||
-    rewards.ascensionCells > 0 ||
-    rewards.xpScrollMinor > 0 ||
-    rewards.xpScrollStandard > 0 ||
-    rewards.xpScrollGrand > 0 ||
-    rewards.gearIds.length > 0;
-
-  return (
-    <View style={[styles.rewardBlock, { borderLeftColor: tint }]}>
-      <Text style={[styles.rewardBlockTitle, { color: tint }]}>{title}</Text>
-      {hasAny ? (
-        <>
-          <RewardRow label="Gold" value={rewards.gold} />
-          <RewardRow label="Ascension Cells" value={rewards.ascensionCells} />
-          <RewardRow label="XP Scroll (Minor)" value={rewards.xpScrollMinor} />
-          <RewardRow label="XP Scroll (Standard)" value={rewards.xpScrollStandard} />
-          <RewardRow label="XP Scroll (Grand)" value={rewards.xpScrollGrand} />
-          {rewards.gearIds.map((id, index) => {
-            const resolved = lookupGearTemplate(id);
-            const name = resolved?.name ?? id;
-            const rarity = resolved?.rarity;
-            return (
-              <Text key={`gear-${index}`} style={styles.gearItem}>
-                {name}{rarity !== undefined ? ` · ${rarity}` : ''}
-              </Text>
-            );
-          })}
-          {runOngoing === true && rewards.gearIds.length > 0 && (
-            <Text style={styles.gearAtRisk}>
-              ⚠ Gear is at risk — flee or defeat forfeits all vaulted gear. Bank at a checkpoint to keep it.
-            </Text>
-          )}
-        </>
-      ) : (
-        <Text style={styles.emptyReward}>—</Text>
-      )}
-    </View>
-  );
-}
 
 export function RewardResolutionScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
@@ -71,28 +19,39 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const runError = useRunStore((state) => state.error);
   const bankedRewards = useRunStore((state) => state.bankedRewards);
   const vaultedRewards = useRunStore((state) => state.vaultedRewards);
-  const pendingCheckpointStage = useRunStore((state) => state.pendingCheckpointStage);
-  const checkpointBankError = useRunStore((state) => state.checkpointBankError);
-  const lastCheckpointBankedStage = useRunStore((state) => state.lastCheckpointBankedStage);
-  const retryCheckpointBanking = useRunStore((state) => state.retryCheckpointBanking);
+  const vaultStreak = useRunStore((state) => state.vaultStreak);
+  const awaitingVaultDecision = useRunStore((state) => state.awaitingVaultDecision);
+  const vaultAtStage = useRunStore((state) => state.vaultAtStage);
+  const pressOn = useRunStore((state) => state.pressOn);
   const endRun = useRunStore((state) => state.endRun);
   const resetRun = useRunStore((state) => state.resetRun);
 
   const report = useCombatStore((state) => state.report);
+  const autoPlay = useCombatStore((state) => state.autoPlay);
   const clearCombat = useCombatStore((state) => state.clear);
 
   const [progression, setProgression] = useState<ProgressionDelta | null>(null);
   const [settling, setSettling] = useState(false);
-  const [retryingCheckpoint, setRetryingCheckpoint] = useState(false);
+  const [vaulting, setVaulting] = useState(false);
 
   const completedStage = report?.stageIndex ?? stage;
-  const checkpointPendingForThisStage =
-    completedStage !== null && pendingCheckpointStage === completedStage;
-  const checkpointBankedForThisStage =
-    completedStage !== null && lastCheckpointBankedStage === completedStage;
+  const rewardMultiplierApplied = Math.min(1 + Math.max(0, vaultStreak - 1) * 0.2, 3);
+  const rewardMultiplierNext = Math.min(1 + vaultStreak * 0.2, 3);
+  const multiplierAtCap = rewardMultiplierNext >= 3;
 
   const isRunEnded = runResult === 'won' || runResult === 'lost';
-  const canEndRun = runId !== null && !settling && !isRunEnded && !checkpointPendingForThisStage;
+  const canEndRun = runId !== null && !settling && !isRunEnded;
+  const finalResult = report?.outcomeResult ?? 'fled';
+
+  // Auto-settle when autoPlay is on and battle ends without a pending vault decision.
+  useEffect(() => {
+    if (!autoPlay || !canEndRun || awaitingVaultDecision) return;
+    setSettling(true);
+    endRun(finalResult)
+      .then((response) => setProgression(response.progression))
+      .catch(() => undefined)
+      .finally(() => setSettling(false));
+  }, [autoPlay, canEndRun, awaitingVaultDecision, finalResult, endRun]);
 
   useFocusEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -101,7 +60,6 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
   const handleEndRun = async () => {
     if (!canEndRun) return;
-    const finalResult = report?.outcomeResult ?? 'fled';
     setSettling(true);
     try {
       const response = await endRun(finalResult);
@@ -120,15 +78,23 @@ export function RewardResolutionScreen({ navigation }: Props) {
     navigation.replace('Hub');
   };
 
-  const handleRetryCheckpoint = async () => {
-    setRetryingCheckpoint(true);
+  const handleVaultNow = async () => {
+    if (!awaitingVaultDecision) return;
+    setVaulting(true);
     try {
-      await retryCheckpointBanking();
+      await vaultAtStage();
+      navigation.replace('Hub');
     } catch {
-      // Error surfaced by runStore.checkpointBankError.
+      // Error surfaced by runStore.error.
     } finally {
-      setRetryingCheckpoint(false);
+      setVaulting(false);
     }
+  };
+
+  const handlePressOn = () => {
+    if (!awaitingVaultDecision) return;
+    pressOn();
+    navigation.replace('Hub');
   };
 
   return (
@@ -155,32 +121,44 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
       <View style={styles.rewardsSection}>
         <RewardBlock title="Banked" rewards={bankedRewards} tint="#1a7a2a" />
-        <RewardBlock title="Vaulted" rewards={vaultedRewards} tint="#7a5a10" runOngoing={!isRunEnded} />
+        <RewardBlock
+          title={!isRunEnded && vaultStreak > 0 ? `Vaulted (${vaultStreak} stage${vaultStreak > 1 ? 's' : ''} at risk)` : 'Vaulted'}
+          rewards={vaultedRewards}
+          tint="#7a5a10"
+          runOngoing={!isRunEnded}
+        />
       </View>
 
-      {checkpointBankedForThisStage && (
+      {awaitingVaultDecision && (
         <View style={styles.checkpointSuccessCard}>
-          <Text style={styles.checkpointSuccessText}>
-            Checkpoint banked! All vaulted rewards — including gear — are now safe.
-          </Text>
-        </View>
-      )}
-
-      {checkpointPendingForThisStage && (
-        <View style={styles.checkpointErrorCard}>
-          <Text style={styles.checkpointErrorTitle}>Checkpoint Banking Pending</Text>
+          <Text style={styles.checkpointSuccessText}>Vault Decision</Text>
           <Text style={styles.checkpointErrorBody}>
-            You need to bank this checkpoint before continuing the run.
+            {vaultStreak === 1
+              ? 'This stage\'s haul is at risk — die or flee and lose it.'
+              : `${vaultStreak} stages of vault at risk — die or flee and forfeit all of it.`}
           </Text>
-          {checkpointBankError !== null && (
-            <Text style={styles.checkpointErrorBody}>{checkpointBankError}</Text>
+          {vaultStreak > 1 && (
+            <Text style={styles.checkpointCardBody}>
+              Vault boosted {rewardMultiplierApplied.toFixed(1)}x this stage.
+            </Text>
           )}
+          <Text style={styles.checkpointCardBody}>
+            {multiplierAtCap
+              ? 'At maximum 3.0x — pressing on earns no further multiplier.'
+              : `Press On to earn ${rewardMultiplierNext.toFixed(1)}x vault on the next stage.`}
+          </Text>
           <View style={styles.actions}>
             <PrimaryButton
-              title="Retry Checkpoint Banking"
-              onPress={() => { handleRetryCheckpoint().catch(() => undefined); }}
-              disabled={retryingCheckpoint}
-              busy={retryingCheckpoint}
+              title="Vault Now — Return to Hub"
+              onPress={() => void handleVaultNow()}
+              disabled={vaulting}
+              busy={vaulting}
+            />
+            <PrimaryButton
+              title={multiplierAtCap ? 'Press On (capped 3.0x) — Return to Hub' : 'Press On (Risk) — Return to Hub'}
+              variant="secondary"
+              onPress={handlePressOn}
+              disabled={vaulting}
             />
           </View>
         </View>
@@ -224,7 +202,7 @@ export function RewardResolutionScreen({ navigation }: Props) {
             title="Back to Battle"
             variant="secondary"
             onPress={() => navigation.replace('Battle')}
-            disabled={checkpointPendingForThisStage}
+            disabled={awaitingVaultDecision}
           />
         </View>
       )}
@@ -233,8 +211,8 @@ export function RewardResolutionScreen({ navigation }: Props) {
         <View style={styles.actions}>
           <PrimaryButton
             title="End Run & Settle"
-            onPress={() => { handleEndRun().catch(() => undefined); }}
-            disabled={settling}
+            onPress={() => void handleEndRun()}
+            disabled={settling || awaitingVaultDecision}
             busy={settling}
           />
         </View>
@@ -267,23 +245,6 @@ const styles = StyleSheet.create({
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
   battleSummary: { fontSize: 13, color: '#36564a' },
   rewardsSection: { gap: 8 },
-  rewardBlock: {
-    borderLeftWidth: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#b7d0c2',
-    backgroundColor: '#fcfffd',
-    padding: 14,
-    paddingLeft: 12,
-    gap: 4,
-  },
-  rewardBlockTitle: { fontSize: 13, fontWeight: '700', marginBottom: 4 },
-  rewardRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  rewardLabel: { fontSize: 13, color: '#2f3f39' },
-  rewardValue: { fontSize: 13, fontWeight: '600', color: '#1a5a2a' },
-  gearItem: { fontSize: 12, color: '#5a7a4a' },
-  gearAtRisk: { fontSize: 11, color: '#8b4000', fontWeight: '600', marginTop: 4 },
-  emptyReward: { fontSize: 13, color: '#8aaa9a' },
   progressionCard: {
     borderRadius: 12,
     borderWidth: 1.5,
@@ -307,15 +268,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   checkpointSuccessText: { fontSize: 13, color: '#1a5a2a', fontWeight: '600' },
-  checkpointErrorCard: {
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e08080',
-    backgroundColor: '#fff2f2',
-    padding: 10,
-    gap: 6,
-  },
-  checkpointErrorTitle: { fontSize: 13, color: '#8b1a1a', fontWeight: '700' },
   checkpointErrorBody: { fontSize: 12, color: '#8b1a1a' },
+  checkpointCardBody: { fontSize: 12, color: '#3a5a48' },
   error: { fontSize: 13, color: '#a10f0f' },
 });

@@ -28,6 +28,7 @@ const miniBossStage5: BossDef = {
   ],
   description:
     'Stage-5 mini-boss foreshadowing Drakehorn Forge mechanics. Scaled-up DPS-race archetype.',
+  sigilShardsDropWeight: 1,
 };
 
 const gateBossStage10: BossDef = {
@@ -61,6 +62,7 @@ const gateBossStage10: BossDef = {
     },
   ],
   description: 'Stage-10 gate boss — generic boss pool representative with CT-manipulation theme.',
+  sigilShardsDropWeight: 2,
 };
 
 const counterBossStage30: BossDef = {

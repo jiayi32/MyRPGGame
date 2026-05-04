@@ -3,17 +3,17 @@ import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer, type NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HubScreen } from '@/screens/HubScreen';
-import { EquipmentScreen } from '@/screens/EquipmentScreen';
-import { ShopScreen } from '@/screens/ShopScreen';
-import { ProfileScreen } from '@/screens/ProfileScreen';
-import { ClassSelectScreen } from '@/screens/ClassSelectScreen';
-import { BattleScreen } from '@/screens/BattleScreen';
-import { RunMapScreen } from '@/screens/RunMapScreen';
-import { RewardResolutionScreen } from '@/screens/RewardResolutionScreen';
-import { PlaceholderScreen } from '@/screens/PlaceholderScreen';
-import { SignInScreen } from '@/screens/SignInScreen';
-import { DevToolsScreen } from '@/screens/DevToolsScreen';
+import { HubScreen } from '@/screens/Hub';
+import { EquipmentScreen } from '@/screens/Equipment';
+import { ShopScreen } from '@/screens/Shop';
+import { ProfileScreen } from '@/screens/Profile';
+import { ClassSelectScreen } from '@/screens/ClassSelect';
+import { BattleScreen } from '@/screens/Battle';
+import { RunMapScreen } from '@/screens/RunMap';
+import { RewardResolutionScreen } from '@/screens/RewardResolution';
+import { PlaceholderScreen } from '@/screens/Placeholder';
+import { SignInScreen } from '@/screens/SignIn';
+import { DevToolsScreen } from '@/screens/DevTools';
 import { usePlayerStore, useRunStore } from '@/stores';
 
 export type HomeStackParamList = {

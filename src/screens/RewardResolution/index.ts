@@ -1,0 +1,1 @@
+export { RewardResolutionScreen } from './RewardResolutionScreen';

@@ -33,6 +33,7 @@ interface PlayerStoreState {
   goldBank: number;
   xpScrolls: XpScrollPouch;
   ascensionCells: number;
+  sigilShards: number;
   lineageRanks: Record<string, number>;
   classRanks: Record<string, number>;
   ownedClassIds: string[];
@@ -66,6 +67,7 @@ const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => 
   goldBank: snap.goldBank,
   xpScrolls: cloneXpScrolls(snap.xpScrolls),
   ascensionCells: snap.ascensionCells,
+  sigilShards: snap.sigilShards,
   lineageRanks: { ...snap.lineageRanks },
   classRanks: { ...snap.classRanks },
   ownedClassIds: [...snap.ownedClassIds],
@@ -78,6 +80,7 @@ const EMPTY_STATE: Pick<
   | 'goldBank'
   | 'xpScrolls'
   | 'ascensionCells'
+  | 'sigilShards'
   | 'lineageRanks'
   | 'classRanks'
   | 'ownedClassIds'
@@ -87,6 +90,7 @@ const EMPTY_STATE: Pick<
   goldBank: 0,
   xpScrolls: cloneXpScrolls(EMPTY_XP_SCROLLS),
   ascensionCells: 0,
+  sigilShards: 0,
   lineageRanks: {},
   classRanks: {},
   ownedClassIds: [],
@@ -191,6 +195,7 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
       goldBank: totals.goldBank,
       xpScrolls: cloneXpScrolls(totals.xpScrolls),
       ascensionCells: totals.ascensionCells,
+      sigilShards: totals.sigilShards,
       lineageRanks: { ...totals.lineageRanks },
       classRanks: { ...totals.classRanks },
       ownedClassIds: [...totals.ownedClassIds],
