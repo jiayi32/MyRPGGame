@@ -6,6 +6,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — Narrative wrapper for run flow (2026-05-27)
+
+Started the benchmark-driven improvement plan by adding lightweight narrative framing to the start and end of runs, without changing combat authority or progression math.
+
+- [src/screens/OnboardingNarrative/OnboardingNarrativeScreen.tsx](src/screens/OnboardingNarrative/OnboardingNarrativeScreen.tsx): new prologue screen with three concise world/risk/progression beats and a direct CTA into class selection (`Choose Class` / `Skip Prologue`).
+- [src/navigation/AppNavigator.tsx](src/navigation/AppNavigator.tsx): added `OnboardingNarrative` route to `HomeStackParamList` and inserted the screen into the Home stack flow.
+- [src/screens/Hub/HubScreen.tsx](src/screens/Hub/HubScreen.tsx): `Start New Run` now routes to the new prologue first, then class selection.
+- [src/screens/RewardResolution/RewardResolutionScreen.tsx](src/screens/RewardResolution/RewardResolutionScreen.tsx): added milestone narrative callouts for key stages (1/5/10/20/30) plus defeat/flee messaging to improve context and emotional continuity between runs.
+
+### Verification
+
+- Client typecheck: clean.
+- Client tests: **109/109 pass** (18 suites).
+
 ### Added — Sigil Shards: third currency (2026-05-04)
 
 Introduced **Sigil Shards** as a rare third currency, earned exclusively from boss kills (stage-5 mini-boss and stage-10 gate boss). Spent exclusively on cross-lineage evolution (lateral tier-down unlocks). No UI surface yet; full wiring is schema-only ahead of Phase C hub systems.

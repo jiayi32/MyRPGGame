@@ -12,6 +12,72 @@ import { useCombatStore, useRunStore } from '@/stores';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RewardResolution'>;
 
+type NarrativeOutcome = 'won' | 'lost' | 'fled' | 'ongoing' | null | undefined;
+
+interface MilestoneNarrative {
+  title: string;
+  body: string;
+  tone: 'neutral' | 'warning' | 'victory';
+}
+
+function resolveMilestoneNarrative(
+  stage: number | null | undefined,
+  outcome: NarrativeOutcome,
+): MilestoneNarrative | null {
+  if (outcome === 'lost') {
+    return {
+      title: 'The Dungeon Pushes Back',
+      body: 'Defeat still teaches the lineage. Recover, adjust your build, and descend again.',
+      tone: 'warning',
+    };
+  }
+  if (outcome === 'fled') {
+    return {
+      title: 'A Tactical Retreat',
+      body: 'You escaped with what was safe. Next run can press deeper with better timing.',
+      tone: 'neutral',
+    };
+  }
+  if (stage === null || stage === undefined) return null;
+
+  if (stage === 1) {
+    return {
+      title: 'First Ember',
+      body: 'Your first clear marks the beginning of a lineage run. Every stage ahead raises the stakes.',
+      tone: 'neutral',
+    };
+  }
+  if (stage === 5) {
+    return {
+      title: 'Pyre Warden Felled',
+      body: 'The forge gate trembles. Boss victories now define your long-term economy and unlock pace.',
+      tone: 'victory',
+    };
+  }
+  if (stage === 10) {
+    return {
+      title: 'Gate Boss Broken',
+      body: 'A major checkpoint has fallen. Your run now shifts from survival into high-risk scaling.',
+      tone: 'victory',
+    };
+  }
+  if (stage === 20) {
+    return {
+      title: 'Deep Vault Threshold',
+      body: 'At this depth, banking discipline matters as much as combat power.',
+      tone: 'neutral',
+    };
+  }
+  if (stage === 30) {
+    return {
+      title: 'Counter Boss Defeated',
+      body: 'You closed a full dungeon arc. This run sets your benchmark for future lineage mastery.',
+      tone: 'victory',
+    };
+  }
+  return null;
+}
+
 export function RewardResolutionScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
   const stage = useRunStore((state) => state.stage);
@@ -42,6 +108,10 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const isRunEnded = runResult === 'won' || runResult === 'lost';
   const canEndRun = runId !== null && !settling && !isRunEnded;
   const finalResult = report?.outcomeResult ?? 'fled';
+  const milestoneNarrative = resolveMilestoneNarrative(
+    completedStage,
+    report?.outcomeResult ?? runResult,
+  );
 
   // Auto-settle when autoPlay is on and battle ends without a pending vault decision.
   useEffect(() => {
@@ -117,6 +187,22 @@ export function RewardResolutionScreen({ navigation }: Props) {
         <Text style={styles.battleSummary}>
           Last battle: {report.battleResult} · {report.enemyCount} enemies · {report.tickCount} ticks
         </Text>
+      )}
+
+      {milestoneNarrative !== null && (
+        <View
+          style={[
+            styles.narrativeCard,
+            milestoneNarrative.tone === 'warning'
+              ? styles.narrativeWarning
+              : milestoneNarrative.tone === 'victory'
+                ? styles.narrativeVictory
+                : styles.narrativeNeutral,
+          ]}
+        >
+          <Text style={styles.narrativeTitle}>{milestoneNarrative.title}</Text>
+          <Text style={styles.narrativeBody}>{milestoneNarrative.body}</Text>
+        </View>
       )}
 
       <View style={styles.rewardsSection}>
@@ -244,6 +330,26 @@ const styles = StyleSheet.create({
   mapLink: { paddingTop: 4 },
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
   battleSummary: { fontSize: 13, color: '#36564a' },
+  narrativeCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+  },
+  narrativeNeutral: {
+    borderColor: '#cdbda4',
+    backgroundColor: '#fffaf0',
+  },
+  narrativeWarning: {
+    borderColor: '#d79a9a',
+    backgroundColor: '#fff2f2',
+  },
+  narrativeVictory: {
+    borderColor: '#91c294',
+    backgroundColor: '#eef8ef',
+  },
+  narrativeTitle: { fontSize: 14, fontWeight: '700', color: '#2d2d2d' },
+  narrativeBody: { fontSize: 12, color: '#4e4e4e', lineHeight: 18 },
   rewardsSection: { gap: 8 },
   progressionCard: {
     borderRadius: 12,

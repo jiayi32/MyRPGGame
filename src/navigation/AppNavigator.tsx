@@ -7,6 +7,7 @@ import { HubScreen } from '@/screens/Hub';
 import { EquipmentScreen } from '@/screens/Equipment';
 import { ShopScreen } from '@/screens/Shop';
 import { ProfileScreen } from '@/screens/Profile';
+import { OnboardingNarrativeScreen } from '@/screens/OnboardingNarrative';
 import { ClassSelectScreen } from '@/screens/ClassSelect';
 import { BattleScreen } from '@/screens/Battle';
 import { RunMapScreen } from '@/screens/RunMap';
@@ -18,6 +19,7 @@ import { usePlayerStore, useRunStore } from '@/stores';
 
 export type HomeStackParamList = {
   Hub: undefined;
+  OnboardingNarrative: undefined;
   ClassSelect: undefined;
   Battle: undefined;
   RunMap: undefined;
@@ -54,6 +56,11 @@ function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="Hub">
       <HomeStack.Screen name="Hub" component={HubScreen} options={{ headerShown: false }} />
+      <HomeStack.Screen
+        name="OnboardingNarrative"
+        component={OnboardingNarrativeScreen}
+        options={{ title: 'Prologue' }}
+      />
       <HomeStack.Screen name="ClassSelect" component={ClassSelectScreen} options={{ title: 'Choose Class' }} />
       <HomeStack.Screen
         name="Battle"

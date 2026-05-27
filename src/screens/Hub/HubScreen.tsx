@@ -38,7 +38,7 @@ export function HubScreen() {
 
   const handleStartNew = () => {
     clearCombat();
-    navigation.navigate('ClassSelect');
+    navigation.navigate('OnboardingNarrative');
   };
 
   const handleResume = () => {
