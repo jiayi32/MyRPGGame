@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrimaryButton } from '@/components/atoms/PrimaryButton';
 import { RewardBlock } from './RewardBlock';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import type { ProgressionDelta } from '@/features/run/types';
+import type { EndRunSettlementLedger, ProgressionDelta, RewardBundle } from '@/features/run/types';
 import { CLASS_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
 import { useCombatStore, useRunStore } from '@/stores';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RewardResolution'>;
+
+const ECONOMY_EXPLAINER_SEEN_KEY = 'ui.rewardResolution.economyExplainer.seen.v1';
 
 type NarrativeOutcome = 'won' | 'lost' | 'fled' | 'ongoing' | null | undefined;
 
@@ -18,6 +21,10 @@ interface MilestoneNarrative {
   title: string;
   body: string;
   tone: 'neutral' | 'warning' | 'victory';
+}
+
+function formatRewardBundleSummary(bundle: RewardBundle): string {
+  return `Gold ${bundle.gold} · Cells ${bundle.ascensionCells} · Sigils ${bundle.sigilShards} · Scrolls ${bundle.xpScrollMinor}/${bundle.xpScrollStandard}/${bundle.xpScrollGrand} · Gear ${bundle.gearIds.length}`;
 }
 
 function resolveMilestoneNarrative(
@@ -97,8 +104,12 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const clearCombat = useCombatStore((state) => state.clear);
 
   const [progression, setProgression] = useState<ProgressionDelta | null>(null);
+  const [settlementLedger, setSettlementLedger] = useState<EndRunSettlementLedger | null>(null);
   const [settling, setSettling] = useState(false);
   const [vaulting, setVaulting] = useState(false);
+  const [explainerHydrated, setExplainerHydrated] = useState(false);
+  const [showEconomyExplainer, setShowEconomyExplainer] = useState(false);
+  const [persistingExplainerChoice, setPersistingExplainerChoice] = useState(false);
 
   const completedStage = report?.stageIndex ?? stage;
   const rewardMultiplierApplied = Math.min(1 + Math.max(0, vaultStreak - 1) * 0.2, 3);
@@ -107,18 +118,40 @@ export function RewardResolutionScreen({ navigation }: Props) {
 
   const isRunEnded = runResult === 'won' || runResult === 'lost';
   const canEndRun = runId !== null && !settling && !isRunEnded;
+  const canContinueToBattle = runId !== null && !isRunEnded && !awaitingVaultDecision && progression === null;
   const finalResult = report?.outcomeResult ?? 'fled';
   const milestoneNarrative = resolveMilestoneNarrative(
     completedStage,
     report?.outcomeResult ?? runResult,
   );
 
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(ECONOMY_EXPLAINER_SEEN_KEY)
+      .then((value) => {
+        if (!active) return;
+        setShowEconomyExplainer(value !== '1');
+        setExplainerHydrated(true);
+      })
+      .catch(() => {
+        if (!active) return;
+        setShowEconomyExplainer(true);
+        setExplainerHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Auto-settle when autoPlay is on and battle ends without a pending vault decision.
   useEffect(() => {
     if (!autoPlay || !canEndRun || awaitingVaultDecision) return;
     setSettling(true);
     endRun(finalResult)
-      .then((response) => setProgression(response.progression))
+      .then((response) => {
+        setProgression(response.progression);
+        setSettlementLedger(response.settlementLedger);
+      })
       .catch(() => undefined)
       .finally(() => setSettling(false));
   }, [autoPlay, canEndRun, awaitingVaultDecision, finalResult, endRun]);
@@ -134,6 +167,7 @@ export function RewardResolutionScreen({ navigation }: Props) {
     try {
       const response = await endRun(finalResult);
       setProgression(response.progression);
+      setSettlementLedger(response.settlementLedger);
     } catch {
       // Error is surfaced by run store.
     } finally {
@@ -145,7 +179,12 @@ export function RewardResolutionScreen({ navigation }: Props) {
     clearCombat();
     resetRun();
     setProgression(null);
+    setSettlementLedger(null);
     navigation.replace('Hub');
+  };
+
+  const handleContinueToBattle = () => {
+    navigation.replace('Battle');
   };
 
   const handleVaultNow = async () => {
@@ -164,7 +203,28 @@ export function RewardResolutionScreen({ navigation }: Props) {
   const handlePressOn = () => {
     if (!awaitingVaultDecision) return;
     pressOn();
-    navigation.replace('Hub');
+    navigation.replace('Battle');
+  };
+
+  const handleDismissEconomyExplainerForNow = () => {
+    setShowEconomyExplainer(false);
+  };
+
+  const handleMarkEconomyExplainerSeen = async () => {
+    setPersistingExplainerChoice(true);
+    try {
+      await AsyncStorage.setItem(ECONOMY_EXPLAINER_SEEN_KEY, '1');
+      setShowEconomyExplainer(false);
+    } catch {
+      // Keep this non-blocking; tutorial visibility is optional UX state.
+      setShowEconomyExplainer(false);
+    } finally {
+      setPersistingExplainerChoice(false);
+    }
+  };
+
+  const handleShowEconomyExplainer = () => {
+    setShowEconomyExplainer(true);
   };
 
   return (
@@ -205,6 +265,44 @@ export function RewardResolutionScreen({ navigation }: Props) {
         </View>
       )}
 
+      {explainerHydrated && showEconomyExplainer && (
+        <View style={styles.economyGuideCard}>
+          <Text style={styles.economyGuideTitle}>Economy Quick Guide</Text>
+          <Text style={styles.economyGuideBody}>- Banked rewards are always safe.</Text>
+          <Text style={styles.economyGuideBody}>- Vaulted rewards are at risk only while the run remains active.</Text>
+          <Text style={styles.economyGuideBody}>- Voluntary End Run secures both banked and vaulted rewards.</Text>
+          <Text style={styles.economyGuideBody}>- Defeat still forfeits current vaulted rewards.</Text>
+          <Text style={styles.economyGuideBody}>- Press On increases your next vault multiplier but raises defeat risk.</Text>
+          <View style={styles.economyGuideExample}>
+            <Text style={styles.economyGuideExampleTitle}>Simple example</Text>
+            <Text style={styles.economyGuideBody}>
+              Win two stages, then End Run: both banked and vaulted are secured, but progression is the fled track.
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            <PrimaryButton
+              title="Got it - don't show again"
+              variant="secondary"
+              onPress={() => void handleMarkEconomyExplainerSeen()}
+              busy={persistingExplainerChoice}
+              disabled={persistingExplainerChoice}
+            />
+            <PrimaryButton
+              title="Hide for now"
+              variant="primary"
+              onPress={handleDismissEconomyExplainerForNow}
+              disabled={persistingExplainerChoice}
+            />
+          </View>
+        </View>
+      )}
+
+      {explainerHydrated && !showEconomyExplainer && (
+        <TouchableOpacity onPress={handleShowEconomyExplainer} style={styles.economyGuideLink}>
+          <Text style={styles.economyGuideLinkText}>Show economy tips</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.rewardsSection}>
         <RewardBlock title="Banked" rewards={bankedRewards} tint="#1a7a2a" />
         <RewardBlock
@@ -220,8 +318,11 @@ export function RewardResolutionScreen({ navigation }: Props) {
           <Text style={styles.checkpointSuccessText}>Vault Decision</Text>
           <Text style={styles.checkpointErrorBody}>
             {vaultStreak === 1
-              ? 'This stage\'s haul is at risk — die or flee and lose it.'
-              : `${vaultStreak} stages of vault at risk — die or flee and forfeit all of it.`}
+              ? 'This stage\'s haul is at risk only if you are defeated.'
+              : `${vaultStreak} stages of vault are at risk if you are defeated.`}
+          </Text>
+          <Text style={styles.checkpointCardBody}>
+            You can End Run at any time to secure banked + vaulted rewards, but fled progression is reduced.
           </Text>
           {vaultStreak > 1 && (
             <Text style={styles.checkpointCardBody}>
@@ -235,16 +336,16 @@ export function RewardResolutionScreen({ navigation }: Props) {
           </Text>
           <View style={styles.actions}>
             <PrimaryButton
-              title="Vault Now — Return to Hub"
-              onPress={() => void handleVaultNow()}
-              disabled={vaulting}
-              busy={vaulting}
-            />
-            <PrimaryButton
-              title={multiplierAtCap ? 'Press On (capped 3.0x) — Return to Hub' : 'Press On (Risk) — Return to Hub'}
+              title={multiplierAtCap ? 'Press On (capped 3.0x) - Continue to Battle' : 'Press On (Risk) - Continue to Battle'}
               variant="secondary"
               onPress={handlePressOn}
               disabled={vaulting}
+            />
+            <PrimaryButton
+              title="Vault Now - Return to Hub"
+              onPress={() => void handleVaultNow()}
+              disabled={vaulting}
+              busy={vaulting}
             />
           </View>
         </View>
@@ -280,15 +381,38 @@ export function RewardResolutionScreen({ navigation }: Props) {
         </View>
       )}
 
+      {settlementLedger !== null && (
+        <View style={styles.ledgerCard}>
+          <Text style={styles.ledgerTitle}>Settlement Ledger</Text>
+          <Text style={styles.ledgerRow}>Result: {settlementLedger.finalResult.toUpperCase()}</Text>
+          <Text style={styles.ledgerRow}>Pre-settle banked: {formatRewardBundleSummary(settlementLedger.preSettleBanked)}</Text>
+          <Text style={styles.ledgerRow}>Pre-settle vaulted: {formatRewardBundleSummary(settlementLedger.preSettleVaulted)}</Text>
+          <Text style={styles.ledgerRow}>
+            Vault outcome: {settlementLedger.vaultDisposition === 'merged' ? 'Merged into bank' : 'Forfeited on defeat'}
+          </Text>
+          <Text style={styles.ledgerRow}>
+            Vault moved to bank: {formatRewardBundleSummary(settlementLedger.vaultedTransferredToBank)}
+          </Text>
+          <Text style={styles.ledgerRow}>Vault lost: {formatRewardBundleSummary(settlementLedger.vaultForfeited)}</Text>
+          <Text style={styles.ledgerRow}>Post-settle banked: {formatRewardBundleSummary(settlementLedger.postSettleBanked)}</Text>
+          <Text style={styles.ledgerRow}>
+            Progression: +{settlementLedger.progressionAwarded.ascensionCells} cells, rank delta {settlementLedger.progressionAwarded.lineageRankDelta}, unlocks {settlementLedger.progressionAwarded.newlyUnlockedClassIds.length}
+          </Text>
+        </View>
+      )}
+
       {runError !== null ? <Text style={styles.error}>{runError}</Text> : null}
 
-      {!isRunEnded && (
+      {canContinueToBattle && (
         <View style={styles.actions}>
           <PrimaryButton
-            title="Back to Battle"
+            title="Continue to Next Stage"
+            onPress={handleContinueToBattle}
+          />
+          <PrimaryButton
+            title="Return to Hub"
             variant="secondary"
-            onPress={() => navigation.replace('Battle')}
-            disabled={awaitingVaultDecision}
+            onPress={() => navigation.replace('Hub')}
           />
         </View>
       )}
@@ -296,7 +420,8 @@ export function RewardResolutionScreen({ navigation }: Props) {
       {canEndRun && (
         <View style={styles.actions}>
           <PrimaryButton
-            title="End Run & Settle"
+            title="End Run & Secure Vault"
+            variant="destructive"
             onPress={() => void handleEndRun()}
             disabled={settling || awaitingVaultDecision}
             busy={settling}
@@ -350,6 +475,28 @@ const styles = StyleSheet.create({
   },
   narrativeTitle: { fontSize: 14, fontWeight: '700', color: '#2d2d2d' },
   narrativeBody: { fontSize: 12, color: '#4e4e4e', lineHeight: 18 },
+  economyGuideCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c7bfae',
+    backgroundColor: '#fffaf0',
+    padding: 10,
+    gap: 4,
+  },
+  economyGuideTitle: { fontSize: 14, fontWeight: '700', color: '#3b2b16' },
+  economyGuideBody: { fontSize: 12, color: '#4f4438', lineHeight: 18 },
+  economyGuideExample: {
+    marginTop: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d8cdbb',
+    backgroundColor: '#fffdf8',
+    padding: 8,
+    gap: 2,
+  },
+  economyGuideExampleTitle: { fontSize: 12, fontWeight: '700', color: '#4d3a22' },
+  economyGuideLink: { alignSelf: 'flex-start', paddingVertical: 2 },
+  economyGuideLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
   rewardsSection: { gap: 8 },
   progressionCard: {
     borderRadius: 12,
@@ -365,6 +512,16 @@ const styles = StyleSheet.create({
   unlockedSection: { gap: 4 },
   unlockedLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, color: '#4a8a5a' },
   unlockedClass: { fontSize: 14, color: '#1a5a2a', fontWeight: '600' },
+  ledgerCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#99b7dc',
+    backgroundColor: '#f4f9ff',
+    padding: 12,
+    gap: 6,
+  },
+  ledgerTitle: { fontSize: 14, fontWeight: '700', color: '#1d4672' },
+  ledgerRow: { fontSize: 12, color: '#224968', lineHeight: 18 },
   actions: { gap: 8 },
   checkpointSuccessCard: {
     borderRadius: 8,

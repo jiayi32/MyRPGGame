@@ -7,6 +7,9 @@
  *   → submitStageOutcome ×9
  *   → bankCheckpoint @ stage 10
  *   → endRun (won)
+ *   → startRun
+ *   → submitStageOutcome @ stage 1
+ *   → endRun (fled)
  *   → verify player doc progression + audit trigger
  *
  * Prereq:
@@ -306,6 +309,15 @@ async function main(): Promise<void> {
           classRanks: Record<string, number>;
         };
       };
+      settlementLedger: {
+        finalResult: 'won' | 'lost' | 'fled';
+        preSettleBanked: RewardBundle;
+        preSettleVaulted: RewardBundle;
+        vaultDisposition: 'merged' | 'forfeited';
+        vaultedTransferredToBank: RewardBundle;
+        vaultForfeited: RewardBundle;
+        postSettleBanked: RewardBundle;
+      };
     }
   >(
     idToken,
@@ -314,6 +326,10 @@ async function main(): Promise<void> {
   );
   assertEqual(end.settled, true, 'endRun.settled');
   assertEqual(end.bankedRewards.gold, 900, 'endRun.bankedRewards.gold');
+  assertEqual(end.settlementLedger.finalResult, 'won', 'endRun.settlementLedger.finalResult');
+  assertEqual(end.settlementLedger.vaultDisposition, 'merged', 'endRun.settlementLedger.vaultDisposition');
+  assertEqual(end.settlementLedger.postSettleBanked.gold, 900, 'endRun.settlementLedger.postSettleBanked.gold');
+  assertEqual(end.settlementLedger.vaultForfeited.gold, 0, 'endRun.settlementLedger.vaultForfeited.gold');
 
   // Progression: stageCompleted = run.stage - 1 = 10 - 1 = 9
   // ascensionCells won: 9*3+25 = 52
@@ -364,7 +380,95 @@ async function main(): Promise<void> {
   assert(cpDoc, 'checkpoint doc 9 missing');
   assertEqual(fieldString(cpDoc, 'result'), 'won', 'checkpoint[9].result');
 
-  log('OK — full lifecycle + meta-progression passed.');
+  // 9) Start another run and verify fled keeps vaulted rewards.
+  log('callable: startRun (fled path validation)');
+  const fledStart = await callCallable<{
+    activeClassId: string;
+    activeLineageId: string;
+    evolutionTargetClassId: string | null;
+  }, { runId: string; seed: number; activeClassId: string }>(
+    idToken,
+    'startRun',
+    {
+      activeClassId: STARTER_CLASS_ID,
+      activeLineageId: STARTER_LINEAGE_ID,
+      evolutionTargetClassId: EVOLUTION_TARGET_CLASS_ID,
+    }
+  );
+  assert(typeof fledStart.runId === 'string' && fledStart.runId.length > 0, 'fled-path startRun runId');
+
+  const stage1 = await callCallable<unknown, { committed: boolean; nextStage: number }>(
+    idToken,
+    'submitStageOutcome',
+    {
+      runId: fledStart.runId,
+      stageIndex: 1,
+      result: 'won',
+      rewards: sampleStageReward,
+      hpRemaining: 100,
+      elapsedSeconds: 25,
+    }
+  );
+  assertEqual(stage1.committed, true, 'fled-path submitStageOutcome.committed');
+  assertEqual(stage1.nextStage, 2, 'fled-path submitStageOutcome.nextStage');
+
+  const fledEnd = await callCallable<
+    { runId: string; finalResult: string },
+    {
+      settled: boolean;
+      bankedRewards: RewardBundle;
+      progression: {
+        awardedAscensionCells: number;
+        lineageRankDelta: number;
+        playerTotals: {
+          goldBank: number;
+          ascensionCells: number;
+          lineageRanks: Record<string, number>;
+        };
+      };
+      settlementLedger: {
+        finalResult: 'won' | 'lost' | 'fled';
+        preSettleBanked: RewardBundle;
+        preSettleVaulted: RewardBundle;
+        vaultDisposition: 'merged' | 'forfeited';
+        vaultedTransferredToBank: RewardBundle;
+        vaultForfeited: RewardBundle;
+        postSettleBanked: RewardBundle;
+      };
+    }
+  >(
+    idToken,
+    'endRun',
+    { runId: fledStart.runId, finalResult: 'fled' }
+  );
+
+  // Stage-1 reward split: 30 baseline banked, 70 vaulted, then fled settlement merges vault to bank = 100.
+  assertEqual(fledEnd.settled, true, 'fled-endRun.settled');
+  assertEqual(fledEnd.bankedRewards.gold, 100, 'fled-endRun.bankedRewards.gold');
+  assertEqual(fledEnd.progression.awardedAscensionCells, 1, 'fled-endRun.progression.awardedAscensionCells');
+  assertEqual(fledEnd.progression.lineageRankDelta, 0, 'fled-endRun.progression.lineageRankDelta');
+  assertEqual(fledEnd.settlementLedger.finalResult, 'fled', 'fled settlementLedger.finalResult');
+  assertEqual(fledEnd.settlementLedger.preSettleBanked.gold, 30, 'fled settlementLedger.preSettleBanked.gold');
+  assertEqual(fledEnd.settlementLedger.preSettleVaulted.gold, 70, 'fled settlementLedger.preSettleVaulted.gold');
+  assertEqual(fledEnd.settlementLedger.vaultDisposition, 'merged', 'fled settlementLedger.vaultDisposition');
+  assertEqual(fledEnd.settlementLedger.vaultedTransferredToBank.gold, 70, 'fled settlementLedger.vaultedTransferredToBank.gold');
+  assertEqual(fledEnd.settlementLedger.vaultForfeited.gold, 0, 'fled settlementLedger.vaultForfeited.gold');
+  assertEqual(fledEnd.settlementLedger.postSettleBanked.gold, 100, 'fled settlementLedger.postSettleBanked.gold');
+
+  const fledRunDoc = await getDoc(idToken, `runs/${fledStart.runId}`);
+  assert(fledRunDoc, 'fled-path run doc missing after endRun');
+  assertEqual(fieldString(fledRunDoc, 'result'), 'lost', 'fled-path runDoc.result');
+  assertEqual(fieldMapInt(fledRunDoc, 'bankedRewards', 'gold'), 100, 'fled-path runDoc.bankedRewards.gold');
+  assertEqual(fieldMapInt(fledRunDoc, 'vaultedRewards', 'gold'), 0, 'fled-path runDoc.vaultedRewards.gold');
+
+  const playerAfterFled = await getDoc(idToken, `players/${localId}`);
+  assert(playerAfterFled, 'player doc missing after fled settle');
+  assertEqual(fieldInt(playerAfterFled, 'goldBank'), 1000, 'player.goldBank after fled settle');
+  assertEqual(fieldInt(playerAfterFled, 'ascensionCells'), expectedCells + 1, 'player.ascensionCells after fled settle');
+  assertEqual(fieldMapInt(playerAfterFled, 'lineageRanks', STARTER_LINEAGE_ID), 1, 'player.lineage rank unchanged on fled');
+  assert(fieldNullOrString(playerAfterFled, 'currentRunId') === null, 'player.currentRunId null after fled settle');
+
+  log('OK — won + fled settlement lifecycle checks passed.');
 }
 
 main().catch((err: unknown) => {

@@ -177,10 +177,28 @@ export interface ProgressionDelta {
   gearInstancesCreated: number;
 }
 
+export type VaultSettlementDisposition = 'merged' | 'forfeited';
+
+export interface EndRunSettlementLedger {
+  finalResult: 'won' | 'lost' | 'fled';
+  preSettleBanked: RewardBundle;
+  preSettleVaulted: RewardBundle;
+  vaultDisposition: VaultSettlementDisposition;
+  vaultedTransferredToBank: RewardBundle;
+  vaultForfeited: RewardBundle;
+  postSettleBanked: RewardBundle;
+  progressionAwarded: {
+    ascensionCells: number;
+    lineageRankDelta: number;
+    newlyUnlockedClassIds: string[];
+  };
+}
+
 export interface EndRunResponse {
   settled: boolean;
   bankedRewards: RewardBundle;
   progression: ProgressionDelta;
+  settlementLedger: EndRunSettlementLedger;
 }
 
 export interface ShopOffer {

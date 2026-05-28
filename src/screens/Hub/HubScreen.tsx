@@ -46,7 +46,7 @@ export function HubScreen() {
   };
 
   const handleForfeit = (): void => {
-    Alert.alert('Forfeit Run?', 'End this run as fled. Banked rewards persist; vault is forfeited.', [
+    Alert.alert('Forfeit Run?', 'End this run as fled. Banked and vaulted rewards are secured, but progression is reduced.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Forfeit',

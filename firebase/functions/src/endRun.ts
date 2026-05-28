@@ -11,9 +11,11 @@ import {
 } from './shared/guards';
 import { mergeVaultIntoBank, forfeitVault } from './shared/rewards';
 import { computeProgression } from './shared/progression';
+import { EMPTY_REWARD } from './shared/types';
 import type {
   EndRunPayload,
   EndRunResponse,
+  EndRunSettlementLedger,
   GearInstanceDoc,
   PlayerDoc,
   ProgressionDelta,
@@ -58,12 +60,21 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
       // The "stage completed" for progression is therefore stage - 1.
       const stageCompleted = Math.max(0, runData.stage - 1);
 
-      // Reward settle: won merges vault into bank, loss/flee forfeits vault.
+      const preSettleBanked = runData.bankedRewards;
+      const preSettleVaulted = runData.vaultedRewards;
+
+      // Reward settle: won/fled merge vault into bank, loss forfeits vault.
+      const keepsVaultOnSettle = finalResult === 'won' || finalResult === 'fled';
       const { banked: settledBank, vaulted: settledVault } =
-        finalResult === 'won'
-          ? mergeVaultIntoBank(runData.bankedRewards, runData.vaultedRewards)
-          : forfeitVault(runData.bankedRewards);
+        keepsVaultOnSettle
+          ? mergeVaultIntoBank(preSettleBanked, preSettleVaulted)
+          : forfeitVault(preSettleBanked);
       const firestoreResult: 'won' | 'lost' = finalResult === 'won' ? 'won' : 'lost';
+      const vaultDisposition: EndRunSettlementLedger['vaultDisposition'] = keepsVaultOnSettle
+        ? 'merged'
+        : 'forfeited';
+      const vaultedTransferredToBank = keepsVaultOnSettle ? preSettleVaulted : EMPTY_REWARD;
+      const vaultForfeited = keepsVaultOnSettle ? EMPTY_REWARD : preSettleVaulted;
 
       // Progression deltas — pure arithmetic on stored run-doc + player-doc fields.
       const progression = computeProgression({
@@ -144,13 +155,29 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
         gearInstancesCreated,
       };
 
-      return { settledBank, progression: delta };
+      const settlementLedger: EndRunSettlementLedger = {
+        finalResult,
+        preSettleBanked,
+        preSettleVaulted,
+        vaultDisposition,
+        vaultedTransferredToBank,
+        vaultForfeited,
+        postSettleBanked: settledBank,
+        progressionAwarded: {
+          ascensionCells: progression.awardedAscensionCells,
+          lineageRankDelta: progression.lineageRankDelta,
+          newlyUnlockedClassIds: progression.newlyUnlockedClassIds,
+        },
+      };
+
+      return { settledBank, progression: delta, settlementLedger };
     });
 
     return {
       settled: true,
       bankedRewards: settled.settledBank,
       progression: settled.progression,
+      settlementLedger: settled.settlementLedger,
     };
   }
 );

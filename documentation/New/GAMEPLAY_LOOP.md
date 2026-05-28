@@ -593,8 +593,8 @@ This section reflects currently implemented flow in code (not aspirational docs)
 6. Stage outcome is submitted to run store/backend.
 7. Reward Resolution shows banked and vaulted rewards and narrative milestone.
 8. If checkpoint decision is active, player chooses Vault Now or Press On.
-9. Player returns to Hub (resume path) or back to Battle.
-10. Player can end run and settle progression.
+9. Press On returns directly to Battle; Vault Now returns to Hub.
+10. Player can voluntarily end run from Reward Resolution, Battle, or Hub to settle rewards.
 11. Progression delta applies, then Play Again returns to Hub.
 
 ### Current loop flowchart
@@ -621,9 +621,9 @@ flowchart TD
 	M --> N{Checkpoint decision active}
 	N -->|Yes| O{Vault Now or Press On}
 	O -->|Vault Now| P[vaultAtStage and return Hub]
-	O -->|Press On| Q[clear decision and return Hub]
+	O -->|Press On| Q[clear decision and continue to Battle]
 	P --> D
-	Q --> D
+	Q --> J
 
 	N -->|No| R{Continue or End Run}
 	R -->|Back to Battle| J
@@ -647,11 +647,13 @@ flowchart TD
 	D -->|Press On| F[Increase vault streak risk multiplier]
 	E --> G[Continue run or end run]
 	F --> G
-	G --> H{End run}
-	H -->|Yes| I[Settle progression delta]
-	H -->|No| B
-	I --> J[Reinvest in equipment and upgrades]
-	J --> A
+	G --> H{How run ended?}
+	H -->|Voluntary settle (fled or won)| I[Bank vault into banked rewards]
+	H -->|Defeat or loss| J[Forfeit current vaulted rewards]
+	I --> K[Settle progression delta]
+	J --> K
+	K --> L[Reinvest in equipment and upgrades]
+	L --> A
 ```
 
 ### Current app combat-only loop
@@ -682,7 +684,7 @@ flowchart TD
 ### Current loop friction points
 
 - Hub bounce after reward decisions introduces extra navigation friction.
-- Vault semantics (banked vs vaulted vs streak multiplier) may remain cognitively heavy for new players.
+- Vault semantics (banked vs vaulted vs streak multiplier and settle timing) may remain cognitively heavy for new players.
 - Tactical intent visibility in combat can still be improved (especially for readiness and consequence preview).
 
 ---

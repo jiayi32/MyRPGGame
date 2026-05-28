@@ -41,6 +41,443 @@ This keeps balancing, combat logic, and UI independent.
 
 ---
 
+## 1a) End-to-End Architecture Flow (Canonical Current State)
+
+> **Scope lock:** The sequence below documents the **current canonical runtime architecture** (flat `src/content/*.ts` registries + current `src/domain/`, screens, stores, services, Firebase integration). Section 2 remains an **aspirational future layout**.
+
+### 1a.1 Main Chart
+
+```mermaid
+flowchart LR
+  subgraph P["Player Boundary"]
+    IN["Input: tap, select, confirm"]
+    OUT["Output: HUD, queue timeline, combat log, rewards, profile deltas"]
+  end
+
+  subgraph APP["App Shell + Navigation"]
+    ROOT["index.js -> App.tsx"]
+    NAV["AppNavigator"]
+    AUTHV["SignInScreen / BootstrapGate"]
+    FLOW["Hub -> OnboardingNarrative -> ClassSelect -> Battle -> RewardResolution"]
+    TABS["RunMap / Equipment / Shop / Profile tabs"]
+  end
+
+  subgraph STATE["Client State (Zustand)"]
+    PS["playerStore"]
+    RS["runStore"]
+    CS["combatStore"]
+  end
+
+  subgraph DOM["Domain + Adapter"]
+    ORCH["features/run/orchestrator"]
+    COMB["domain/combat/*"]
+    RUN["domain/run/director + progression + checkpoint"]
+  end
+
+  subgraph CONTENT["Canonical Content (flat src/content/*.ts)"]
+    CCLS["classes"]
+    CLIN["lineages"]
+    CSK["skills"]
+    CGR["gear"]
+    CEN["encounters"]
+    CEA["enemies"]
+    CBO["bosses"]
+    CAN["anomalies"]
+  end
+
+  subgraph IO["Services + Firebase"]
+    ASVC["services/auth.ts"]
+    RAPI["services/runApi.ts"]
+    FB["Firebase Auth + Firestore + Cloud Functions"]
+  end
+
+  IN -->|navigates| ROOT
+  ROOT --> NAV
+  NAV --> AUTHV
+  NAV --> FLOW
+  NAV --> TABS
+
+  FLOW -->|dispatches| PS
+  FLOW -->|dispatches| RS
+  FLOW -->|dispatches| CS
+  TABS -->|reads| PS
+  TABS -->|reads| RS
+
+  CS -->|drives| ORCH
+  ORCH --> COMB
+  ORCH --> RUN
+  COMB -->|lookups| CCLS
+  COMB -->|lookups| CSK
+  COMB -->|lookups| CEA
+  COMB -->|gear stat rules| CGR
+  RUN -->|lookups| CEN
+  RUN -->|lookups| CBO
+  RUN -->|lookups| CAN
+  RUN -->|progression lookups| CLIN
+  RUN -->|progression lookups| CCLS
+
+  PS -->|auth operations| ASVC
+  RS -->|run lifecycle calls| RAPI
+  RAPI -->|validates + persists| FB
+  ASVC --> FB
+  FB -->|snapshots / callable responses| PS
+  FB -->|snapshots / callable responses| RS
+
+  PS -->|renders data| FLOW
+  RS -->|renders data| FLOW
+  CS -->|renders battle state| FLOW
+  FLOW --> OUT
+  TABS --> OUT
+```
+
+### 1a.2 Focused Subgraphs
+
+#### Subgraph A: Bootstrap + Auth + Navigation
+
+```mermaid
+flowchart TD
+  A0["App launch"] --> A1["index.js registers App.tsx"]
+  A1 --> A2["AppNavigator"]
+  A2 --> A3["playerStore.bootstrap()"]
+  A3 --> A4{"playerStore.status"}
+
+  A4 -->|awaiting_sign_in / error| A5["SignInScreen"]
+  A4 -->|initializing| A6["BootstrapGate"]
+  A4 -->|ready| A7["MainTabs + HomeStack"]
+
+  A7 --> A8["HubScreen"]
+  A8 -->|Start New| A9["OnboardingNarrativeScreen"]
+  A9 --> A10["ClassSelectScreen"]
+  A10 -->|startRun| A11["BattleScreen"]
+
+  A8 -->|Resume Active Run| A11
+  A11 --> A12["RewardResolutionScreen"]
+  A12 -->|Press On| A11
+  A12 -->|End Run| A8
+
+  A7 --> A13["RunMapScreen"]
+  A7 --> A14["EquipmentScreen"]
+  A7 --> A15["ShopScreen"]
+  A7 --> A16["ProfileScreen"]
+```
+
+#### Subgraph B: Battle Interaction + Component IO
+
+```mermaid
+flowchart LR
+  B0["Player input"] --> B1["BattleScreen"]
+
+  subgraph BC["Battle Components"]
+    B2["AbilityButton"]
+    B3["EnemyRow"]
+    B4["AbilityDetailsModal"]
+    B5["HpBar / MpBar"]
+    B6["CtIndicator"]
+    B7["StatusChips"]
+    B8["EventLog"]
+    B9["CastPulse"]
+    B10["DamagePopupOverlay"]
+  end
+
+  B1 -->|opens details| B4
+  B1 -->|selects target| B3
+  B1 -->|dispatches action| B2
+  B2 --> B11["combatStore.step(action)"]
+  B1 --> B12["combatStore.beginInteractive()"]
+
+  subgraph BE["Combat Engine"]
+    B13["queue.ts (CT ordering)"]
+    B14["step.ts (action resolution)"]
+    B15["stats.ts + effects.ts + d20.ts"]
+  end
+
+  B12 --> B13
+  B11 --> B14
+  B14 --> B15
+  B15 --> B16["combatStore engine state update"]
+
+  B16 -->|renders| B5
+  B16 -->|renders| B6
+  B16 -->|renders| B7
+  B16 -->|renders| B8
+  B16 -->|renders| B9
+  B16 -->|renders| B10
+  B16 --> B17["Player output: battle feedback"]
+```
+
+#### Subgraph C: Run Progression + Checkpoint + Banking
+
+```mermaid
+flowchart TD
+  C0["ClassSelectScreen"] --> C1["runStore.startRun(classId)"]
+  C1 --> C2["runApi.startRun"]
+  C2 --> C3["Cloud Function issues seed + runId"]
+  C3 --> C4["runStore snapshot"]
+
+  C4 --> C5["prepareStage() in orchestrator"]
+  C5 --> C6["domain/run/director.selectStage"]
+  C6 --> C7{"Stage index"}
+  C7 -->|5, 10, 30| C8["Boss encounter"]
+  C7 -->|others (including 20)| C9["Procedural encounter"]
+
+  C8 --> C10["BattleScreen"]
+  C9 --> C10
+  C10 --> C11["StageSimulationReport"]
+  C11 --> C12["runStore.submitStageOutcome"]
+  C12 --> C13["runApi.submitStageOutcome"]
+  C13 --> C14["Cloud Function validates + persists"]
+
+  C14 --> C15{"Checkpoint stage? (5, 10, 20, 30)"}
+  C15 -->|yes| C16["RewardResolution: baseline + vault split"]
+  C15 -->|no| C17["RewardResolution: standard outcome"]
+
+  C16 --> C18{"Player decision"}
+  C18 -->|Press On| C19["runStore.pressOn -> next stage"]
+  C18 -->|Return Home| C20["runApi.bankCheckpoint / endRun"]
+  C17 --> C19
+```
+
+#### Subgraph D: Content Registry Lookup Flow
+
+```mermaid
+flowchart LR
+  D0["combatStore / runStore actions"] --> D1["features/run/orchestrator"]
+  D1 --> D2["domain/combat/factory + step + queue"]
+  D1 --> D3["domain/run/director + progression + checkpoint"]
+
+  subgraph DR["flat src/content registries"]
+    D4["classes.ts"]
+    D5["lineages.ts"]
+    D6["skills.ts"]
+    D7["gear.ts"]
+    D8["enemies.ts"]
+    D9["encounters.ts"]
+    D10["bosses.ts"]
+    D11["anomalies.ts"]
+  end
+
+  D2 -->|class + skill + enemy lookups| D4
+  D2 --> D6
+  D2 --> D8
+  D2 -->|gear stat rules| D7
+
+  D3 -->|encounter routing| D9
+  D3 -->|boss selection| D10
+  D3 -->|pressure/anomaly cards| D11
+  D3 -->|lineage/class progression| D5
+  D3 --> D4
+
+  D2 --> D12["resolved battle state"]
+  D3 --> D13["resolved run/progression state"]
+  D12 --> D14["combatStore update"]
+  D13 --> D15["runStore + playerStore update"]
+```
+
+#### Subgraph E: Persistence + Auth + External IO
+
+```mermaid
+flowchart TD
+  E0["SignInScreen"] --> E1["services/auth.ts"]
+  E1 --> E2["Firebase Auth"]
+  E2 --> E3["playerStore.applyPlayerSnapshot"]
+
+  E4["runStore.startRun"] --> E5["runApi.startRun"]
+  E6["runStore.submitStageOutcome"] --> E7["runApi.submitStageOutcome"]
+  E8["runStore.bankCheckpoint"] --> E9["runApi.bankCheckpoint"]
+  E10["runStore.endRun"] --> E11["runApi.endRun"]
+
+  E5 --> E12["Cloud Functions"]
+  E7 --> E12
+  E9 --> E12
+  E11 --> E12
+
+  E12 --> E13["Firestore writes: players/*, runs/*, checkpoints/*"]
+  E13 --> E14["Snapshot / callable response"]
+  E14 --> E15["runStore + playerStore sync"]
+```
+
+### 1a.3 Giant Merged End-to-End Chart
+
+```mermaid
+flowchart LR
+  subgraph U["Player Boundary"]
+    UIN["Input: tap/select/confirm"]
+    UOUT["Output: battle HUD, CT timeline, logs, rewards, inventory/profile deltas"]
+  end
+
+  subgraph S1["App Shell + Routing"]
+    G0["index.js"] --> G1["App.tsx"]
+    G1 --> G2["AppNavigator"]
+    G2 --> G3["playerStore.bootstrap()"]
+    G3 --> G4{"status"}
+    G4 -->|awaiting_sign_in / error| G5["SignInScreen"]
+    G4 -->|initializing| G6["BootstrapGate"]
+    G4 -->|ready| G7["MainTabs + HomeStack"]
+  end
+
+  subgraph S2["Gameplay Screens"]
+    G8["HubScreen"]
+    G9["OnboardingNarrativeScreen"]
+    G10["ClassSelectScreen"]
+    G11["BattleScreen"]
+    G12["RewardResolutionScreen"]
+    G13["RunMapScreen"]
+    G14["EquipmentScreen"]
+    G15["ShopScreen"]
+    G16["ProfileScreen"]
+  end
+
+  subgraph S3["Battle Components"]
+    G17["AbilityButton"]
+    G18["EnemyRow"]
+    G19["AbilityDetailsModal"]
+    G20["HpBar / MpBar"]
+    G21["CtIndicator"]
+    G22["StatusChips"]
+    G23["EventLog"]
+    G24["CastPulse"]
+    G25["DamagePopupOverlay"]
+  end
+
+  subgraph S4["Stores (Zustand)"]
+    G26["playerStore"]
+    G27["runStore"]
+    G28["combatStore"]
+  end
+
+  subgraph S5["Feature Adapter + Domain"]
+    G29["features/run/orchestrator.prepareStage"]
+    G30["domain/combat/factory"]
+    G31["domain/combat/queue"]
+    G32["domain/combat/step"]
+    G33["domain/combat/stats + effects + d20"]
+    G34["domain/run/director.selectStage"]
+    G35["domain/run/progression"]
+    G36["domain/run/checkpoint"]
+  end
+
+  subgraph S6["Canonical Content (flat src/content/*.ts)"]
+    G37["classes.ts"]
+    G38["lineages.ts"]
+    G39["skills.ts"]
+    G40["gear.ts"]
+    G41["enemies.ts"]
+    G42["encounters.ts"]
+    G43["bosses.ts"]
+    G44["anomalies.ts"]
+  end
+
+  subgraph S7["Services + Firebase"]
+    G45["services/auth.ts"]
+    G46["services/runApi.ts"]
+    G47["Cloud Functions"]
+    G48["Firebase Auth"]
+    G49["Firestore"]
+  end
+
+  UIN --> G0
+  G2 --> G5
+  G2 --> G6
+  G2 --> G7
+
+  G7 --> G8
+  G7 --> G13
+  G7 --> G14
+  G7 --> G15
+  G7 --> G16
+
+  G8 -->|Start New| G9
+  G9 --> G10
+  G8 -->|Resume Run| G11
+  G10 -->|startRun| G27
+
+  G27 -->|runApi.startRun| G46
+  G46 --> G47
+  G47 -->|seed + run snapshot| G27
+
+  G27 --> G29
+  G29 --> G34
+  G34 --> G42
+  G34 --> G43
+  G34 --> G44
+  G34 --> G41
+  G34 -->|class/lineage progression routing| G37
+  G34 --> G38
+
+  G11 --> G17
+  G11 --> G18
+  G11 --> G19
+  G17 -->|dispatch action| G28
+  G18 -->|target selection| G28
+  G11 -->|beginInteractive| G28
+
+  G28 --> G30
+  G30 --> G31
+  G28 --> G32
+  G32 --> G33
+
+  G30 --> G37
+  G30 --> G39
+  G30 --> G41
+  G33 --> G40
+
+  G33 -->|resolved combat state| G28
+  G28 -->|render| G20
+  G28 -->|render| G21
+  G28 -->|render| G22
+  G28 -->|render| G23
+  G28 -->|render| G24
+  G28 -->|render| G25
+
+  G11 -->|stage complete| G12
+  G12 -->|submit outcome| G27
+  G27 -->|runApi.submitStageOutcome| G46
+  G46 --> G47
+  G47 -->|validate bounds + anti-cheat checks| G49
+  G49 -->|updated snapshots| G27
+  G49 -->|player meta deltas| G26
+
+  G12 -->|checkpoint decision| G36
+  G36 -->|5/10/20/30 checkpoint rules| G27
+  G12 -->|Press On| G11
+  G12 -->|Return Home| G8
+
+  G35 -->|class unlocks / rank deltas| G26
+  G35 --> G37
+  G35 --> G38
+
+  G5 -->|signIn/register| G45
+  G45 --> G48
+  G48 --> G26
+
+  G15 -->|buyGear| G46
+  G14 -->|equip/unequip sync| G49
+  G16 -->|read profile/progression| G26
+  G13 -->|read run stage + encounter state| G27
+
+  G46 -->|calls: startRun, submitStageOutcome, bankCheckpoint, endRun| G47
+  G47 --> G49
+
+  G26 -->|renders| G8
+  G26 -->|renders| G14
+  G26 -->|renders| G16
+  G27 -->|renders| G8
+  G27 -->|renders| G13
+  G27 -->|renders| G12
+  G28 -->|renders| G11
+
+  G11 --> UOUT
+  G12 --> UOUT
+  G8 --> UOUT
+  G14 --> UOUT
+  G15 --> UOUT
+  G16 --> UOUT
+```
+
+> **Maintenance note:** Keep these diagrams synchronized whenever navigation topology, store contracts, run API endpoints, or content registry contracts change.
+
+---
+
 ## 2) Minimal file structure
 
 > **⚠️ NOTE:** This section shows an **aspirational reorganization**. The current canonical file layout uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`, `src/content/gear.ts`, `src/content/bosses.ts`, `src/content/enemies.ts`, `src/content/encounters.ts`, `src/content/anomalies.ts`). The nested folder structure below is a future refactoring. For now, code against the flat layout currently in place. (See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §3 C8 decision.)
@@ -260,10 +697,10 @@ Owns gear math.
 * Cross-lineage evolution only if affinity score passes threshold
 * Classes unlock permanently once first obtained
 * Class rank and lineage rank persist across runs
-* **Checkpoints at stages 5, 10, 20, 30** (not "every 10 stages")
+* **Checkpoints at stages 10, 20, 30** (stage 5 is boss-only)
 * **Boss encounters at stages 5 (mini), 10 (gate), and 30 (counter) ONLY** — stage 20 is procedural enemy, not boss
 * Checkpoint always grants baseline reward
-* Bonus vault is only banked on return-home
+* Voluntary run settle (fled/won) banks vault; defeat/loss forfeits vault
 * Gear may reduce CT, but total reduction is capped at 10%
 * Equipped gear abilities are permanent until sold/discarded
 * No consumable item system in v1

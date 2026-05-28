@@ -15,6 +15,7 @@ import {
   type DevSkipStageResponse,
   type EndRunPayload,
   type EndRunResponse,
+  type EndRunSettlementLedger,
   type GetShopOfferResponse,
   type GetOrCreatePlayerResponse,
   type PlayerSnapshot,
@@ -23,6 +24,7 @@ import {
   type RunSnapshot,
   type StartRunPayload,
   type StartRunResponse,
+  type StageOutcomeResult,
   type SubmitStageOutcomePayload,
   type SubmitStageOutcomeResponse,
   type UpgradeClassPayload,
@@ -44,6 +46,14 @@ const asInt = (value: unknown, fallback = 0): number =>
 
 const asBoolean = (value: unknown, fallback = false): boolean =>
   typeof value === 'boolean' ? value : fallback;
+
+const asStageOutcomeResult = (
+  value: unknown,
+  fallback: StageOutcomeResult,
+): StageOutcomeResult => {
+  if (value === 'won' || value === 'lost' || value === 'fled') return value;
+  return fallback;
+};
 
 const asStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -98,6 +108,57 @@ const normalizeProgressionDelta = (value: unknown): ProgressionDelta => {
       classRanks: asIntRecord(totals['classRanks']),
     },
     gearInstancesCreated: Math.max(0, asInt(obj['gearInstancesCreated'])),
+  };
+};
+
+const normalizeSettlementLedger = (
+  value: unknown,
+  fallbackFinalResult: StageOutcomeResult,
+  fallbackBankedRewards: RewardBundle,
+  fallbackProgression: ProgressionDelta,
+): EndRunSettlementLedger => {
+  const obj = asRecord(value);
+  const hasPayload = Object.keys(obj).length > 0;
+
+  if (!hasPayload) {
+    const empty = normalizeRewardBundle(EMPTY_REWARD_BUNDLE);
+    return {
+      finalResult: fallbackFinalResult,
+      preSettleBanked: empty,
+      preSettleVaulted: empty,
+      vaultDisposition: fallbackFinalResult === 'lost' ? 'forfeited' : 'merged',
+      vaultedTransferredToBank: empty,
+      vaultForfeited: empty,
+      postSettleBanked: normalizeRewardBundle(fallbackBankedRewards),
+      progressionAwarded: {
+        ascensionCells: Math.max(0, asInt(fallbackProgression.awardedAscensionCells)),
+        lineageRankDelta: asInt(fallbackProgression.lineageRankDelta),
+        newlyUnlockedClassIds: [...fallbackProgression.newlyUnlockedClassIds],
+      },
+    };
+  }
+
+  const progressionAwarded = asRecord(obj['progressionAwarded']);
+  const vaultDisposition =
+    obj['vaultDisposition'] === 'forfeited' || obj['vaultDisposition'] === 'merged'
+      ? obj['vaultDisposition']
+      : fallbackFinalResult === 'lost'
+        ? 'forfeited'
+        : 'merged';
+
+  return {
+    finalResult: asStageOutcomeResult(obj['finalResult'], fallbackFinalResult),
+    preSettleBanked: normalizeRewardBundle(obj['preSettleBanked']),
+    preSettleVaulted: normalizeRewardBundle(obj['preSettleVaulted']),
+    vaultDisposition,
+    vaultedTransferredToBank: normalizeRewardBundle(obj['vaultedTransferredToBank']),
+    vaultForfeited: normalizeRewardBundle(obj['vaultForfeited']),
+    postSettleBanked: normalizeRewardBundle(obj['postSettleBanked']),
+    progressionAwarded: {
+      ascensionCells: Math.max(0, asInt(progressionAwarded['ascensionCells'])),
+      lineageRankDelta: asInt(progressionAwarded['lineageRankDelta']),
+      newlyUnlockedClassIds: asStringArray(progressionAwarded['newlyUnlockedClassIds']),
+    },
   };
 };
 
@@ -294,10 +355,19 @@ export const submitStageOutcome = async (
 export const endRun = async (payload: EndRunPayload): Promise<EndRunResponse> => {
   const data = asRecord(await callCallable<EndRunPayload, unknown>('endRun', payload));
 
+  const bankedRewards = normalizeRewardBundle(data['bankedRewards']);
+  const progression = normalizeProgressionDelta(data['progression']);
+
   return {
     settled: asBoolean(data['settled']),
-    bankedRewards: normalizeRewardBundle(data['bankedRewards']),
-    progression: normalizeProgressionDelta(data['progression']),
+    bankedRewards,
+    progression,
+    settlementLedger: normalizeSettlementLedger(
+      data['settlementLedger'],
+      payload.finalResult,
+      bankedRewards,
+      progression,
+    ),
   };
 };
 

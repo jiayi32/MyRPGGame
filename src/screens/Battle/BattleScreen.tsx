@@ -18,7 +18,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
 import type { ClassId, SkillId } from '@/content/types';
-import { canCast, type InstanceId, SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
+import {
+  canCast,
+  type Action,
+  type CombatEngine,
+  type InstanceId,
+  SYNTHETIC_BASIC_ATTACK_ID,
+} from '@/domain/combat';
 import { decideEnemyAction } from '@/domain/combat/bossAI';
 import {
   selectAliveEnemies,
@@ -60,6 +66,179 @@ const STAGE_TYPE_BG: Record<StageType, string> = {
   counter: '#fde8e8',
 };
 
+type ForecastIntent = 'Player' | 'Burst' | 'Sustain' | 'Control' | 'Summon' | 'Basic' | 'Unknown';
+
+interface ForecastEntry {
+  readonly unitId: InstanceId;
+  readonly unitName: string;
+  readonly teamLabel: 'Player' | 'Enemy';
+  readonly etaLabel: string;
+  readonly intent: ForecastIntent;
+  readonly actionLabel: string;
+}
+
+const FORECAST_DEPTH = 5;
+const FORECAST_MAX_ITERATIONS = 120;
+
+const FORECAST_INTENT_STYLES: Record<ForecastIntent, { bg: string; fg: string }> = {
+  Player: { bg: '#dff2e5', fg: '#1f5f3a' },
+  Burst: { bg: '#fde3e3', fg: '#8b1a1a' },
+  Sustain: { bg: '#e4f2e7', fg: '#245b2f' },
+  Control: { bg: '#e3ecfb', fg: '#2b4f93' },
+  Summon: { bg: '#efe4fb', fg: '#5d3a8f' },
+  Basic: { bg: '#eceef5', fg: '#465078' },
+  Unknown: { bg: '#f1f2f7', fg: '#606a88' },
+};
+
+const classifyActionIntent = (action: Action): ForecastIntent => {
+  if (action.kind === 'basic_attack') return 'Basic';
+  if (action.kind !== 'cast_skill') return 'Unknown';
+
+  const skill = SKILL_BY_ID.get(action.skillId);
+  if (skill === undefined) return 'Unknown';
+
+  if (skill.tags.includes('summon')) return 'Summon';
+
+  if (
+    skill.tags.includes('control') ||
+    skill.tags.includes('ct_manipulation') ||
+    skill.tags.includes('debuff') ||
+    skill.tags.includes('counter') ||
+    skill.tags.includes('knockback') ||
+    skill.tags.includes('pull')
+  ) {
+    return 'Control';
+  }
+
+  if (
+    skill.tags.includes('sustain') ||
+    skill.tags.includes('heal') ||
+    skill.tags.includes('buff') ||
+    skill.tags.includes('team buff') ||
+    skill.tags.includes('dot buff') ||
+    skill.tags.includes('life drain') ||
+    skill.tags.includes('passive-buff')
+  ) {
+    return 'Sustain';
+  }
+
+  if (
+    skill.tags.includes('burst') ||
+    skill.tags.includes('execute') ||
+    skill.tags.includes('aoe') ||
+    skill.tags.includes('multi-hit') ||
+    skill.tags.includes('cone') ||
+    skill.tags.includes('ultimate') ||
+    skill.tags.includes('single-target')
+  ) {
+    return 'Burst';
+  }
+
+  const effectKinds = skill.effects.map((effect) => effect.kind);
+  if (effectKinds.includes('summon')) return 'Summon';
+  if (
+    effectKinds.includes('heal') ||
+    effectKinds.includes('hot') ||
+    effectKinds.includes('buff') ||
+    effectKinds.includes('shield') ||
+    effectKinds.includes('cleanse')
+  ) {
+    return 'Sustain';
+  }
+  if (
+    effectKinds.includes('ct_shift') ||
+    effectKinds.includes('debuff') ||
+    effectKinds.includes('status') ||
+    effectKinds.includes('counter')
+  ) {
+    return 'Control';
+  }
+  if (
+    effectKinds.includes('damage') ||
+    effectKinds.includes('dot') ||
+    effectKinds.includes('execute') ||
+    effectKinds.includes('lifesteal')
+  ) {
+    return 'Burst';
+  }
+
+  return 'Unknown';
+};
+
+const describeForecastAction = (action: Action): string => {
+  if (action.kind === 'basic_attack') return 'Basic Attack';
+  if (action.kind === 'wait') return 'Wait';
+  return SKILL_BY_ID.get(action.skillId)?.name ?? 'Skill';
+};
+
+const buildTurnForecast = (
+  engine: CombatEngine | null,
+  preferredTargetId: InstanceId | null,
+): readonly ForecastEntry[] => {
+  if (engine === null || engine.state.result !== 'ongoing') return [];
+
+  const output: ForecastEntry[] = [];
+  const initialElapsedSec = engine.state.elapsedSec;
+  let sim = engine;
+  let iterations = 0;
+
+  while (
+    output.length < FORECAST_DEPTH &&
+    iterations < FORECAST_MAX_ITERATIONS &&
+    sim.state.result === 'ongoing'
+  ) {
+    iterations += 1;
+
+    const ready = sim.ready();
+    if (ready === null) {
+      sim = sim.advance();
+      continue;
+    }
+
+    let action: Action;
+    if (ready.team === 'enemy') {
+      action = decideEnemyAction({
+        state: sim.state,
+        unitId: ready.id,
+        skillLookup: (id) => SKILL_BY_ID.get(id),
+      });
+    } else {
+      const preferredTarget = preferredTargetId !== null ? sim.state.units[preferredTargetId] : undefined;
+      const fallbackEnemyId =
+        preferredTarget !== undefined && !preferredTarget.isDead && preferredTarget.team === 'enemy'
+          ? preferredTarget.id
+          : Object.values(sim.state.units).find((unit) => unit.team === 'enemy' && !unit.isDead)?.id ?? null;
+
+      action =
+        fallbackEnemyId !== null
+          ? { kind: 'basic_attack', unitId: ready.id, targetId: fallbackEnemyId }
+          : { kind: 'wait', unitId: ready.id };
+    }
+
+    const etaSeconds = Math.max(0, sim.state.elapsedSec - initialElapsedSec);
+    const etaLabel = etaSeconds < 0.5 ? 'Now' : `+${Math.max(1, Math.round(etaSeconds))}s`;
+
+    output.push({
+      unitId: ready.id,
+      unitName: ready.displayName,
+      teamLabel: ready.team === 'player' ? 'Player' : 'Enemy',
+      etaLabel,
+      intent: ready.team === 'player' ? 'Player' : classifyActionIntent(action),
+      actionLabel: ready.team === 'player' ? 'Choose action' : describeForecastAction(action),
+    });
+
+    const stepped = sim.step(action);
+    sim = stepped.engine;
+
+    if (!stepped.result.ok && action.kind !== 'wait') {
+      const waitStep = sim.step({ kind: 'wait', unitId: ready.id });
+      sim = waitStep.engine;
+    }
+  }
+
+  return output;
+};
+
 export function BattleScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
   const seed = useRunStore((state) => state.seed);
@@ -75,6 +254,7 @@ export function BattleScreen({ navigation }: Props) {
   const combatStatus = useCombatStore((state) => state.status);
   const combatError = useCombatStore((state) => state.error);
   const report = useCombatStore((state) => state.report);
+  const engine = useCombatStore((state) => state.engine);
   const engineState = useCombatStore((state) => state.engine?.state ?? null);
   const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
   const autoPlay = useCombatStore((state) => state.autoPlay);
@@ -236,7 +416,7 @@ export function BattleScreen({ navigation }: Props) {
   const handleForfeit = (): void => {
     Alert.alert(
       'Forfeit Run?',
-      'This ends the run as fled. Banked rewards persist; vault is forfeited and you forfeit the same-lineage tier-up unlock.',
+      'This ends the run as fled. Banked and vaulted rewards are secured, but progression is reduced (no lineage rank gain or same-lineage tier-up unlock).',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -287,6 +467,8 @@ export function BattleScreen({ navigation }: Props) {
     return enemies.find((enemy) => enemy.id === targetId) ?? null;
   }, [enemies, targetId]);
 
+  const turnForecast = useMemo(() => buildTurnForecast(engine, targetId), [engine, targetId]);
+
   return (
     <>
     <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
@@ -322,6 +504,41 @@ export function BattleScreen({ navigation }: Props) {
 
       {/* Event log */}
       {engineState !== null && <EventLog events={engineState.log} />}
+
+      {/* CT forecast + intent panel */}
+      {!battleEnded && turnForecast.length > 0 && (
+        <View style={styles.forecastCard}>
+          <View style={styles.forecastHeader}>
+            <Text style={styles.forecastTitle}>Turn Forecast</Text>
+            <Text style={styles.forecastHint}>Next {turnForecast.length} actions</Text>
+          </View>
+          <View style={styles.forecastGrid}>
+            {turnForecast.map((entry, index) => {
+              const intentStyle = FORECAST_INTENT_STYLES[entry.intent];
+              return (
+                <View key={`${entry.unitId}-${index}`} style={styles.forecastRow}>
+                  <Text style={styles.forecastEta}>{entry.etaLabel}</Text>
+                  <View
+                    style={[
+                      styles.forecastTeamBadge,
+                      entry.teamLabel === 'Player' ? styles.forecastTeamPlayer : styles.forecastTeamEnemy,
+                    ]}
+                  >
+                    <Text style={styles.forecastTeamText}>{entry.teamLabel === 'Player' ? 'P' : 'E'}</Text>
+                  </View>
+                  <View style={styles.forecastCenter}>
+                    <Text style={styles.forecastName} numberOfLines={1}>{entry.unitName}</Text>
+                    <Text style={styles.forecastAction} numberOfLines={1}>{entry.actionLabel}</Text>
+                  </View>
+                  <View style={[styles.forecastIntentBadge, { backgroundColor: intentStyle.bg }]}>
+                    <Text style={[styles.forecastIntentText, { color: intentStyle.fg }]}>{entry.intent}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
 
       {/* Player unit panel */}
       {player !== null && (
@@ -521,6 +738,56 @@ const styles = StyleSheet.create({
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
 
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#6a7090', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+
+  forecastCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cfd3e9',
+    backgroundColor: '#ffffff',
+    padding: 12,
+    gap: 8,
+  },
+  forecastHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  forecastTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6a7090',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  forecastHint: { fontSize: 11, color: '#8a90ad' },
+  forecastGrid: { gap: 6 },
+  forecastRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8f9ff',
+    borderWidth: 1,
+    borderColor: '#e2e6f4',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  forecastEta: { width: 38, fontSize: 11, fontWeight: '700', color: '#4a5072' },
+  forecastTeamBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forecastTeamPlayer: { backgroundColor: '#dff2e5' },
+  forecastTeamEnemy: { backgroundColor: '#f8dfdf' },
+  forecastTeamText: { fontSize: 11, fontWeight: '800', color: '#253049' },
+  forecastCenter: { flex: 1, minWidth: 0, gap: 1 },
+  forecastName: { fontSize: 12, fontWeight: '700', color: '#1e2238' },
+  forecastAction: { fontSize: 11, color: '#636b8d' },
+  forecastIntentBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  forecastIntentText: { fontSize: 10, fontWeight: '700' },
 
   playerCard: {
     borderRadius: 12,
