@@ -203,6 +203,33 @@ const sampleStageReward: RewardBundle = {
   gearIds: [],
 };
 
+function expectedStageBanked(reward: RewardBundle, streakBeforeWin: number): { gold: number; ascensionCells: number } {
+  const baselineGold = Math.floor(reward.gold * 0.3);
+  const baselineCells = Math.floor(reward.ascensionCells * 0.3);
+  const vaultedGold = reward.gold - baselineGold;
+  const vaultedCells = reward.ascensionCells - baselineCells;
+  const multiplier = Math.min(1 + streakBeforeWin * 0.2, 3);
+
+  return {
+    gold: baselineGold + Math.floor(vaultedGold * multiplier),
+    ascensionCells: baselineCells + Math.floor(vaultedCells * multiplier),
+  };
+}
+
+function expectedBankedAfterWins(
+  reward: RewardBundle,
+  wonStages: number,
+): { gold: number; ascensionCells: number } {
+  let gold = 0;
+  let ascensionCells = 0;
+  for (let i = 0; i < wonStages; i++) {
+    const stage = expectedStageBanked(reward, i);
+    gold += stage.gold;
+    ascensionCells += stage.ascensionCells;
+  }
+  return { gold, ascensionCells };
+}
+
 async function main(): Promise<void> {
   log(`project=${PROJECT_ID} host=${EMULATOR_HOST}`);
 
@@ -287,11 +314,11 @@ async function main(): Promise<void> {
     'bankCheckpoint',
     { runId: start.runId }
   );
-  // 9 wins × 100 gold = 900 total. After bankCheckpoint, banked == 900.
-  assertEqual(bank.banked.gold, 900, 'bank.banked.gold');
-  assertEqual(bank.banked.ascensionCells, 9, 'bank.banked.ascensionCells');
+  const expectedBankedAfter9Wins = expectedBankedAfterWins(sampleStageReward, 9);
+  assertEqual(bank.banked.gold, expectedBankedAfter9Wins.gold, 'bank.banked.gold');
+  assertEqual(bank.banked.ascensionCells, expectedBankedAfter9Wins.ascensionCells, 'bank.banked.ascensionCells');
 
-  // 4) endRun (won) — vault is already empty, banked stays at 900.
+  // 4) endRun (won) — vault is already empty, banked remains unchanged.
   log('callable: endRun (won)');
   const end = await callCallable<
     { runId: string; finalResult: string },
@@ -325,33 +352,50 @@ async function main(): Promise<void> {
     { runId: start.runId, finalResult: 'won' }
   );
   assertEqual(end.settled, true, 'endRun.settled');
-  assertEqual(end.bankedRewards.gold, 900, 'endRun.bankedRewards.gold');
+  assertEqual(end.bankedRewards.gold, expectedBankedAfter9Wins.gold, 'endRun.bankedRewards.gold');
   assertEqual(end.settlementLedger.finalResult, 'won', 'endRun.settlementLedger.finalResult');
   assertEqual(end.settlementLedger.vaultDisposition, 'merged', 'endRun.settlementLedger.vaultDisposition');
-  assertEqual(end.settlementLedger.postSettleBanked.gold, 900, 'endRun.settlementLedger.postSettleBanked.gold');
+  assertEqual(
+    end.settlementLedger.postSettleBanked.gold,
+    expectedBankedAfter9Wins.gold,
+    'endRun.settlementLedger.postSettleBanked.gold'
+  );
   assertEqual(end.settlementLedger.vaultForfeited.gold, 0, 'endRun.settlementLedger.vaultForfeited.gold');
 
   // Progression: stageCompleted = run.stage - 1 = 10 - 1 = 9
   // ascensionCells won: 9*3+25 = 52
   const expectedCells = 9 * 3 + 25; // 52
+  const expectedAscensionAfterWon = expectedBankedAfter9Wins.ascensionCells + expectedCells;
   assertEqual(end.progression.awardedAscensionCells, expectedCells, 'progression.awardedAscensionCells');
   assertEqual(end.progression.lineageRankDelta, 1, 'progression.lineageRankDelta');
-  assertEqual(end.progression.playerTotals.goldBank, 900, 'progression.playerTotals.goldBank');
-  assertEqual(end.progression.playerTotals.ascensionCells, expectedCells, 'progression.playerTotals.ascensionCells');
+  assertEqual(
+    end.progression.playerTotals.goldBank,
+    expectedBankedAfter9Wins.gold,
+    'progression.playerTotals.goldBank'
+  );
+  assertEqual(
+    end.progression.playerTotals.ascensionCells,
+    expectedAscensionAfterWon,
+    'progression.playerTotals.ascensionCells'
+  );
   log(`progression: cells=${end.progression.awardedAscensionCells} rankDelta=${end.progression.lineageRankDelta}`);
 
   // 5) Read back run doc and verify final state.
   const runDoc = await getDoc(idToken, `runs/${start.runId}`);
   assert(runDoc, 'run doc missing after endRun');
   assertEqual(fieldString(runDoc, 'result'), 'won', 'runDoc.result');
-  assertEqual(fieldMapInt(runDoc, 'bankedRewards', 'gold'), 900, 'runDoc.bankedRewards.gold');
+  assertEqual(
+    fieldMapInt(runDoc, 'bankedRewards', 'gold'),
+    expectedBankedAfter9Wins.gold,
+    'runDoc.bankedRewards.gold'
+  );
   assertEqual(fieldMapInt(runDoc, 'vaultedRewards', 'gold'), 0, 'runDoc.vaultedRewards.gold');
 
   // 6) Player doc should reflect settled progression.
   const playerDoc = await getDoc(idToken, `players/${localId}`);
   assert(playerDoc, 'player doc missing after endRun');
-  assertEqual(fieldInt(playerDoc, 'goldBank'), 900, 'player.goldBank after settle');
-  assertEqual(fieldInt(playerDoc, 'ascensionCells'), expectedCells, 'player.ascensionCells after settle');
+  assertEqual(fieldInt(playerDoc, 'goldBank'), expectedBankedAfter9Wins.gold, 'player.goldBank after settle');
+  assertEqual(fieldInt(playerDoc, 'ascensionCells'), expectedAscensionAfterWon, 'player.ascensionCells after settle');
   assertEqual(fieldMapInt(playerDoc, 'lineageRanks', STARTER_LINEAGE_ID), 1, 'player.lineageRanks.drakehorn_forge');
   assert(
     fieldArrayStrings(playerDoc, 'ownedClassIds').includes(STARTER_CLASS_ID),
@@ -442,9 +486,13 @@ async function main(): Promise<void> {
     { runId: fledStart.runId, finalResult: 'fled' }
   );
 
-  // Stage-1 reward split: 30 baseline banked, 70 vaulted, then fled settlement merges vault to bank = 100.
+  const expectedFledStage1Banked = expectedStageBanked(sampleStageReward, 0);
+  const expectedPlayerGoldAfterFled = expectedBankedAfter9Wins.gold + expectedFledStage1Banked.gold;
+  const expectedPlayerAscensionAfterFled = expectedAscensionAfterWon + expectedFledStage1Banked.ascensionCells + 1;
+
+  // Stage-1 reward split has no streak bonus; fled settlement merges vault into bank.
   assertEqual(fledEnd.settled, true, 'fled-endRun.settled');
-  assertEqual(fledEnd.bankedRewards.gold, 100, 'fled-endRun.bankedRewards.gold');
+  assertEqual(fledEnd.bankedRewards.gold, expectedFledStage1Banked.gold, 'fled-endRun.bankedRewards.gold');
   assertEqual(fledEnd.progression.awardedAscensionCells, 1, 'fled-endRun.progression.awardedAscensionCells');
   assertEqual(fledEnd.progression.lineageRankDelta, 0, 'fled-endRun.progression.lineageRankDelta');
   assertEqual(fledEnd.settlementLedger.finalResult, 'fled', 'fled settlementLedger.finalResult');
@@ -453,18 +501,30 @@ async function main(): Promise<void> {
   assertEqual(fledEnd.settlementLedger.vaultDisposition, 'merged', 'fled settlementLedger.vaultDisposition');
   assertEqual(fledEnd.settlementLedger.vaultedTransferredToBank.gold, 70, 'fled settlementLedger.vaultedTransferredToBank.gold');
   assertEqual(fledEnd.settlementLedger.vaultForfeited.gold, 0, 'fled settlementLedger.vaultForfeited.gold');
-  assertEqual(fledEnd.settlementLedger.postSettleBanked.gold, 100, 'fled settlementLedger.postSettleBanked.gold');
+  assertEqual(
+    fledEnd.settlementLedger.postSettleBanked.gold,
+    expectedFledStage1Banked.gold,
+    'fled settlementLedger.postSettleBanked.gold'
+  );
 
   const fledRunDoc = await getDoc(idToken, `runs/${fledStart.runId}`);
   assert(fledRunDoc, 'fled-path run doc missing after endRun');
   assertEqual(fieldString(fledRunDoc, 'result'), 'lost', 'fled-path runDoc.result');
-  assertEqual(fieldMapInt(fledRunDoc, 'bankedRewards', 'gold'), 100, 'fled-path runDoc.bankedRewards.gold');
+  assertEqual(
+    fieldMapInt(fledRunDoc, 'bankedRewards', 'gold'),
+    expectedFledStage1Banked.gold,
+    'fled-path runDoc.bankedRewards.gold'
+  );
   assertEqual(fieldMapInt(fledRunDoc, 'vaultedRewards', 'gold'), 0, 'fled-path runDoc.vaultedRewards.gold');
 
   const playerAfterFled = await getDoc(idToken, `players/${localId}`);
   assert(playerAfterFled, 'player doc missing after fled settle');
-  assertEqual(fieldInt(playerAfterFled, 'goldBank'), 1000, 'player.goldBank after fled settle');
-  assertEqual(fieldInt(playerAfterFled, 'ascensionCells'), expectedCells + 1, 'player.ascensionCells after fled settle');
+  assertEqual(fieldInt(playerAfterFled, 'goldBank'), expectedPlayerGoldAfterFled, 'player.goldBank after fled settle');
+  assertEqual(
+    fieldInt(playerAfterFled, 'ascensionCells'),
+    expectedPlayerAscensionAfterFled,
+    'player.ascensionCells after fled settle'
+  );
   assertEqual(fieldMapInt(playerAfterFled, 'lineageRanks', STARTER_LINEAGE_ID), 1, 'player.lineage rank unchanged on fled');
   assert(fieldNullOrString(playerAfterFled, 'currentRunId') === null, 'player.currentRunId null after fled settle');
 

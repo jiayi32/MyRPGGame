@@ -39,24 +39,25 @@ export function EnemyRow({
         <CtIndicator unit={enemy} isReady={isReady} />
       </View>
       <HpBar unit={enemy} color={isTarget ? '#e04040' : '#7a3030'} />
-      <StatusChips unit={enemy} />
+      <StatusChips unit={enemy} maxVisible={2} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   enemyRow: {
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#dadde9',
     backgroundColor: '#fafbff',
-    padding: 10,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 4,
   },
   enemyRowReady: { borderColor: '#c08020', backgroundColor: '#fffaf0' },
   enemyRowTarget: { borderColor: '#c04040', backgroundColor: '#fff5f5', borderWidth: 1.5 },
   enemyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   enemyNameBlock: { flexDirection: 'column', flex: 1 },
-  enemyName: { fontSize: 14, fontWeight: '600', color: '#2a2e44' },
+  enemyName: { fontSize: 13, fontWeight: '600', color: '#2a2e44' },
   archetypeLabel: { fontSize: 10, color: '#8892b0', marginTop: 1 },
 });

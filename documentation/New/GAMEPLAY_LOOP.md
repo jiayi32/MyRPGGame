@@ -39,6 +39,10 @@ Confidence legend:
 | A Dark Room | Browser and mobile text game | Multi-phase survival and exploration narrative loop | Influential minimalist indie title with cross-platform acclaim | Mystery and phase shifts that reframe player goals | High |
 | Bit Heroes | Mobile and web | Turn-based-lite grind and collection loop | Long-running live-service pixel RPG across platforms | Familiar collection and guild raid participation | Medium |
 | Darkest Dungeon series | PC and console tactical RPG | Expedition stress management and permadeath attrition | Multi-million sales and strong critical reception across both titles | Stress/affliction management plus persistent meta upgrades | High |
+| Peglin | PC and mobile and Switch | Pachinko roguelike with orb deck-building | 400k early access sales, 1.0 release 2024, v2.0 in 2026 | Orb+relic synergy discovery and 20-level Cruciball ascension | High |
+| Dicey Dungeons | PC and mobile and Switch and Xbox | Dice-allocation deck-building roguelike | 87% OpenCritic recommend, mobile scored 98 Metacritic | Equipment-as-deck with dice slot constraints, 6 distinct characters | High |
+| Wildfrost | PC and Switch | Card-based tactical roguelike with countdown timers | Strong critical reception for innovative timeline combat | Visible countdown timers, charm attachment system, daily voyage | Medium |
+| Luck be a Landlord | PC and mobile | Slot-machine roguelike with symbol synergies | Cult hit, spawned "Luck be a Landlord-like" subgenre | Tag-adjacency synergy discovery, rent-pressure escalation | Medium |
 
 ---
 
@@ -556,6 +560,207 @@ flowchart TD
 
 ---
 
+## 13) Peglin
+
+### Why this loop works
+
+- Pachinko-style orb drops replace traditional attack commands, making every action feel like a mini-game rather than a menu selection.
+- Orb deck-building plus relic collection creates layered combinatorial discovery — the same orb behaves differently depending on which relics are active.
+- Cruciball (ascension) system provides 20 escalating difficulty levels, each adding a negative modifier, ensuring expert players always have a harder challenge.
+- The map is a simple branching path (similar to Slay the Spire), keeping navigation trivial while focusing cognitive load on build decisions.
+
+### Core gameplay loop
+
+1. Select goblin class (Peglin, Balladin, Roundrel, Spinventor).
+2. Navigate a branching map with fight, loot, event, and shop nodes.
+3. Enter pachinko battle: aim and fire an orb; it bounces through pegs, dealing damage per peg hit.
+4. Collect gold from popped pegs; spend at shops to upgrade or remove orbs.
+5. Earn new orbs (deck) and relics (permanent passives) as rewards.
+6. Face a boss at the end of each act; defeat progresses to the next act.
+7. Upon winning or dying, unlock new Cruciball difficulty levels and return.
+
+### Retention design pattern
+
+- Pachinko physics inject skill expression into a genre normally dominated by pure math. Every shot feels personal.
+- Relic synergies create "build lottery" excitement: finding the right relic transforms an average orb deck into a powerhouse.
+- Cruciball provides long-horizon mastery without requiring new content per level.
+
+```mermaid
+flowchart TD
+	A[Choose goblin class] --> B[Pick map path node]
+	B --> C[Fight: aim and fire orb]
+	C --> D[Orb bounces through pegs]
+	D --> E[Deal damage to enemy]
+	E --> F[Collect gold and new orbs]
+	F --> G[Shop: upgrade or remove orbs]
+	G --> H{Act boss reached?}
+	H -->|Yes| I[Defeat boss and progress act]
+	H -->|No| B
+	I --> J{Run complete?}
+	J -->|Win or die| K[Unlock Cruciball level]
+	K --> A
+```
+
+### Sources
+
+- Official: https://peglin.com/
+- Wikipedia: https://en.wikipedia.org/wiki/Peglin
+- PC Gamer overview: https://www.pcgamer.com/be-a-little-pachinko-playing-goblin-in-peglin/
+
+---
+
+## 14) Dicey Dungeons
+
+### Why this loop works
+
+- Dice-as-input turns randomness from a frustration source into a puzzle. Each turn, the player allocates dice rolls to equipment slots — a bad roll is a constraint to solve, not a punishment.
+- Six distinct characters each have entirely different equipment sets and rules, making character selection a meaningful strategic choice rather than cosmetic.
+- Episodes introduce rule variants (e.g., "you start with 1 HP", "enemies have double health") that remix the base game without new content authoring.
+
+### Core gameplay loop
+
+1. Choose character (Warrior, Thief, Robot, Inventor, Witch, Jester) and episode ruleset.
+2. Navigate dungeon floors with fight, treasure, shop, and upgrade nodes.
+3. Enter turn-based combat: roll dice, allocate to equipment slots based on slot requirements.
+4. Equipment produces effects: damage, shields, healing, status, dice manipulation.
+5. Earn gold and new equipment from victories; spend at shops and upgrade stations.
+6. Level up to gain more dice per turn and higher max HP.
+7. Defeat floor boss to advance; defeat final boss to complete the run.
+
+### Retention design pattern
+
+- Equipment-as-deck: acquiring new equipment mid-run changes which dice values are "good", creating constant re-evaluation.
+- Character diversity: switching characters feels like playing a different game, multiplying replayability.
+- Episode system: rule variants are cheap to author but dramatically change run feel — a model for low-cost replay content.
+
+```mermaid
+flowchart TD
+	A[Choose character and episode] --> B[Explore dungeon floor]
+	B --> C[Enter combat encounter]
+	C --> D[Roll dice for turn]
+	D --> E[Allocate dice to equipment slots]
+	E --> F[Equipment resolves: damage shield heal]
+	F --> G{Enemy defeated?}
+	G -->|Yes| H[Earn gold XP and new equipment]
+	G -->|No| D
+	H --> I[Shop or upgrade at stations]
+	I --> J{Boss floor?}
+	J -->|Yes| K[Defeat boss and advance]
+	J -->|No| B
+	K --> L{Final boss?}
+	L -->|Yes| M[Run complete: unlock new episodes]
+	L -->|No| B
+```
+
+### Sources
+
+- Official: http://diceydungeons.com/
+- Wikipedia: https://en.wikipedia.org/wiki/Dicey_Dungeons
+- Ars Technica review: https://arstechnica.com/gaming/2019/08/dicey-dungeons-review-well-there-goes-another-100-hours-of-my-life/
+
+---
+
+## 15) Wildfrost
+
+### Why this loop works
+
+- Countdown timers replace traditional turn order — every unit (ally and enemy) has a visible countdown ticking toward zero, creating perfect information and tense anticipation.
+- Charm system lets players attach modifiers to cards (e.g., "+2 attack", "apply snow on hit"), creating layered customization without deck bloat.
+- Companions persist through the run and can be positioned, creating positional strategy within a simple card battle framework.
+- The daily voyage provides a fixed-seed leaderboard challenge, adding competitive replay without real-time multiplayer.
+
+### Core gameplay loop
+
+1. Choose a leader and starting companion deck.
+2. Navigate a branching map with battle, treasure, and shop nodes.
+3. Enter battle: play companion and item cards; each unit has a countdown timer.
+4. When a countdown reaches zero, the unit acts (attacks, heals, applies status).
+5. Apply charms to cards to permanently modify them for the run.
+6. Earn new companions and charms as rewards.
+7. Defeat area boss to progress; defeat final boss to win the run.
+
+### Retention design pattern
+
+- Countdown timers create a visible, shared timeline — exactly analogous to this project's CT system. Proof that visible turn-order mechanics are highly engaging.
+- Charm attachment creates "item-on-card" customization, a lighter alternative to full deck-building that fits mobile constraints.
+- Daily voyage with fixed seed creates low-cost competitive replay.
+
+```mermaid
+flowchart TD
+	A[Choose leader and companions] --> B[Pick map path node]
+	B --> C[Battle: deploy companions]
+	C --> D[Countdown timers tick down]
+	D --> E{Unit reaches zero?}
+	E -->|Yes| F[Unit acts: attack heal status]
+	E -->|No| D
+	F --> G[Play item cards to intervene]
+	G --> H{Enemies defeated?}
+	H -->|Yes| I[Earn charms and new companions]
+	H -->|No| D
+	I --> J[Attach charms to modify cards]
+	J --> K{Area boss?}
+	K -->|Yes| L[Defeat boss and advance]
+	K -->|No| B
+	L --> M{Run complete?}
+	M -->|Win| N[Daily voyage leaderboard]
+	M -->|Lose| O[Restart with new knowledge]
+```
+
+### Sources
+
+- Official: https://wildfrostgame.com/
+- Wikipedia: https://en.wikipedia.org/wiki/Wildfrost
+- Rock Paper Shotgun: https://www.rockpapershotgun.com/wildfrost-review
+
+---
+
+## 16) Luck be a Landlord
+
+### Why this loop works
+
+- Symbol-based synergy discovery: adding a "cat" symbol to the reels does nothing alone, but with "milk" it produces massive value. The loop of discovering symbol combinations creates constant "aha" moments.
+- Extremely low input complexity: the player simply picks one of three symbols each round. The depth comes entirely from combinatorial planning.
+- Rent payments create escalating tension: every few spins, rent is due. If you can't pay, you lose. This is a pure "push your luck" mechanic that drives every decision.
+
+### Core gameplay loop
+
+1. Start with a basic set of reel symbols (e.g., coin, cherry).
+2. Spin the reels; symbols interact and produce resources (coins, damage, removal).
+3. After each spin, choose one of three new symbols to add to the reel.
+4. Symbols have tags — placing matching tags adjacent creates synergy bonuses (×2, ×3, etc.).
+5. Every N spins, rent is due; pay rent to survive, or lose the run.
+6. Between runs, unlock new symbols and starting decks via meta-progression.
+
+### Retention design pattern
+
+- Symbol adjacency and tag matching create a spatial puzzle layered on top of deck-building — this is the direct inspiration for the Synergy Tag system proposed in Phase 4.
+- The rent mechanic creates a hard timer: you must scale faster than costs escalate. This is analogous to the Anomaly Corruption gauge.
+- Meta-progression unlocks expand the symbol pool, ensuring later runs have more combinatorial depth.
+
+```mermaid
+flowchart TD
+	A[Start with base symbols] --> B[Spin reels]
+	B --> C[Symbols interact and produce resources]
+	C --> D[Choose 1 of 3 new symbols to add]
+	D --> E[Symbols with matching tags create synergy]
+	E --> F{Rent due?}
+	F -->|Yes| G{Can pay?}
+	G -->|Yes| H[Pay rent and continue]
+	G -->|No| I[Run lost: bank meta-currency]
+	F -->|No| B
+	H --> B
+	I --> J[Unlock new symbols between runs]
+	J --> A
+```
+
+### Sources
+
+- Official: https://trampolinetales.com/
+- Wikipedia: https://en.wikipedia.org/wiki/Luck_be_a_Landlord
+- PC Gamer: https://www.pcgamer.com/luck-be-a-landlord-review/
+
+---
+
 ## Cross-game loop patterns relevant to this project
 
 Across the researched set, the most repeatable high-performance loop patterns are:
@@ -565,6 +770,11 @@ Across the researched set, the most repeatable high-performance loop patterns ar
 3. Meta progression outside combat: town, class unlocks, economy, social status.
 4. Controlled session pacing: daily energy, short runs, or capped complexity per session.
 5. Build expression: meaningful choices in class/deck/loadout that alter strategy, not just numbers.
+6. **Tag-based synergy discovery** (Peglin, Luck be a Landlord): items/skills carry elemental or archetype tags; collecting 3+ of the same tag unlocks a power spike. Turns every acquisition into a potential combo piece.
+7. **Visible timeline tension** (Wildfrost, Into the Breach): showing exactly when each unit will act transforms turn order from hidden math into a readable puzzle. Directly validates this project's CT forecast system.
+8. **Slot-based equipment with constraints** (Dicey Dungeons): equipment has dice slots with value requirements — the puzzle is fitting random input into constrained slots. Demonstrates that input randomness + player allocation = satisfying tactical depth.
+9. **Escalating difficulty through mid-run choices** (Augment System): Instead of a pre-run difficulty toggle, augments let players self-select their risk/reward at fixed stage intervals — Neutral for safety, Positive for power, Sacrificial for high-risk scaling. Tier progression (Bronze→Silver→Gold→Prismatic) unlocks more powerful augments as the player accumulates total picks across all runs. This creates a dual progression: per-run identity curve + account-level tier climb.
+10. **Mid-run build expansion** (all four new games): acquiring new orbs/cards/charms/symbols DURING a run creates a compounding identity curve — the player at stage 10 feels fundamentally different from the player at stage 1.
 
 ---
 
@@ -578,24 +788,30 @@ This section reflects currently implemented flow in code (not aspirational docs)
 - Hub run entry and resume: `src/screens/Hub/HubScreen.tsx`
 - Prologue to class flow: `src/screens/OnboardingNarrative/OnboardingNarrativeScreen.tsx`
 - Class start flow: `src/screens/ClassSelect/ClassSelectScreen.tsx`
+- Risk contract selection (pre-run modifiers): `src/screens/ClassSelect/ClassSelectScreen.tsx`
+- Branching run map with room selection: `src/screens/RunMap/RunMapScreen.tsx`, `src/domain/run/map.ts`
 - Combat execution and submit transition: `src/screens/Battle/BattleScreen.tsx`
 - Reward, vault, and run settlement: `src/screens/RewardResolution/RewardResolutionScreen.tsx`
 - Authoritative run state machine: `src/stores/runStore.ts`
-- Stage map and checkpoint markers: `src/screens/RunMap/RunMapScreen.tsx`
+- Contract enforcement pipeline: `src/features/run/orchestrator.ts`, `src/stores/combatStore.ts`
+- Server-side contract validation: `firebase/functions/src/startRun.ts`, `firebase/functions/src/endRun.ts`
 
 ### Current loop narrative
 
 1. App opens and passes through auth gate.
 2. Player lands in Hub.
 3. If no active run: Start New Run -> Onboarding Narrative -> Class Select.
-4. Class Select begins run and enters Battle.
-5. Battle executes CT-based stage encounter.
-6. Stage outcome is submitted to run store/backend.
-7. Reward Resolution shows banked and vaulted rewards and narrative milestone.
-8. If checkpoint decision is active, player chooses Vault Now or Press On.
-9. Press On returns directly to Battle; Vault Now returns to Hub.
-10. Player can voluntarily end run from Reward Resolution, Battle, or Hub to settle rewards.
-11. Progression delta applies, then Play Again returns to Hub.
+4. Class Select: player picks a class and optionally selects up to 2 risk contracts.
+5. startRun persists class + contracts; navigates to Run Map.
+6. Run Map presents branching one-way room graph; player must choose a reachable room.
+7. Enter Battle with the selected room's encounter (normal, elite, event, treasure, rest, merchant, anomaly, or boss).
+8. Battle executes CT-based combat with turn forecast, intent icons, and contract-applied modifiers.
+9. Stage outcome is submitted to run store/backend.
+10. Reward Resolution shows banked and vaulted rewards, narrative milestone, and contract status.
+11. If checkpoint decision is active (stages 10, 20, 30), player chooses Vault Now or Press On.
+12. Press On redirects to Run Map for next room selection; Vault Now returns to Hub.
+13. Player can voluntarily end run from Reward Resolution, Battle, or Hub (unless blocked by No Retreat Oath contract).
+14. Progression delta applies, then Play Again returns to Hub.
 
 ### Current loop flowchart
 
@@ -609,28 +825,32 @@ flowchart TD
 	D --> E{Active run}
 	E -->|No| F[Start New Run]
 	F --> G[Onboarding Narrative]
-	G --> H[Class Select]
-	H --> I[startRun]
-	I --> J[Battle stage]
+	G --> H[Class Select + Risk Contracts]
+	H --> I[startRun with contracts]
+	I --> J[Run Map: choose room]
 	E -->|Yes| J
 
-	J --> K{Battle result}
-	K --> L[submitStageOutcome]
-	L --> M[Reward Resolution]
+	J --> K[Battle stage]
+	K --> L{Battle result}
+	L --> M[submitStageOutcome]
+	M --> N[Reward Resolution]
 
-	M --> N{Checkpoint decision active}
-	N -->|Yes| O{Vault Now or Press On}
-	O -->|Vault Now| P[vaultAtStage and return Hub]
-	O -->|Press On| Q[clear decision and continue to Battle]
-	P --> D
-	Q --> J
+	N --> O{Checkpoint decision active}
+	O -->|Yes| P{Vault Now or Press On}
+	O -->|No| Q{Continue or End Run}
+	P -->|Vault Now| R[vaultAtStage and return Hub]
+	P -->|Press On| S[clear decision: Run Map]
+	Q -->|Continue Run| J
+	Q -->|End Run and Settle| T[endRun]
+	R --> D
+	S --> J
+	T --> U[Apply progression delta]
+	U --> V[Play Again]
+	V --> D
 
-	N -->|No| R{Continue or End Run}
-	R -->|Back to Battle| J
-	R -->|End Run and Settle| S[endRun]
-	S --> T[Apply progression delta]
-	T --> U[Play Again]
-	U --> D
+	D --> W[Optional tabs: Shop Equipment Profile]
+	W --> D
+```
 
 	D --> V[Optional tabs: Shop Equipment Profile]
 	V --> D
@@ -679,13 +899,18 @@ flowchart TD
 
 - Clear run-state lifecycle (`startRun`, `submitStageOutcome`, `vaultAtStage`, `endRun`).
 - Risk banking model already present and legible in Reward Resolution.
-- Good high-level route separation between Hub, Battle, and post-battle flow.
+- Branching one-way Run Map with room type variety (battle, elite, event, treasure, rest, merchant, anomaly, boss).
+- Risk contract system fully enforced end-to-end (3 contracts: no forfeit, no merchant routes, enemy barrier pulse).
+- Turn forecast with intent icons provides tactical readability.
+- Server-authoritative reward settlement and contract validation.
 
 ### Current loop friction points
 
-- Hub bounce after reward decisions introduces extra navigation friction.
-- Vault semantics (banked vs vaulted vs streak multiplier and settle timing) may remain cognitively heavy for new players.
-- Tactical intent visibility in combat can still be improved (especially for readiness and consequence preview).
+- No mid-run build expansion: player identity at stage 1 is nearly identical to stage 25. Missing the "compounding identity curve" seen in all researched roguelikes.
+- Room selection is type-only: the Run Map shows room categories but no per-room modifiers, reducing decision depth.
+- No daily engagement hook: players have no reason to return on a specific cadence.
+- Vault semantics (banked vs vaulted vs streak multiplier) remain cognitively heavy for new players.
+- No self-directed difficulty scaling for expert players who want harder challenges with commensurate rewards.
 
 ---
 
@@ -975,67 +1200,403 @@ flowchart LR
 
 ---
 
-## Improvement points for current game app
+---
 
-Prioritization scale:
+## Completed Improvements (May 2026)
 
-- Impact: High / Medium / Low
-- Effort: S / M / L
+The following items from the original roadmap have been shipped:
 
-### Priority roadmap table
-
-| Priority | Area | Improvement | Why it matters | Impact | Effort |
-| --- | --- | --- | --- | --- | --- |
-| P0 | Core loop pacing | Add one-tap Continue path from Reward Resolution directly to next Battle when no decision is pending | Reduces navigation friction and keeps momentum high | High | S |
-| P0 | Onboarding UX | Add a first-run interactive loop explainer for Banked vs Vaulted vs Streak | Clarifies core economy in first 2 minutes | High | S |
-| P0 | Combat readability | Add explicit turn forecast panel (next 3-5 CT actors with intent icon) | Players can plan and feel more in control | High | M |
-| P1 | Progression economy | Add post-run breakdown screen with source attribution per reward stream | Makes progression feel fair and transparent | High | M |
-| P1 | Retention systems | Introduce daily and weekly objective track tied to existing loop actions | Adds return cadence without redesigning core systems | High | M |
-| P1 | Loop pacing | Reduce Hub round-trips on Press On by supporting direct stage advance option | Preserves flow for engaged players | Medium | M |
-| P1 | Onboarding UX | Contextual tips triggered only on first occurrence of key events (first vault, first forfeit, first checkpoint) | Low-noise teaching beats at right moments | Medium | S |
-| P2 | Combat depth | Add enemy intent classes (Burst, Sustain, Control) visible before action | Improves strategic readability and counterplay | Medium | M |
-| P2 | Progression economy | Add soft pity and floor guarantees for key progression materials | Smooths bad luck streaks and churn risk | Medium | M |
-| P2 | Retention and replay | Add run mutators with score multipliers and leaderboard slices | Expands replayability using existing combat pipeline | Medium | L |
-| P2 | Content scalability | Build data-driven encounter templates with reusable tags and constraints | Speeds content production and balancing | High | L |
-| P3 | Social retention | Add async comparison ghosts and seed challenges | Adds competition without real-time multiplayer complexity | Medium | L |
+| Item | Status |
+| --- | --- |
+| One-tap Continue from Reward Resolution → Run Map | ✅ Shipped — map-gated flow preserved |
+| First-run interactive economy tutorial (Banked/Vaulted/Streak) | ✅ Shipped — step-by-step cards with persistence |
+| Lightweight CT forecast strip (3 default, expand to 5) | ✅ Shipped — with intent icons |
+| Contextual first-time tips (vault, forfeit, checkpoint) | ✅ Shipped — reusable UI hint service |
+| Risk contracts (3 contracts, full enforcement) | ✅ Shipped — allowlist, server guard, client UI blocks, combat/map effects |
+| Run Map with branching one-way graph + visual edges | ✅ Shipped — with room type variety |
+| Battle UI declutter (action dock, collapsible log, compact enemy rows) | ✅ Shipped |
+| Reward Resolution declutter (action-first ordering, collapsible ledger) | ✅ Shipped |
+| Encounter composition templates (data-driven, tag-based) | ✅ Shipped |
+| Run director room-type awareness (elite pressure, anomaly chance) | ✅ Shipped |
+| Run passives content catalog + state scaffolding | ✅ Scaffolded — content exists, not yet wired into combat |
+| Inn decisions content catalog + state scaffolding | ✅ Scaffolded — content exists, not yet wired into node flow |
 
 ---
 
-## Recommended phased rollout
+## Phase 4: Build Identity & Replay Depth (Revised — May 2026)
 
-### Phase 1 (next 2 sprints): clarity and momentum
+> **Revision note:** Original P4.4 (Momentum Streak) has been replaced with the Augment System (P4.5), and a new P4.3 (Skill Draft) has been added to address the "no mid-run action-set expansion" gap identified across all 16 researched games. Original P4.3 (Room Conditions) and P4.5 (Anomaly Corruption) are renumbered. The Augment System was further redesigned in May 2026 from a pre-run Cruciball-style difficulty ladder to a mid-run 1-of-3 draft system with Neutral/Positive/Sacrificial categories and Bronze→Silver→Gold→Prismatic tiers, inspired by League of Legends Arena augments.
 
-1. Direct Continue path from Reward Resolution to Battle when allowed.
-2. First-run economy explainer (Banked/Vaulted/Streak).
-3. Lightweight CT forecast strip in Battle.
-4. Contextual first-time tips.
+Prioritization scale: Impact: High / Medium / Low · Effort: S / M / L
 
-Expected outcome:
+### Priority table
 
-- Better first-session comprehension.
-- Lower drop-off between first battle and second battle.
+| # | Addition | Inspiration | Impact | Effort | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| P4.1 | Run Passives (complete scaffold) | Hades boons, Slay the Spire relics | High | M | Nothing — scaffold exists |
+| P4.2 | Synergy Tags | Peglin relics, Luck be a Landlord symbols | High | M | P4.1 (passives carry tags) |
+| **P4.3** | **Skill Draft at boss stages** ✨ | Peglin orb draft, Dicey Dungeons equipment, Hades boons | **High** | **M** | P4.1 (choice-UI pattern) |
+| P4.4 | Room Conditions (simplified) | Into the Breach telegraphed threats | Medium | M | Run Map stable |
+| P4.5 | Augment System ✨ | Peglin Cruciball, LoL Arena augments | High | M | P4.1 (choice-UI pattern) |
+| P4.6 | Anomaly Corruption Gauge (deferred) | Darkest Dungeon stress, Loop Hero boss meter | Medium | L | P4.4 (room conditions precedent) |
 
-### Phase 2 (following 2-4 sprints): retention and economy trust
+---
 
-1. Daily and weekly objective layer.
-2. Post-run reward attribution ledger.
-3. Soft pity/floor guarantees for progression materials.
+### P4.1 — Run Passives (Complete Scaffold → Functional)
 
-Expected outcome:
+**What exists:** Content catalog (`runPassiveIds` field, 3 authored passives), Firestore persistence, state fields in runStore. Nothing consumes them in gameplay.
 
-- Higher D7 retention.
-- Improved player perception of fairness.
+**What to build:** Every 3 stages (3, 6, 9, 12, 15, 18, 21, 24, 27), after Reward Resolution and before Run Map, present a 3-option passive pick. The player chooses one; it persists to `runPassiveIds` and applies combat effects at battle start.
 
-### Phase 3 (longer-term): replay and content scaling
+**Why this matters:** Directly addresses the "no mid-run build expansion" friction point. Creates the compounding identity curve observed in Peglin (relic collection) and Hades (boon stacking). A player at stage 15 with 5 passives feels fundamentally different from stage 1.
 
-1. Mutators and score multipliers.
-2. Data-driven encounter authoring pipeline.
-3. Async challenge loops.
+```mermaid
+flowchart TD
+	A[Reward Resolution: stage complete] --> B{Stage multiple of 3?}
+	B -->|Yes| C[Passive Draft: pick 1 of 3]
+	B -->|No| D[Run Map: choose next room]
+	C --> E[Persist choice to runPassiveIds]
+	E --> F[Apply passive effects at next battle start]
+	F --> D
+	
+	subgraph "Passive Catalog (3 authored)"
+		G1["Vanguard Heart: +10% maxHP, heal 5% post-win"]
+		G2["Arc Flux: +8% CT gain"]
+		G3["Greedy Ledger: +vault pressure conversion"]
+	end
+	
+	C --> G1
+	C --> G2
+	C --> G3
+```
 
-Expected outcome:
+---
 
-- Higher long-term replayability.
-- Lower content production bottlenecks.
+### P4.2 — Synergy Tags
+
+**What:** Skills and gear gain elemental/archetype tags (`fire`, `frost`, `shadow`, `light`, `physical`, `arcane`). Tags are auto-derived from damage type and skill name keywords, with manual overrides for key items. When the player equips or uses 3+ items with the same tag, a synergy bonus activates for that run.
+
+**Bonuses per tag (deterministic, not random):**
+
+| Tag | ≥3 bonus |
+| --- | --- |
+| Fire | +15% fire damage, burn applied on critical hit |
+| Frost | +10% chill/slow duration, +1 frost stack on hit |
+| Shadow | 8% lifesteal on shadow damage, +5% crit chance in darkness |
+| Light | +10% healing received, cleanse 1 debuff at battle start |
+| Physical | +12% physical damage, +5% crit multiplier |
+| Arcane | +10% MP regen rate, -5% enemy magic defense |
+
+**Why this matters:** Peglin and Luck be a Landlord prove that tag-based synergy discovery creates "aha" moments. Finding a third fire-tag item completes a set and transforms damage output. This turns every gear drop and passive pick into a potential combo piece. Drafted skills (P4.3) also carry tags, creating cross-system synergy.
+
+```mermaid
+flowchart TD
+	A[Battle starts] --> B[Collect all tags from equipped gear + active passives + drafted skills]
+	B --> C[Count occurrences per tag]
+	C --> D{Any tag count ≥ 3?}
+	D -->|Yes| E[Apply synergy bonus for each qualifying tag]
+	D -->|No| F[No synergy active]
+	E --> G[Combat proceeds with bonuses]
+	F --> G
+	
+	subgraph "Tag Sources"
+		S1["Gear: Firebrand Sword → fire, physical"]
+		S2["Gear: Inferno Plate → fire, fire"]
+		S3["Passive: Arc Flux → arcane"]
+		S4["Drafted Skill: Inferno Wave → fire, aoe"]
+	end
+	
+	B --> S1
+	B --> S2
+	B --> S3
+	B --> S4
+```
+
+---
+
+### P4.3 — Skill Draft at Boss Stages ✨ NEW
+
+**What:** At boss/checkpoint stages (5, 10, 15, 20, 25), after Reward Resolution and before Run Map, the player drafts 1 temporary skill from a pool of 3 to add to their action bar for the rest of the run. Drafted skills are run-only — lost on run end, vault, or defeat.
+
+**Draft pool structure (3 options per draft):**
+
+| Slot | What it offers | Example (Ember Initiate, stage 5) |
+| --- | --- | --- |
+| **Lineage option** | A skill from the player's lineage, same tier or +1 tier. Safe, thematic. | "Inferno Wave" — Drakehorn T2, AoE fire damage |
+| **Synergy option** | A skill that shares ≥1 tag with the player's current loadout. Builds toward P4.2 synergy bonuses. | "Heat Sink" — fire-tagged, HP→MP conversion |
+| **Wildcard option** | A skill from any lineage, gated by stage tier band. High-risk, high-reward. | "Void Step" — Umbral lineage, CT-teleport |
+
+**Pool constraints:**
+- Lineage option: always from player's lineage, tier ≤ current stage tier band
+- Synergy option: weighted toward skills whose tags overlap with player's gear, passives, and previously drafted skills
+- Wildcard option: any skill from any lineage, gated by stage tier band
+- No duplicates: a skill already in the action bar won't appear
+- Max 5 drafted skills per run (one per draft stage: 5, 10, 15, 20, 25)
+
+**Integration:** In `prepareStage`, the orchestrator merges `classData.skillIds` + `runStore.draftedSkillIds` into the player unit's `skillIds` array. The CT queue, cooldowns, resource costs, and skill validation (`canCast`) all work identically for drafted skills — no new combat engine code needed.
+
+**Why this matters:** This is the single most important missing piece. All 16 researched games have mid-run action-set modification. The current app has zero. A player at stage 25 with 5 class skills + 5 drafted skills + 8 passives + active synergies feels fundamentally different from stage 1 — and different from any other run with the same class. This is the Peglin/Dicey Dungeons/Hades pattern: class defines starting identity, drafts build unique expression.
+
+```mermaid
+flowchart TD
+	A[Reward Resolution: boss stage won] --> B{Stage in 5,10,15,20,25?}
+	B -->|Yes| C[Skill Draft Screen: pick 1 of 3]
+	B -->|No| D[Run Map: choose next room]
+	C --> E[Persist to runStore.draftedSkillIds]
+	E --> F[Merge into playerUnit.skillIds at next prepareStage]
+	F --> D
+	
+	subgraph "Draft Pool per Stage"
+		G1["Lineage: thematic skill from your class family"]
+		G2["Synergy: shares tags with your current build"]
+		G3["Wildcard: unexpected option from any lineage"]
+	end
+	
+	subgraph "Concrete Trace: Ember Initiate"
+		H1["Stage 5: +Inferno Wave (6 skills)"]
+		H2["Stage 10: +Heat Sink (7 skills) → Fire synergy active"]
+		H3["Stage 15: +Void Step (8 skills)"]
+		H4["Stage 20: +Ember Shield (9 skills)"]
+		H5["Stage 25: +Dragon's Breath (10 skills)"]
+	end
+```
+
+---
+
+### P4.4 — Room Conditions (Simplified)
+
+**What:** Each room on the Run Map displays a deterministic modifier chip visible before committing. Simplified from the original design: start with 3-4 conditions on elite and boss rooms only, expand after player feedback confirms the mechanic is legible.
+
+**Initial conditions:**
+
+| Condition | Effect |
+| --- | --- |
+| Fortified (+25% gold) | Enemy HP +15%, but gold reward +25% |
+| Exposed (+20% damage) | Player damage taken +20%, player damage dealt +20% |
+| Treasure Cache | Guaranteed rare gear drop; enemy count +1 |
+| Cursed | -10% all stats; +40% ascension cells on win |
+
+**Why this matters:** Into the Breach's brilliance is perfect information creating meaningful micro-decisions. Starting simple (3-4 conditions, elite/boss only) keeps the feature legible on mobile screens. Combined with risk contracts (Sealed Purse removes merchant-favorable conditions) and Augments (certain augments interact with conditions, e.g., Scavenger doubles elite rewards), this creates deep routing strategy without overwhelming new players.
+
+```mermaid
+flowchart TD
+	A[Run Map: stage N reached] --> B[Generate conditions deterministically from seed + stage]
+	B --> C[Elite and boss rooms get a condition chip]
+	C --> D[Player sees conditions before committing]
+	D --> E{Evaluate risk/reward}
+	E --> F[Choose room + condition]
+	F --> G[Enter Battle with condition applied]
+	G --> H[Condition effects active throughout battle]
+```
+
+---
+
+### P4.5 — Augment System ✨ NEW (Replaces Cruciball)
+
+**What:** Every 4 stages (4, 8, 12, 16, 20, 24, 28), after Reward Resolution and before Run Map, the player drafts 1 augment from 3 options: one Neutral, one Positive, one Sacrificial. Augments are drawn from tiered pools — Bronze, Silver, Gold, Prismatic — that unlock progressively via total augments picked across all runs. Each augment applies its effect immediately for the rest of the run.
+
+**Design inspiration:** League of Legends Arena augment system — three categories per draft, escalating tiers, sacrificial augments that trade power for cost. Unlike Cruciball (pre-run toggle), augments are mid-run choices that build a unique identity curve organically.
+
+**Draft cadence (7 augments per full 30-stage run):**
+
+```
+Stage  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
+Passive:       P     P     P        P        P        P        P        P        P        P
+Skill:                S           S            S            S            S
+Augment:          A        A        A        A        A        A        A
+```
+
+**Tier system:**
+
+| Tier | Unlock condition | Pool size | Stage weight bias |
+|---|---|---|---|
+| Bronze | Available from start | 9 augments (3N + 3P + 3S) | Stages 1-12: 70% chance |
+| Silver | After 6 total augment picks across all runs | 9 augments | Stages 8-20: 50% chance |
+| Gold | After 18 total augment picks | 9 augments | Stages 16-28: 40% chance |
+| Prismatic | After 36 total augment picks | 9 augments | Stages 24-30: 30% chance |
+
+At each draft, tier is randomly selected from unlocked pools, weighted by stage. A stage-20 draft might roll Bronze (10%), Silver (30%), Gold (40%), or Prismatic (20%). Higher stages favor higher tiers but don't guarantee them.
+
+**Augment Catalog:**
+
+**Bronze Tier:**
+
+| Category | Name | Effect | Cost |
+|---|---|---|---|
+| Neutral | Lucky Find | 2× rare gear drop rate for rest of run | — |
+| Neutral | Well Connected | Merchant rooms appear 2× more often on map | — |
+| Neutral | Scavenger | Elite room rewards include +1 bonus gear | — |
+| Positive | Hardy | +8% max HP | — |
+| Positive | Swift | +5% CT speed | — |
+| Positive | Focused | +8% crit chance | — |
+| Sacrificial | Glass Cannon | +20% damage dealt | −15% max HP |
+| Sacrificial | Last Stand | Revive once at 1 HP on death | −1 gear slot |
+| Sacrificial | Berserker's Gambit | +15% crit damage | −10% all resistances |
+
+**Silver Tier:**
+
+| Category | Name | Effect | Cost |
+|---|---|---|---|
+| Neutral | Master Trader | Shops have +2 items, prices −20% | — |
+| Neutral | Treasure Map | Treasure rooms always appear on map when possible | — |
+| Neutral | Recycler | Sell unwanted gear for 50% of purchase price at any rest node | — |
+| Positive | Fortified | +15% max HP, +10% defense | — |
+| Positive | Accelerated | +10% CT speed, −5 CT on basic attacks | — |
+| Positive | Lifestealer | 5% lifesteal on all damage | — |
+| Sacrificial | Blood Magic | Skills cost HP instead of MP, +25% spell damage | −20% healing received |
+| Sacrificial | Unstable Power | +30% damage for first 3 turns of each battle | −10% damage after turn 3 |
+| Sacrificial | Cursed Athame | +25% crit chance | −15% max HP, −10% defense |
+
+**Gold Tier:**
+
+| Category | Name | Effect | Cost |
+|---|---|---|---|
+| Neutral | Dragon's Hoard | All gold rewards ×2 | — |
+| Neutral | Vault Master | Vault multiplier starts at 1.5× instead of 1.0× | — |
+| Neutral | Forgemaster | Free gear upgrade at every rest node | — |
+| Positive | Ascendant | +20% all stats | — |
+| Positive | Dual Wielder | +1 gear slot, +10% damage | — |
+| Positive | Untouchable | +15% dodge chance (10% chance to avoid all damage from an attack) | — |
+| Sacrificial | Soul Bond | Double all synergy bonuses | −2 gear slots |
+| Sacrificial | Phoenix Pact | Revive at 50% HP on first death each battle | −25% max HP |
+| Sacrificial | Overload | +40% damage for 5 turns, then stunned for 2 turns | After buff ends, CT cost ×2 for 10s |
+
+**Prismatic Tier:**
+
+| Category | Name | Effect | Cost |
+|---|---|---|---|
+| Neutral | Fortune's Favorite | All room rewards doubled | — |
+| Neutral | Infinite Pockets | No gear slot limit | — |
+| Neutral | Fate Weaver | Re-roll one augment or passive choice per draft (one-time) | — |
+| Positive | Godlike | +30% all stats, +15% CT speed | — |
+| Positive | Second Wind | Full heal + cleanse all debuffs at 0 HP once per battle | — |
+| Positive | Perfect Form | All passives have double effect | — |
+| Sacrificial | Double-Edged | All damage ×2 dealt AND received | (symmetrical — pure chaos) |
+| Sacrificial | Forbidden Knowledge | +1 draft pick at every future draft (2 picks instead of 1) | −30% max HP, −20% all stats |
+| Sacrificial | Apocalypse Engine | All enemies start at 50% HP, bosses at 75% | You start each battle at 50% HP |
+
+**Account persistence:** `playerStore.augmentsPicked: number` (total across all runs). On each augment pick, increment. Tier unlocks: Bronze (0), Silver (≥6), Gold (≥18), Prismatic (≥36). Stored in player doc (Firestore).
+
+**Combat application:** `prepareStage → applyAugmentEffects(engine, augmentIds)` patches engine state per augment: stat modifiers, status effects, gear slot changes, revive states.
+
+**Why this replaces Cruciball:** The Augment system is:
+- **More expressive**: 3-category choice creates strategic tension (safety vs power vs sacrifice)
+- **Proven in live games**: LoL Arena's augment system drives its entire replay loop
+- **Mid-run identity curve**: Each augment pick changes how the run feels, compounding with passives and drafted skills
+- **Tier progression**: Account-level unlocks reward long-term play without requiring win-streaks
+- **Same architecture footprint**: Draft screen, runStore array, orchestrator patch — identical pattern to P4.1 and P4.3
+
+```mermaid
+flowchart TD
+    A[Reward Resolution: stage won] --> B{Stage in 4,8,12,16,20,24,28?}
+    B -->|Yes| C[Augment Draft: pick 1 of 3]
+    B -->|No| D[Run Map: choose next room]
+    C --> E[Select tier from unlocked pools]
+    E --> F[Draw 1 Neutral + 1 Positive + 1 Sacrificial from tier]
+    F --> G[Player picks one]
+    G --> H[Persist to runStore.augmentIds]
+    H --> I[Increment playerStore.augmentsPicked]
+    I --> J[Apply augment effects at next prepareStage]
+    J --> D
+    
+    subgraph "Tier Unlock Gates"
+        T1["Bronze: always available"]
+        T2["Silver: 6 total picks"]
+        T3["Gold: 18 total picks"]
+        T4["Prismatic: 36 total picks"]
+    end
+    
+    E --> T1
+    E --> T2
+    E --> T3
+    E --> T4
+    
+    subgraph "UI Sketch (Augment Draft)"
+        U1["Neutral: Well Connected [BRONZE]"]
+        U2["Positive: Hardy +8% HP [BRONZE]"]
+        U3["Sacrificial: Glass Cannon +20% dmg / -15% HP [BRONZE]"]
+    end
+```
+
+**Files to create:**
+
+| File | Purpose |
+|---|---|
+| `src/content/types/augment.ts` | `AugmentDef`, `AugmentCategory`, `AugmentTier` types |
+| `src/content/augments.ts` | 36 augment definitions catalog |
+| `src/screens/AugmentDraft/AugmentDraftScreen.tsx` | 1-of-3 pick screen |
+
+**Files to modify:**
+
+| File | Change |
+|---|---|
+| `src/navigation/AppNavigator.tsx` | Add `AugmentDraft` route |
+| `src/stores/runStore.ts` | Add `augmentIds: string[]`, `selectAugment()` |
+| `src/stores/playerStore.ts` | Add `augmentsPicked: number` for tier unlocking |
+| `src/features/run/types.ts` | Add `augmentIds` to `RunSnapshot` |
+| `src/features/run/orchestrator.ts` | Add `applyAugmentEffects()` |
+| `src/screens/RewardResolution/RewardResolutionScreen.tsx` | Route to AugmentDraft at stages 4,8,12,16,20,24,28 |
+| `firebase/functions/src/shared/types.ts` | Add `augmentsPicked` to `PlayerDoc` |
+
+---
+
+### P4.6 — Anomaly Corruption Gauge (Deferred)
+
+**What:** A visible gauge fills as the player progresses through stages. At 25/50/75/100% thresholds, the player must choose: accept a negative anomaly modifier for the rest of the run (with bonus cells on settle), or spend ascension cells to cleanse the gauge.
+
+**Deferred rationale:** This is the largest-effort item (new gauge UI, cleanse decision flow, anomaly room probability scaling). Ship after P4.1-P4.5 validate the mid-run choice pattern. The Luck be a Landlord rent mechanic and Darkest Dungeon stress meter prove this concept works — but the foundation should be solid first.
+
+```mermaid
+flowchart TD
+	A[Stage completed] --> B[Corruption gauge fills by stage-based amount]
+	B --> C{Gauge crosses threshold?}
+	C -->|Yes| D[Player must choose]
+	C -->|No| E[Continue to Run Map]
+	D --> F{Accept or Cleanse?}
+	F -->|Accept| G[Apply penalty for rest of run + bonus cells on settle]
+	F -->|Cleanse| H[Spend ascension cells to reset gauge]
+	G --> E
+	H --> E
+```
+
+---
+
+## Recommended Build Order
+
+| Phase | Item | Rationale |
+| --- | --- | --- |
+| **Now** | P4.1 Run Passives | Scaffold exists — lowest activation energy. Proves the "mid-run choice → combat effect" pattern. |
+| **Next** | P4.2 Synergy Tags | Tags on existing content — no new screens needed. Reuses `applyContractBarriers` pattern. |
+| **Then** | P4.3 Skill Draft | Addresses the #1 research gap (no mid-run action-set expansion). Reuses P4.1 choice-UI pattern and P4.2 tag system. |
+| **After** | P4.5 Augment System | Mid-run 1-of-3 draft every 4 stages. Neutral/Positive/Sacrificial categories, Bronze→Silver→Gold→Prismatic tiers. Account-level tier unlocking. |
+| **Then** | P4.4 Room Conditions | Simplified scope (3-4 conditions, elite/boss only). Converts Run Map into risk/reward decisions. |
+| **Stretch** | P4.6 Anomaly Corruption | Largest effort. Ship after above systems prove the mid-run choice + pre-run difficulty patterns work. |
+
+**Interleave strategy:** Scaffolded inn decisions should be completed alongside P4.4 (Room Conditions), since rest nodes with visible conditions naturally lead into inn-style recovery choices.
+
+**Cross-system synergy summary:**
+
+```
+PRE-RUN (2 choices):
+  Class → starting toolkit (5 skills, 1 basic attack)
+  Risk Contracts → rule changes (no forfeit, no merchants, enemy barriers)
+
+MID-RUN (recurring choices):
+  Stage 3,6,9,12,15,18,21,24,27 → Passive Draft (permanent stat/mechanic modifier)
+  Stage 5,10,15,20,25 → Skill Draft (new action added to bar)
+  Stage 4,8,12,16,20,24,28 → Augment Draft (Neutral/Positive/Sacrificial, tiered)
+  
+  Every gear drop contributes tags toward synergy bonuses
+  Every room choice evaluates condition modifiers
+
+POST-RUN (settlement):
+  Base rewards × Contract bonus
+  AugmentsPicked increments → unlocks higher augment tiers
+```
+
+---
+
+## KPI suggestions tied to improvements
 
 ---
 

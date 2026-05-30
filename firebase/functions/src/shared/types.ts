@@ -54,6 +54,10 @@ export interface RunDoc {
    *  Server reads this directly on endRun to apply the unlock without a content lookup.
    *  null when the active class is already T1 (apex) and has no same-lineage upgrade. */
   evolutionTargetClassId: string | null;
+  selectedRiskContractIds?: string[];
+  runPassiveIds?: string[];
+  augmentIds?: string[];
+  pendingInnDecisionId?: string | null;
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
   result?: 'ongoing' | 'won' | 'lost';
@@ -89,6 +93,8 @@ export interface PlayerDoc {
   ownedClassIds: string[];
   /** ID of an in-progress run, or null. Set by startRun, cleared by endRun. */
   currentRunId: string | null;
+  /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
+  augmentsPicked?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -123,6 +129,7 @@ export interface StartRunPayload {
   activeLineageId: string;
   /** null when the active class is T1 (apex) and has no same-lineage upgrade. */
   evolutionTargetClassId: string | null;
+  selectedRiskContractIds: string[];
 }
 
 export interface StartRunResponse {

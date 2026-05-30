@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   BackHandler,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,8 +17,9 @@ import { CastPulse } from '@/components/molecules/CastPulse';
 import { DamagePopupOverlay } from '@/components/molecules/DamagePopupOverlay';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import { CLASS_BY_ID, SKILL_BY_ID } from '@/content';
+import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, SKILL_BY_ID, AUGMENT_BY_ID, STAGE_CONDITION_BY_ID } from '@/content';
 import type { ClassId, SkillId } from '@/content/types';
+import { getSelectedNodeForStage, RUN_MAP_ROOM_LABELS } from '@/domain/run/map';
 import {
   canCast,
   type Action,
@@ -25,6 +27,8 @@ import {
   type InstanceId,
   SYNTHETIC_BASIC_ATTACK_ID,
 } from '@/domain/combat';
+import type { StageRoomType } from '@/domain/run/types';
+import type { ActiveSynergy } from '@/domain/run/synergy';
 import { decideEnemyAction } from '@/domain/combat/bossAI';
 import {
   selectAliveEnemies,
@@ -66,6 +70,21 @@ const STAGE_TYPE_BG: Record<StageType, string> = {
   counter: '#fde8e8',
 };
 
+const ACTION_DOCK_HEIGHT = 118;
+
+const ROOM_TYPE_BADGES: Record<StageRoomType, { bg: string; text: string }> = {
+  normal: { bg: '#ecf0f7', text: '#3a4a65' },
+  elite: { bg: '#fde9e3', text: '#8b2c1b' },
+  event: { bg: '#ede7ff', text: '#47348e' },
+  treasure: { bg: '#fff3d6', text: '#8a5a00' },
+  rest: { bg: '#e8f6ea', text: '#1f6a38' },
+  merchant: { bg: '#dff2ff', text: '#14598a' },
+  anomaly: { bg: '#f9e6ff', text: '#7a2d9b' },
+  mini_boss: { bg: '#ffe5d8', text: '#9b3410' },
+  gate: { bg: '#e6f5eb', text: '#21643c' },
+  counter: { bg: '#ffe3e3', text: '#8a1f1f' },
+};
+
 type ForecastIntent = 'Player' | 'Burst' | 'Sustain' | 'Control' | 'Summon' | 'Basic' | 'Unknown';
 
 interface ForecastEntry {
@@ -78,6 +97,7 @@ interface ForecastEntry {
 }
 
 const FORECAST_DEPTH = 5;
+const FORECAST_DEFAULT_VISIBLE = 3;
 const FORECAST_MAX_ITERATIONS = 120;
 
 const FORECAST_INTENT_STYLES: Record<ForecastIntent, { bg: string; fg: string }> = {
@@ -88,6 +108,16 @@ const FORECAST_INTENT_STYLES: Record<ForecastIntent, { bg: string; fg: string }>
   Summon: { bg: '#efe4fb', fg: '#5d3a8f' },
   Basic: { bg: '#eceef5', fg: '#465078' },
   Unknown: { bg: '#f1f2f7', fg: '#606a88' },
+};
+
+const FORECAST_INTENT_ICONS: Record<ForecastIntent, string> = {
+  Player: 'P',
+  Burst: 'B',
+  Sustain: 'S',
+  Control: 'C',
+  Summon: 'U',
+  Basic: 'A',
+  Unknown: '?',
 };
 
 const classifyActionIntent = (action: Action): ForecastIntent => {
@@ -243,7 +273,15 @@ export function BattleScreen({ navigation }: Props) {
   const runId = useRunStore((state) => state.runId);
   const seed = useRunStore((state) => state.seed);
   const stage = useRunStore((state) => state.stage);
+  const mapGraph = useRunStore((state) => state.mapGraph);
+  const mapPathByStage = useRunStore((state) => state.mapPathByStage);
   const activeClassId = useRunStore((state) => state.activeClassId);
+  const selectedRiskContractIds = useRunStore((state) => state.selectedRiskContractIds);
+  const runPassiveIds = useRunStore((state) => state.runPassiveIds);
+  const draftedSkillIds = useRunStore((state) => state.draftedSkillIds);
+  const augmentIds = useRunStore((state) => state.augmentIds);
+  const pendingInnDecisionId = useRunStore((state) => state.pendingInnDecisionId);
+  const clearInnDecision = useRunStore((state) => state.clearInnDecision);
   const runStatus = useRunStore((state) => state.status);
   const runError = useRunStore((state) => state.error);
   const submitStageOutcome = useRunStore((state) => state.submitStageOutcome);
@@ -257,6 +295,8 @@ export function BattleScreen({ navigation }: Props) {
   const engine = useCombatStore((state) => state.engine);
   const engineState = useCombatStore((state) => state.engine?.state ?? null);
   const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
+  const preparedRoomNodeId = useCombatStore((state) => state.prepared?.roomNodeId ?? null);
+  const activeSynergies = useCombatStore((state) => state.prepared?.activeSynergies ?? null);
   const autoPlay = useCombatStore((state) => state.autoPlay);
   const setAutoPlay = useCombatStore((state) => state.setAutoPlay);
   const beginInteractive = useCombatStore((state) => state.beginInteractive);
@@ -273,6 +313,13 @@ export function BattleScreen({ navigation }: Props) {
   const [targetId, setTargetId] = useState<InstanceId | null>(null);
   const [lastReason, setLastReason] = useState<string | null>(null);
   const [detailsSkillId, setDetailsSkillId] = useState<SkillId | null>(null);
+  const [expandedForecast, setExpandedForecast] = useState(false);
+  const [showEventLog, setShowEventLog] = useState(false);
+
+  const currentStageNode = useMemo(() => {
+    if (mapGraph === null || stage === null) return null;
+    return getSelectedNodeForStage(mapGraph, mapPathByStage, stage);
+  }, [mapGraph, mapPathByStage, stage]);
 
   const stageType: StageType = stage !== null ? (STAGE_TYPES[stage] ?? 'normal') : 'normal';
   const classData = activeClassId ? CLASS_BY_ID.get(activeClassId as ClassId) : null;
@@ -289,6 +336,13 @@ export function BattleScreen({ navigation }: Props) {
   );
   const battleEnded = engineState !== null && engineState.result !== 'ongoing';
   const playerReady = player !== null && readyUnitId === player.id;
+  const roomBadge =
+    currentStageNode !== null
+      ? {
+          label: RUN_MAP_ROOM_LABELS[currentStageNode.roomType],
+          style: ROOM_TYPE_BADGES[currentStageNode.roomType],
+        }
+      : null;
 
   useFocusEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
@@ -310,26 +364,57 @@ export function BattleScreen({ navigation }: Props) {
     ) {
       return;
     }
+    if (mapGraph === null) {
+      return;
+    }
+    if (currentStageNode === null) {
+      navigation.replace('RunMap');
+      return;
+    }
     const needsFreshSetup =
-      combatStatus === 'idle' || (combatStatus === 'finished' && preparedStageIndex !== stage);
+      combatStatus === 'idle' ||
+      preparedStageIndex !== stage ||
+      preparedRoomNodeId !== currentStageNode.id ||
+      combatStatus === 'finished';
     if (needsFreshSetup) {
       beginInteractive({
         seed,
         stageIndex: stage,
         activeClassId: activeClassId as ClassId,
+        roomType: currentStageNode.roomType,
+        roomNodeId: currentStageNode.id,
         classRank,
         equippedGearTemplateIds,
+        selectedRiskContractIds,
+        runPassiveIds,
+        draftedSkillIds,
+        augmentIds,
+        pendingInnDecisionId,
+        conditionId: currentStageNode.condition,
       });
+      if (pendingInnDecisionId !== null) {
+        clearInnDecision();
+      }
     }
   }, [
     activeClassId,
     beginInteractive,
     classRank,
+    clearInnDecision,
     combatStatus,
+    draftedSkillIds,
+    augmentIds,
+    pendingInnDecisionId,
     equippedGearTemplateIds,
+    currentStageNode,
+    mapGraph,
+    navigation,
     preparedStageIndex,
+    preparedRoomNodeId,
     runId,
+    runPassiveIds,
     seed,
+    selectedRiskContractIds,
     stage,
   ]);
 
@@ -468,10 +553,20 @@ export function BattleScreen({ navigation }: Props) {
   }, [enemies, targetId]);
 
   const turnForecast = useMemo(() => buildTurnForecast(engine, targetId), [engine, targetId]);
+  const visibleForecast = useMemo(
+    () =>
+      expandedForecast
+        ? turnForecast
+        : turnForecast.slice(0, Math.min(FORECAST_DEFAULT_VISIBLE, turnForecast.length)),
+    [expandedForecast, turnForecast],
+  );
 
   return (
     <>
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={[styles.container, !battleEnded && styles.containerWithDock]}
+    >
       {stage !== null && (
         <View style={[styles.stageBanner, { backgroundColor: STAGE_TYPE_BG[stageType], borderColor: STAGE_TYPE_COLORS[stageType] }]}>
           <View style={styles.stageBannerRow}>
@@ -479,6 +574,24 @@ export function BattleScreen({ navigation }: Props) {
             <View style={[styles.stageTypeBadge, { backgroundColor: STAGE_TYPE_COLORS[stageType] }]}>
               <Text style={styles.stageTypeBadgeText}>{STAGE_TYPE_LABELS[stageType]}</Text>
             </View>
+            {roomBadge !== null && (
+              <View style={[styles.roomTypeBadge, { backgroundColor: roomBadge.style.bg }]}> 
+                <Text style={[styles.roomTypeBadgeText, { color: roomBadge.style.text }]}>
+                  {roomBadge.label}
+                </Text>
+              </View>
+            )}
+            {currentStageNode?.condition !== undefined && (() => {
+              const condDef = STAGE_CONDITION_BY_ID.get(currentStageNode.condition);
+              if (condDef === undefined) return null;
+              return (
+                <View style={styles.conditionBadge}>
+                  <Text style={styles.conditionBadgeText} numberOfLines={1}>
+                    {condDef.name}
+                  </Text>
+                </View>
+              );
+            })()}
           </View>
           <View style={styles.stageBannerActionsRow}>
             <PrimaryButton
@@ -495,6 +608,17 @@ export function BattleScreen({ navigation }: Props) {
         </View>
       )}
 
+      {!battleEnded && (
+        <View style={styles.quickToolsRow}>
+          <Pressable onPress={() => setShowEventLog((v) => !v)} style={styles.quickToolChip}>
+            <Text style={styles.quickToolChipText}>{showEventLog ? 'Hide Log' : 'Show Log'}</Text>
+          </Pressable>
+          <Text style={styles.quickTargetText} numberOfLines={1}>
+            Target: {selectedTarget?.displayName ?? 'None'}
+          </Text>
+        </View>
+      )}
+
       {/* AUTO PLAYING strip — extra-large tap target while auto is on, also disables */}
       {autoPlay && !battleEnded && (
         <TouchableOpacity onPress={() => setAutoPlay(false)} style={styles.autoActiveStrip}>
@@ -503,17 +627,26 @@ export function BattleScreen({ navigation }: Props) {
       )}
 
       {/* Event log */}
-      {engineState !== null && <EventLog events={engineState.log} />}
+      {engineState !== null && showEventLog && <EventLog events={engineState.log} maxEvents={4} />}
 
-      {/* CT forecast + intent panel */}
+      {/* CT forecast + intent strip */}
       {!battleEnded && turnForecast.length > 0 && (
         <View style={styles.forecastCard}>
           <View style={styles.forecastHeader}>
             <Text style={styles.forecastTitle}>Turn Forecast</Text>
-            <Text style={styles.forecastHint}>Next {turnForecast.length} actions</Text>
+            <View style={styles.forecastHeaderActions}>
+              <Text style={styles.forecastHint}>
+                Next {visibleForecast.length}/{turnForecast.length}
+              </Text>
+              {turnForecast.length > FORECAST_DEFAULT_VISIBLE && (
+                <Pressable onPress={() => setExpandedForecast((v) => !v)} style={styles.forecastExpandChip}>
+                  <Text style={styles.forecastExpandChipText}>{expandedForecast ? 'Collapse' : 'Expand'}</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
           <View style={styles.forecastGrid}>
-            {turnForecast.map((entry, index) => {
+            {visibleForecast.map((entry, index) => {
               const intentStyle = FORECAST_INTENT_STYLES[entry.intent];
               return (
                 <View key={`${entry.unitId}-${index}`} style={styles.forecastRow}>
@@ -531,6 +664,9 @@ export function BattleScreen({ navigation }: Props) {
                     <Text style={styles.forecastAction} numberOfLines={1}>{entry.actionLabel}</Text>
                   </View>
                   <View style={[styles.forecastIntentBadge, { backgroundColor: intentStyle.bg }]}>
+                    <Text style={[styles.forecastIntentIcon, { color: intentStyle.fg }]}>
+                      {FORECAST_INTENT_ICONS[entry.intent]}
+                    </Text>
                     <Text style={[styles.forecastIntentText, { color: intentStyle.fg }]}>{entry.intent}</Text>
                   </View>
                 </View>
@@ -553,7 +689,50 @@ export function BattleScreen({ navigation }: Props) {
           </View>
           <HpBar unit={player} color="#3a8a5a" />
           <MpBar unit={player} />
-          <StatusChips unit={player} />
+          <StatusChips unit={player} maxVisible={3} />
+          {runPassiveIds.length > 0 && (
+            <View style={styles.passiveChipsRow}>
+              {runPassiveIds.map((pid) => {
+                const def = RUN_PASSIVE_BY_ID.get(pid);
+                return (
+                  <View key={pid} style={styles.passiveChip}>
+                    <Text style={styles.passiveChipText} numberOfLines={1}>
+                      {def?.name ?? pid}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          {activeSynergies !== null && activeSynergies.length > 0 && (
+            <View style={styles.synergyChipsRow}>
+              {activeSynergies.map((syn) => (
+                <View key={syn.tag} style={styles.synergyChip}>
+                  <Text style={styles.synergyChipText} numberOfLines={1}>
+                    {syn.label} ({syn.count})
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {augmentIds.length > 0 && (
+            <View style={styles.augmentChipsRow}>
+              {augmentIds.map((aid) => {
+                const def = AUGMENT_BY_ID.get(aid);
+                const tierLabel = def?.tier ? def.tier[0]?.toUpperCase() : '?';
+                return (
+                  <View key={aid} style={styles.augmentChip}>
+                    <Text style={styles.augmentChipText} numberOfLines={1}>
+                      {def?.name ?? aid}
+                    </Text>
+                    <View style={styles.augmentTierBadge}>
+                      <Text style={styles.augmentTierText}>{tierLabel}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </CastPulse>
       )}
 
@@ -570,63 +749,6 @@ export function BattleScreen({ navigation }: Props) {
               onSelect={() => setTargetId(enemy.id)}
             />
           ))}
-        </View>
-      )}
-
-      {/* Ability buttons (shown when player is ready) */}
-      {player !== null && engineState !== null && !battleEnded && playerReady && (
-        <View style={styles.abilitiesSection}>
-          <Text style={styles.sectionLabel}>Abilities</Text>
-          <View style={styles.abilitiesGrid}>
-            {skillSlots.map((skillId) => {
-              const skill = SKILL_BY_ID.get(skillId);
-              const label = skill?.name ?? (skillId === player.basicAttackSkillId ? 'Basic Attack' : skillId);
-              const cost = describeSkillCost(skillId);
-              const cooldown = player.cooldowns[skillId] ?? 0;
-
-              const targetIds = targetId !== null ? [targetId] : [];
-              let disabled = false;
-              let reason: string | undefined;
-              if (skill !== undefined) {
-                const validation = canCast(engineState, player, skill, targetIds);
-                if (!validation.ok) {
-                  disabled = true;
-                  reason = reasonLabel(validation.reason);
-                }
-              } else {
-                // Basic attack — needs a target.
-                if (targetIds.length === 0) {
-                  disabled = true;
-                  reason = reasonLabel('invalid_target');
-                }
-              }
-
-              return (
-                <AbilityButton
-                  key={skillId}
-                  label={label}
-                  cost={cost}
-                  cooldown={cooldown}
-                  disabled={disabled}
-                  {...(reason !== undefined ? { reason } : {})}
-                  onPress={() => handleAbility(skillId)}
-                  onLongPress={() => setDetailsSkillId(skillId)}
-                />
-              );
-            })}
-          </View>
-          {lastReason !== null && (
-            <Text style={styles.lastReason}>Last action: {reasonLabel(lastReason)}</Text>
-          )}
-        </View>
-      )}
-
-      {/* Waiting indicator while non-player units are acting. */}
-      {!battleEnded && !playerReady && enemies.length > 0 && (
-        <View style={styles.waitingCard}>
-          <Text style={styles.waitingText}>
-            {readyUnitId === null ? 'Time advancing…' : 'Enemy acting…'}
-          </Text>
         </View>
       )}
 
@@ -672,11 +794,17 @@ export function BattleScreen({ navigation }: Props) {
 
       {/* Forfeit Run — visible while a run is active and not already settled */}
       {!battleEnded && runId !== null && runStatus !== 'ending_run' && (
-        <View style={styles.forfeitContainer}>
-          <TouchableOpacity onPress={handleForfeit} style={styles.forfeitBtn}>
-            <Text style={styles.forfeitBtnText}>Forfeit Run</Text>
-          </TouchableOpacity>
-        </View>
+        selectedRiskContractIds.includes('contract.no_forfeit') ? (
+          <View style={styles.forfeitContainer}>
+            <Text style={styles.forfeitBlockedText}>🚫 No Retreat Oath active — forfeit disabled</Text>
+          </View>
+        ) : (
+          <View style={styles.forfeitContainer}>
+            <TouchableOpacity onPress={handleForfeit} style={styles.forfeitBtn}>
+              <Text style={styles.forfeitBtnText}>Forfeit Run</Text>
+            </TouchableOpacity>
+          </View>
+        )
       )}
 
       {/* Debug actions */}
@@ -692,6 +820,59 @@ export function BattleScreen({ navigation }: Props) {
       )}
     </ScrollView>
 
+    {!battleEnded && player !== null && engineState !== null && (
+      <View style={styles.actionDock}>
+        {playerReady ? (
+          <>
+            <Text style={styles.actionDockTitle}>Choose Action</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actionDockSkillsRow}>
+              {skillSlots.map((skillId) => {
+                const skill = SKILL_BY_ID.get(skillId);
+                const label = skill?.name ?? (skillId === player.basicAttackSkillId ? 'Basic Attack' : skillId);
+                const cost = describeSkillCost(skillId);
+                const cooldown = player.cooldowns[skillId] ?? 0;
+
+                const targetIds = targetId !== null ? [targetId] : [];
+                let disabled = false;
+                let reason: string | undefined;
+                if (skill !== undefined) {
+                  const validation = canCast(engineState, player, skill, targetIds);
+                  if (!validation.ok) {
+                    disabled = true;
+                    reason = reasonLabel(validation.reason);
+                  }
+                } else if (targetIds.length === 0) {
+                  disabled = true;
+                  reason = reasonLabel('invalid_target');
+                }
+
+                return (
+                  <AbilityButton
+                    key={skillId}
+                    label={label}
+                    cost={cost}
+                    cooldown={cooldown}
+                    compact
+                    disabled={disabled}
+                    {...(reason !== undefined ? { reason } : {})}
+                    onPress={() => handleAbility(skillId)}
+                    onLongPress={() => setDetailsSkillId(skillId)}
+                  />
+                );
+              })}
+            </ScrollView>
+            {lastReason !== null && (
+              <Text style={styles.actionDockReason}>Last action: {reasonLabel(lastReason)}</Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.actionDockWaitingText}>
+            {readyUnitId === null ? 'Time advancing…' : 'Enemy acting…'}
+          </Text>
+        )}
+      </View>
+    )}
+
     <AbilityDetailsModal
       skillId={detailsSkillId}
       caster={player}
@@ -705,6 +886,7 @@ export function BattleScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   scrollContainer: { flex: 1, backgroundColor: '#f6f6fa' },
   container: { padding: 16, gap: 12, paddingBottom: 32 },
+  containerWithDock: { paddingBottom: ACTION_DOCK_HEIGHT + 16 },
   stageBanner: {
     borderRadius: 12,
     borderWidth: 1.5,
@@ -715,6 +897,8 @@ const styles = StyleSheet.create({
   stageNum: { fontSize: 18, fontWeight: '800' },
   stageTypeBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   stageTypeBadgeText: { fontSize: 11, color: '#fff', fontWeight: '700' },
+  roomTypeBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  roomTypeBadgeText: { fontSize: 11, fontWeight: '700' },
   stageBannerActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -736,6 +920,21 @@ const styles = StyleSheet.create({
   autoPlayLabel: { fontSize: 11, color: '#4a3a28' },
   mapLink: { alignSelf: 'flex-end' },
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
+  quickToolsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  quickToolChip: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#ccd2e5',
+    backgroundColor: '#f5f7fd',
+  },
+  quickToolChipText: { fontSize: 11, fontWeight: '700', color: '#3e4d73' },
+  quickTargetText: { flex: 1, textAlign: 'right', fontSize: 11, color: '#5c6283' },
 
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#6a7090', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
 
@@ -751,6 +950,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  forecastHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  forecastExpandChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#d1d8ec',
+    backgroundColor: '#f6f8ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  forecastExpandChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#495a86',
   },
   forecastTitle: {
     fontSize: 11,
@@ -786,7 +1003,15 @@ const styles = StyleSheet.create({
   forecastCenter: { flex: 1, minWidth: 0, gap: 1 },
   forecastName: { fontSize: 12, fontWeight: '700', color: '#1e2238' },
   forecastAction: { fontSize: 11, color: '#636b8d' },
-  forecastIntentBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
+  forecastIntentBadge: {
+    borderRadius: 999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  forecastIntentIcon: { fontSize: 10, fontWeight: '800' },
   forecastIntentText: { fontSize: 10, fontWeight: '700' },
 
   playerCard: {
@@ -804,25 +1029,60 @@ const styles = StyleSheet.create({
   playerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   playerName: { fontSize: 16, fontWeight: '700', color: '#1e2238' },
 
-  enemiesSection: { gap: 8 },
-  abilitiesSection: {
-    borderRadius: 12,
+  passiveChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  passiveChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#e8f0ff',
     borderWidth: 1,
-    borderColor: '#cfd3e9',
-    backgroundColor: '#ffffff',
-    padding: 12,
-    gap: 6,
+    borderColor: '#a0b8d8',
   },
-  abilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  lastReason: { fontSize: 11, color: '#8b1a1a', marginTop: 4 },
+  passiveChipText: { fontSize: 10, fontWeight: '600', color: '#2a4a7a' },
 
-  waitingCard: {
-    borderRadius: 8,
-    backgroundColor: '#f0eef8',
-    padding: 10,
-    alignItems: 'center',
+  synergyChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  synergyChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#fff3d6',
+    borderWidth: 1,
+    borderColor: '#d4a248',
   },
-  waitingText: { fontSize: 12, color: '#5a5a78', fontStyle: 'italic' },
+  synergyChipText: { fontSize: 10, fontWeight: '600', color: '#805407' },
+
+  augmentChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  augmentChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#f3e5f5',
+    borderWidth: 1,
+    borderColor: '#9c27b0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  augmentChipText: { fontSize: 10, fontWeight: '600', color: '#6a1b9a' },
+  augmentTierBadge: {
+    borderRadius: 999,
+    backgroundColor: '#9c27b0',
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
+  augmentTierText: { fontSize: 8, fontWeight: '800', color: '#ffffff' },
+
+  conditionBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#fff3e0',
+    borderWidth: 1,
+    borderColor: '#e65100',
+  },
+  conditionBadgeText: { fontSize: 11, fontWeight: '700', color: '#bf360c' },
+
+  enemiesSection: { gap: 8 },
 
   resultCard: {
     borderRadius: 12,
@@ -860,4 +1120,41 @@ const styles = StyleSheet.create({
     borderColor: '#a04040',
   },
   forfeitBtnText: { fontSize: 12, color: '#a04040', fontWeight: '600' },
+  forfeitBlockedText: { fontSize: 11, color: '#7a684a', fontStyle: 'italic' },
+  actionDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    minHeight: ACTION_DOCK_HEIGHT,
+    backgroundColor: '#fffdf8',
+    borderTopWidth: 1,
+    borderTopColor: '#d8cdbb',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 6,
+  },
+  actionDockTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6a7090',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  actionDockSkillsRow: {
+    gap: 6,
+    paddingRight: 6,
+  },
+  actionDockReason: {
+    fontSize: 10,
+    color: '#8b1a1a',
+  },
+  actionDockWaitingText: {
+    fontSize: 12,
+    color: '#5a5a78',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
 });

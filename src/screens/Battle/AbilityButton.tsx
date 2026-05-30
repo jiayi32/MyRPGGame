@@ -36,6 +36,7 @@ export function AbilityButton({
   disabled,
   cooldown,
   reason,
+  compact = false,
 }: {
   label: string;
   cost: string;
@@ -44,6 +45,7 @@ export function AbilityButton({
   disabled: boolean;
   cooldown?: number;
   reason?: string;
+  compact?: boolean;
 }) {
   return (
     <TouchableOpacity
@@ -51,7 +53,7 @@ export function AbilityButton({
       onLongPress={onLongPress}
       delayLongPress={350}
       disabled={disabled}
-      style={[styles.abilityBtn, disabled && styles.abilityBtnDisabled]}
+      style={[styles.abilityBtn, compact && styles.abilityBtnCompact, disabled && styles.abilityBtnDisabled]}
     >
       <Text style={[styles.abilityBtnLabel, disabled && styles.abilityBtnLabelDisabled]}>{label}</Text>
       {cost.length > 0 && (
@@ -60,7 +62,7 @@ export function AbilityButton({
       {cooldown !== undefined && cooldown > 0 && (
         <Text style={styles.abilityBtnCooldown}>CD {cooldown.toFixed(1)}s</Text>
       )}
-      {reason !== undefined && reason.length > 0 && disabled && (
+      {!compact && reason !== undefined && reason.length > 0 && disabled && (
         <Text style={styles.abilityBtnReason}>{reason}</Text>
       )}
     </TouchableOpacity>
@@ -78,6 +80,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     alignItems: 'center',
+  },
+  abilityBtnCompact: {
+    minWidth: 92,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
   },
   abilityBtnDisabled: { backgroundColor: '#e6e6ea', borderColor: '#bbb' },
   abilityBtnLabel: { fontSize: 13, color: '#fff', fontWeight: '600' },

@@ -1,7 +1,7 @@
 import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { addRewards, emptyReward, splitRewards } from './shared/rewards';
+import { addRewards, applyVaultMultiplier, emptyReward, splitRewards } from './shared/rewards';
 import type { RewardBundle, RunDoc, StageOutcomeDoc } from './shared/types';
 
 const NUMERIC_REWARD_FIELDS = [
@@ -32,9 +32,9 @@ function isVaultEmpty(r: RewardBundle): boolean {
 /**
  * Recompute expected aggregates from the stage outcome ledger and compare
  * against the final run doc. Catches the most common tamper modes:
- *   - banked + vaulted exceeds the sum of stage rewards (reward inflation),
+ *   - committed rewards exceed a conservative boosted upper-bound envelope,
  *   - committed gearId not present in any stage outcome (gear fabrication),
- *   - won run with non-zero vault or banked != total stage rewards,
+ *   - won run with non-zero vault or implausibly low/high banked totals,
  *   - lost run with non-empty vault.
  *
  * What this audit does NOT do (yet):
@@ -62,6 +62,7 @@ export const auditRunCompletion = onDocumentUpdated(
     let totalStageRewards = emptyReward();
     let totalBaseline = emptyReward();
     let totalVaulted = emptyReward();
+    let maxCommittedUpperBound = emptyReward();
     const stageGearIds = new Set<string>();
 
     for (const doc of checkpointsSnap.docs) {
@@ -71,16 +72,21 @@ export const auditRunCompletion = onDocumentUpdated(
       const split = splitRewards(cp.rewards);
       totalBaseline = addRewards(totalBaseline, split.baseline);
       totalVaulted = addRewards(totalVaulted, split.vaulted);
+      const boostedMaxForStage = addRewards(split.baseline, applyVaultMultiplier(split.vaulted, 3));
+      maxCommittedUpperBound = addRewards(maxCommittedUpperBound, boostedMaxForStage);
       for (const g of cp.rewards.gearIds) stageGearIds.add(g);
     }
 
     const discrepancies: string[] = [];
     const committed = addRewards(after.bankedRewards, after.vaultedRewards);
 
-    // Upper-bound invariant: committed numerics never exceed stage total.
+    // Upper-bound invariant: committed numerics never exceed conservative
+    // boosted ceiling (baseline + vaulted@3.0x per won stage).
     for (const f of NUMERIC_REWARD_FIELDS) {
-      if (committed[f] > totalStageRewards[f]) {
-        discrepancies.push(`${f}: committed ${committed[f]} > stage total ${totalStageRewards[f]}`);
+      if (committed[f] > maxCommittedUpperBound[f]) {
+        discrepancies.push(
+          `${f}: committed ${committed[f]} > boosted upper bound ${maxCommittedUpperBound[f]}`
+        );
       }
     }
 
@@ -96,15 +102,21 @@ export const auditRunCompletion = onDocumentUpdated(
       discrepancies.push(`gear count ${committedGear.length} exceeds unique stage gear count ${stageGearIds.size}`);
     }
 
-    // Won-run invariants: vault empty, banked == total stage rewards.
+    // Won-run invariants: vault empty and banked remains within plausible
+    // envelope (cannot be below raw stage totals, cannot exceed boosted cap).
     if (after.result === 'won') {
       if (!isVaultEmpty(after.vaultedRewards)) {
         discrepancies.push('vault is not empty on won run');
       }
       for (const f of NUMERIC_REWARD_FIELDS) {
-        if (after.bankedRewards[f] !== totalStageRewards[f]) {
+        if (after.bankedRewards[f] < totalStageRewards[f]) {
           discrepancies.push(
-            `won-run banked.${f} ${after.bankedRewards[f]} != stage total ${totalStageRewards[f]}`
+            `won-run banked.${f} ${after.bankedRewards[f]} < raw stage total ${totalStageRewards[f]}`
+          );
+        }
+        if (after.bankedRewards[f] > maxCommittedUpperBound[f]) {
+          discrepancies.push(
+            `won-run banked.${f} ${after.bankedRewards[f]} > boosted upper bound ${maxCommittedUpperBound[f]}`
           );
         }
       }

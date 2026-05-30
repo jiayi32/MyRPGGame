@@ -38,6 +38,8 @@ interface PlayerStoreState {
   classRanks: Record<string, number>;
   ownedClassIds: string[];
   currentRunId: string | null;
+  /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
+  augmentsPicked: number;
   /**
    * Initialize Firebase and resolve auth state.
    * - If a user is already signed in (Firebase persists across launches), bootstraps the profile.
@@ -53,6 +55,7 @@ interface PlayerStoreState {
   refresh: () => Promise<PlayerSnapshot>;
   applyPlayerSnapshot: (snapshot: PlayerSnapshot) => void;
   applyEndRunDelta: (delta: ProgressionDelta, currentRunId: string | null) => void;
+  incrementAugmentsPicked: () => void;
   reset: () => void;
 }
 
@@ -72,6 +75,7 @@ const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => 
   classRanks: { ...snap.classRanks },
   ownedClassIds: [...snap.ownedClassIds],
   currentRunId: snap.currentRunId,
+  augmentsPicked: snap.augmentsPicked ?? 0,
 });
 
 const EMPTY_STATE: Pick<
@@ -85,6 +89,7 @@ const EMPTY_STATE: Pick<
   | 'classRanks'
   | 'ownedClassIds'
   | 'currentRunId'
+  | 'augmentsPicked'
 > = {
   uid: null,
   goldBank: 0,
@@ -95,6 +100,7 @@ const EMPTY_STATE: Pick<
   classRanks: {},
   ownedClassIds: [],
   currentRunId: null,
+  augmentsPicked: 0,
 };
 
 const loadProfileForCurrentUser = async (): Promise<PlayerSnapshot> => {
@@ -200,7 +206,12 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
       classRanks: { ...totals.classRanks },
       ownedClassIds: [...totals.ownedClassIds],
       currentRunId,
+      augmentsPicked: delta.augmentsPicked ?? get().augmentsPicked,
     });
+  },
+
+  incrementAugmentsPicked: () => {
+    set({ augmentsPicked: get().augmentsPicked + 1 });
   },
 
   reset: () => {

@@ -15,6 +15,7 @@ export function HubScreen() {
   const runError = useRunStore((state) => state.error);
   const runId = useRunStore((state) => state.runId);
   const stage = useRunStore((state) => state.stage);
+  const selectedRiskContractIds = useRunStore((state) => state.selectedRiskContractIds);
   const bootstrap = useRunStore((state) => state.bootstrap);
   const endRunAction = useRunStore((state) => state.endRun);
 
@@ -35,6 +36,7 @@ export function HubScreen() {
 
   const hasActiveRun = runId !== null && runStatus === 'run_active';
   const hasUnequippedGear = hasActiveRun && gearInstances.some((i) => !i.equipped);
+  const forfeitBlocked = selectedRiskContractIds.includes('contract.no_forfeit');
 
   const handleStartNew = () => {
     clearCombat();
@@ -42,7 +44,7 @@ export function HubScreen() {
   };
 
   const handleResume = () => {
-    navigation.navigate('Battle');
+    navigation.navigate('RunMap');
   };
 
   const handleForfeit = (): void => {
@@ -86,9 +88,16 @@ export function HubScreen() {
             <Text style={styles.gearNudge}>⚠ You have unequipped gear — check the Equipment tab before heading back.
             </Text>
           )}
-          <TouchableOpacity onPress={handleForfeit} style={styles.forfeitLink}>
-            <Text style={styles.forfeitLinkText}>Forfeit Run</Text>
-          </TouchableOpacity>
+          {forfeitBlocked ? (
+            <View style={styles.forfeitBlockedRow}>
+              <Text style={styles.forfeitBlockedIcon}>🚫</Text>
+              <Text style={styles.forfeitBlockedText}>No Retreat Oath active — forfeit disabled</Text>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={handleForfeit} style={styles.forfeitLink}>
+              <Text style={styles.forfeitLinkText}>Forfeit Run</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -164,6 +173,14 @@ const styles = StyleSheet.create({
   },
   forfeitLink: { alignSelf: 'flex-start', marginTop: 4 },
   forfeitLinkText: { fontSize: 11, color: '#a04040', textDecorationLine: 'underline' },
+  forfeitBlockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  forfeitBlockedIcon: { fontSize: 13 },
+  forfeitBlockedText: { fontSize: 11, color: '#7a684a', fontStyle: 'italic' },
   gearNudge: { fontSize: 12, color: '#8b5a00', fontStyle: 'italic' },
   actions: {
     gap: 8,

@@ -77,6 +77,101 @@ describe('run director', () => {
     expect(stage20.bossId).toBeUndefined();
   });
 
+  it('returns template metadata on procedural encounters', () => {
+    const stage8 = selectStage({
+      seed: 13579,
+      stage: 8,
+      activeClassId: 'drakehorn_forge.ember_initiate',
+      activeLineageId: 'drakehorn_forge',
+    });
+
+    expect(stage8.kind).toBe('procedural');
+    expect(stage8.encounter?.templateId).toMatch(/^encounter\.template\./);
+    expect(stage8.encounter?.templateTags.length).toBeGreaterThan(0);
+  });
+
+  it('propagates selected room metadata on procedural encounters', () => {
+    const stage8 = selectStage({
+      seed: 31415,
+      stage: 8,
+      activeClassId: 'drakehorn_forge.ember_initiate',
+      activeLineageId: 'drakehorn_forge',
+      roomType: 'elite',
+      roomNodeId: 'map.s8.n2',
+    });
+
+    expect(stage8.kind).toBe('procedural');
+    expect(stage8.encounter?.roomType).toBe('elite');
+    expect(stage8.encounter?.roomNodeId).toBe('map.s8.n2');
+  });
+
+  it('applies elite room combat/reward pressure over normal rooms', () => {
+    const normal = selectStage({
+      seed: 24680,
+      stage: 8,
+      activeClassId: 'drakehorn_forge.ember_initiate',
+      activeLineageId: 'drakehorn_forge',
+      roomType: 'normal',
+    });
+    const elite = selectStage({
+      seed: 24680,
+      stage: 8,
+      activeClassId: 'drakehorn_forge.ember_initiate',
+      activeLineageId: 'drakehorn_forge',
+      roomType: 'elite',
+    });
+
+    expect(normal.kind).toBe('procedural');
+    expect(elite.kind).toBe('procedural');
+
+    const normalEnemyCount =
+      normal.encounter?.enemies.reduce((sum, entry) => sum + entry.count, 0) ?? 0;
+    const eliteEnemyCount =
+      elite.encounter?.enemies.reduce((sum, entry) => sum + entry.count, 0) ?? 0;
+
+    expect(eliteEnemyCount).toBeGreaterThanOrEqual(normalEnemyCount);
+    expect((elite.encounter?.rewards.gold ?? 0)).toBeGreaterThan(normal.encounter?.rewards.gold ?? 0);
+  });
+
+  it('assigns anomaly metadata deterministically when rolled', () => {
+    const stages = Array.from({ length: 29 }, (_, i) => i + 1).filter(
+      (stage) => ![5, 10].includes(stage),
+    );
+    const seeds = [20260422, 9901];
+
+    const firstPass = seeds.flatMap((seed) =>
+      stages.map((stage) =>
+        selectStage({
+          seed,
+          stage,
+          activeClassId: 'drakehorn_forge.ember_initiate',
+          activeLineageId: 'drakehorn_forge',
+        }),
+      ),
+    );
+
+    const secondPass = seeds.flatMap((seed) =>
+      stages.map((stage) =>
+        selectStage({
+          seed,
+          stage,
+          activeClassId: 'drakehorn_forge.ember_initiate',
+          activeLineageId: 'drakehorn_forge',
+        }),
+      ),
+    );
+
+    expect(firstPass).toEqual(secondPass);
+
+    const anomalousSelections = firstPass.filter(
+      (selection) => selection.kind === 'procedural' && selection.encounter?.anomalyId !== undefined,
+    );
+    expect(anomalousSelections.length).toBeGreaterThan(0);
+    for (const selection of anomalousSelections) {
+      expect(selection.encounter?.anomalyKind).toBeDefined();
+    }
+  });
+
   it('throws on out-of-range stage input', () => {
     expect(() =>
       selectStage({

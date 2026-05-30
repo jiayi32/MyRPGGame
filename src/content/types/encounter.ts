@@ -1,4 +1,4 @@
-import type { EncounterId } from './ids';
+import type { EnemyArchetypeId, EncounterId } from './ids';
 
 export interface RunDirectorWeights {
   normal: number;
@@ -22,4 +22,17 @@ export interface Encounter {
   stageMin: number;
   stageMax: number;
   description: string;
+}
+
+export interface EncounterCompositionTemplateEntry {
+  archetypeId: EnemyArchetypeId;
+  count: number;
+}
+
+export interface EncounterCompositionTemplate {
+  id: string;
+  stageMin: number;
+  stageMax: number;
+  tags: readonly string[];
+  entries: readonly EncounterCompositionTemplateEntry[];
 }

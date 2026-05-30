@@ -8,6 +8,13 @@ import type { StartRunPayload, StartRunResponse, PlayerDoc } from './shared/type
 
 const STARTER_CLASS_ID = 'drakehorn_forge.ember_initiate';
 
+/** Allowed risk contract IDs — must match client-side RISK_CONTRACTS catalog. */
+const ALLOWED_RISK_CONTRACT_IDS = new Set([
+  'contract.no_merchant_route',
+  'contract.enemy_barrier_tick',
+  'contract.no_forfeit',
+]);
+
 export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
   { enforceAppCheck: false, maxInstances: 50, timeoutSeconds: 30, memory: '256MiB' },
   async (request) => {
@@ -15,7 +22,7 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
     const uid = requireAuth(request);
     // Cap: 6 starts/min per user — generous for double-tap retries, blocks spam.
     requireRateLimit(`startRun:${uid}`, 6, 60_000);
-    const { activeClassId, activeLineageId, evolutionTargetClassId } = request.data;
+    const { activeClassId, activeLineageId, evolutionTargetClassId, selectedRiskContractIds } = request.data;
 
     if (typeof activeClassId !== 'string' || activeClassId.length === 0) {
       throw new HttpsError('invalid-argument', 'activeClassId must be a non-empty string.');
@@ -31,6 +38,29 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
         'invalid-argument',
         'evolutionTargetClassId must be a non-empty string or null.'
       );
+    }
+    if (!Array.isArray(selectedRiskContractIds)) {
+      throw new HttpsError('invalid-argument', 'selectedRiskContractIds must be an array.');
+    }
+    if (selectedRiskContractIds.length > 2) {
+      throw new HttpsError('invalid-argument', 'At most 2 risk contracts can be selected.');
+    }
+    for (const contractId of selectedRiskContractIds) {
+      if (typeof contractId !== 'string' || contractId.length === 0) {
+        throw new HttpsError(
+          'invalid-argument',
+          'selectedRiskContractIds entries must be non-empty strings.'
+        );
+      }
+      if (!ALLOWED_RISK_CONTRACT_IDS.has(contractId)) {
+        throw new HttpsError(
+          'invalid-argument',
+          `Unknown risk contract: ${contractId}.`
+        );
+      }
+    }
+    if (new Set(selectedRiskContractIds).size !== selectedRiskContractIds.length) {
+      throw new HttpsError('invalid-argument', 'selectedRiskContractIds cannot contain duplicates.');
     }
 
     const db = admin.firestore();
@@ -85,6 +115,9 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
         activeClassId,
         activeLineageId,
         evolutionTargetClassId,
+        selectedRiskContractIds,
+        runPassiveIds: [],
+        pendingInnDecisionId: null,
         bankedRewards: emptyReward(),
         vaultedRewards: emptyReward(),
         result: 'ongoing',

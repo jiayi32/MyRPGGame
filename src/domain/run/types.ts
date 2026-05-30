@@ -1,4 +1,6 @@
 import type {
+  AnomalyCategoryKind,
+  AnomalyId,
   BossId,
   ClassId,
   EncounterId,
@@ -32,8 +34,26 @@ export interface EncounterEnemyEntry {
   tier: 1 | 2 | 3 | 4;
 }
 
+export type StageRoomType =
+  | 'normal'
+  | 'elite'
+  | 'event'
+  | 'treasure'
+  | 'rest'
+  | 'merchant'
+  | 'anomaly'
+  | 'mini_boss'
+  | 'gate'
+  | 'counter';
+
 export interface ResolvedEncounter {
   encounterId: EncounterId;
+  roomType: StageRoomType;
+  roomNodeId?: string;
+  templateId: string;
+  templateTags: readonly string[];
+  anomalyId?: AnomalyId;
+  anomalyKind?: AnomalyCategoryKind;
   enemies: readonly EncounterEnemyEntry[];
   rewards: RewardBundle;
 }
@@ -43,6 +63,8 @@ export interface RunDirectorInput {
   stage: number;
   activeClassId: ClassId;
   activeLineageId: LineageId;
+  roomType?: StageRoomType;
+  roomNodeId?: string;
 }
 
 export interface StageSelection {

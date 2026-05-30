@@ -5,6 +5,10 @@ export type GearId = string;
 export type BossId = string;
 export type AnomalyId = string;
 export type EncounterId = string;
+export type RiskContractId = string;
+export type RunPassiveId = string;
+export type AugmentId = string;
+export type StageConditionId = string;
 export type EnemyArchetypeId =
   | 'stat_wall'
   | 'speed_pressure'

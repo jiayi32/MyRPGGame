@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ClassId } from '@/content';
+import type { StageRoomType } from '@/domain/run/types';
 import type {
   Action,
   CombatEngine,
@@ -24,8 +25,16 @@ export interface SimulateStageInput {
   seed: number;
   stageIndex: number;
   activeClassId: ClassId;
+  roomType?: StageRoomType;
+  roomNodeId?: string;
   classRank?: number;
   equippedGearTemplateIds?: readonly string[];
+  selectedRiskContractIds?: readonly string[];
+  runPassiveIds?: readonly string[];
+  draftedSkillIds?: readonly string[];
+  augmentIds?: readonly string[];
+  pendingInnDecisionId?: string | null;
+  conditionId?: string | undefined;
 }
 
 interface CombatStoreState {
@@ -177,6 +186,14 @@ export const useCombatStore = create<CombatStoreState>((set, get) => ({
     const report: StageSimulationReport = {
       stageIndex: prepared.stageIndex,
       encounterId: prepared.encounterId,
+      ...(prepared.roomType !== undefined ? { roomType: prepared.roomType } : {}),
+      ...(prepared.roomNodeId !== undefined ? { roomNodeId: prepared.roomNodeId } : {}),
+      ...(prepared.encounterTemplateId !== undefined
+        ? { encounterTemplateId: prepared.encounterTemplateId }
+        : {}),
+      ...(prepared.encounterTags !== undefined ? { encounterTags: prepared.encounterTags } : {}),
+      ...(prepared.anomalyId !== undefined ? { anomalyId: prepared.anomalyId } : {}),
+      ...(prepared.anomalyKind !== undefined ? { anomalyKind: prepared.anomalyKind } : {}),
       battleResult,
       outcomeResult: result,
       claimedRewards,

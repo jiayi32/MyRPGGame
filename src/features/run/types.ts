@@ -38,6 +38,7 @@ export interface StartRunPayload {
   activeLineageId: string;
   /** null when the active class is T1 (apex). */
   evolutionTargetClassId: string | null;
+  selectedRiskContractIds: string[];
 }
 
 export interface StartRunResponse {
@@ -87,6 +88,8 @@ export interface ProgressionDelta {
     classRanks: Record<string, number>;
   };
   gearInstancesCreated: number;
+  /** Total augments picked across all runs after this settlement. */
+  augmentsPicked?: number;
 }
 
 export type VaultSettlementDisposition = 'merged' | 'forfeited';
@@ -125,6 +128,10 @@ export interface RunSnapshot {
   activeClassId: string;
   activeLineageId: string;
   evolutionTargetClassId: string | null;
+  selectedRiskContractIds: string[];
+  runPassiveIds: string[];
+  augmentIds: string[];
+  pendingInnDecisionId: string | null;
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
   result: RunFinalResult;
@@ -140,6 +147,8 @@ export interface PlayerSnapshot {
   classRanks: Record<string, number>;
   ownedClassIds: string[];
   currentRunId: string | null;
+  /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
+  augmentsPicked: number;
 }
 
 export interface GetOrCreatePlayerResponse {

@@ -12,6 +12,10 @@ import { ClassSelectScreen } from '@/screens/ClassSelect';
 import { BattleScreen } from '@/screens/Battle';
 import { RunMapScreen } from '@/screens/RunMap';
 import { RewardResolutionScreen } from '@/screens/RewardResolution';
+import { PassiveDraftScreen } from '@/screens/PassiveDraft/PassiveDraftScreen';
+import { SkillDraftScreen } from '@/screens/SkillDraft/SkillDraftScreen';
+import { AugmentDraftScreen } from '@/screens/AugmentDraft/AugmentDraftScreen';
+import { InnDecisionScreen } from '@/screens/InnDecision/InnDecisionScreen';
 import { PlaceholderScreen } from '@/screens/Placeholder';
 import { SignInScreen } from '@/screens/SignIn';
 import { DevToolsScreen } from '@/screens/DevTools';
@@ -24,6 +28,10 @@ export type HomeStackParamList = {
   Battle: undefined;
   RunMap: undefined;
   RewardResolution: undefined;
+  PassiveDraft: undefined;
+  SkillDraft: undefined;
+  AugmentDraft: undefined;
+  InnDecision: undefined;
   Placeholder: undefined;
 };
 
@@ -77,6 +85,42 @@ function HomeStackNavigator() {
         component={RewardResolutionScreen}
         options={{
           title: 'Reward Resolution',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen
+        name="PassiveDraft"
+        component={PassiveDraftScreen}
+        options={{
+          title: 'Choose Passive',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen
+        name="SkillDraft"
+        component={SkillDraftScreen}
+        options={{
+          title: 'Choose Skill',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen
+        name="AugmentDraft"
+        component={AugmentDraftScreen}
+        options={{
+          title: 'Choose Augment',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
+      <HomeStack.Screen
+        name="InnDecision"
+        component={InnDecisionScreen}
+        options={{
+          title: 'Rest Stop',
           headerBackVisible: false,
           gestureEnabled: false,
         }}

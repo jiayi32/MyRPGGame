@@ -96,6 +96,8 @@ describe('run replay determinism', () => {
     const a = runReplay(20260422, 2);
     const b = runReplay(20260422, 2);
 
+    expect(a.selection.encounter?.templateId).toBeDefined();
+    expect(a.selection.encounter?.templateTags.length).toBeGreaterThan(0);
     expect(a.selection).toEqual(b.selection);
     expect(a.summary).toEqual(b.summary);
   });

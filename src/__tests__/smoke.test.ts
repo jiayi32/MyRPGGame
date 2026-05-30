@@ -58,6 +58,7 @@ const fakePlayer = {
   classRanks: { 'drakehorn_forge.ember_initiate': 1 },
   ownedClassIds: ['drakehorn_forge.ember_initiate', 'drakehorn_forge.flame_berserker'],
   currentRunId: null,
+  augmentsPicked: 0,
 };
 
 describe('playerStore auth lifecycle', () => {

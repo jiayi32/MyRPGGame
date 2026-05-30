@@ -1,12 +1,11 @@
-> **⚠️ RECONCILIATION NOTE (2026-04-22):**  
-> **Current Canonical Layout:** The actual codebase uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`) **NOT the nested folder structure shown in Section 2 below**.
-> The nested structure described in this document is an **aspirational future refactoring**. See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§3 (C8 decision)** for confirmation that current flat layout is authoritative.
+> **⚠️ RECONCILIATION NOTE (2026-05-30):**
+> **Current Canonical Layout:** The actual codebase uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`, `src/content/riskContracts.ts`, `src/content/runAdditions.ts`). The nested folder structure in Section 2 is aspirational/deferred.
 >
-> **Content Source:** All game data is **TS-authored in `src/content/*.ts` files** (TypeScript modules as canonical source). Firestore export is optional for operational workflows. See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) **§3 (C7 decision)**.
+> **New Since April 2026:** Risk contracts (full enforcement), branching Run Map with visual edges, encounter composition templates, room-type-aware run director, run passive + inn decision scaffolding, synergy tag type definitions, and Phase 4 build-identity systems are planned per [GAMEPLAY_LOOP.md](GAMEPLAY_LOOP.md).
 >
-> **What's Stable:** `src/domain/combat/*` decomposition, `src/domain/` engines, and `src/features/` UI screens remain stable canonical layers. Only aspirational reorg of `content/` folder structure is deferred.
+> **What's Stable:** `src/domain/combat/*` decomposition, `src/domain/run/*` (director + map + progression + checkpoint), `src/features/run/orchestrator.ts` contract/passive effect pipeline, and `src/features/` UI screens remain stable canonical layers.
 >
-> **Status:** Contains both current-stable sections and aspirational-future sections. Clarifications in this note take precedence. See [../INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) for locked decisions.
+> **Status:** This document now reflects the May 2026 canonical state plus the Phase 4 planned additions with data-flow diagrams.
 
 ---
 
@@ -18,14 +17,21 @@
 
 Build the game as a **mobile-first roguelite RPG** with:
 
-* 12 lineages
-* 60 classes
-* CT-based combat
-* single-boss raid encounters (bosses at stages 5, 10, 30)
-* permanent unlocks + run-based evolution
-* checkpoint banking at stages 5, 10, 20, 30
-* gear-driven build identity
-* AQ-style command menu in battle
+* 12 lineages, 60 classes
+* CT-based combat with turn forecast and intent icons
+* Branching one-way Run Map with room type variety (battle, elite, event, treasure, rest, merchant, anomaly, boss)
+* Boss encounters at stages 5 (mini-boss), 10 (gate boss), 30 (counter boss)
+* Permanent unlocks + run-based evolution
+* Checkpoint banking at stages 10, 20, 30
+* **Risk contracts** — pre-run opt-in modifiers with full client/server enforcement (✅ shipped)
+* **Run passives** — mid-run draft choices every 3 stages (planned P4.1)
+* **Synergy tags** — tag-based build discovery on skills, gear, and passives (planned P4.2)
+* **Skill draft** — pick 1 of 3 temporary skills at boss stages 5,10,15,20,25 (planned P4.3)
+* **Room conditions** — deterministic per-room modifiers visible before committing (planned P4.4)
+* **Augment system** — mid-run 1-of-3 draft every 4 stages (Neutral/Positive/Sacrificial), Bronze→Silver→Gold→Prismatic tiers, account-level tier unlocking (planned P4.5, replaces Cruciball)
+* **Anomaly corruption gauge** — push-your-luck tension meter (planned P4.6, deferred)
+* Gear-driven build identity
+* Server-authoritative reward settlement with anti-tamper validation
 
 ---
 
@@ -478,99 +484,285 @@ flowchart LR
 
 ---
 
+### 1a.4 New System Subgraphs (May 2026 — Current + Planned)
+
+#### Subgraph F: Risk Contract Enforcement Pipeline (✅ Implemented)
+
+```mermaid
+flowchart LR
+  subgraph F1["Pre-Run"]
+    F_UI["ClassSelectScreen: toggleRiskContract()"]
+    F_SEL["selectedRiskContractIds: RiskContractId[]"]
+  end
+
+  subgraph F2["Server Validation"]
+    F_SRV["startRun Cloud Function"]
+    F_ALW["ALLOWED_RISK_CONTRACT_IDS Set"]
+    F_SRV -->|"validate: array, max 2, known IDs, no dupes"| F_ALW
+    F_SRV -->|"persist to runDoc"| F_DB["Firestore runs/{id}"]
+  end
+
+  subgraph F3["Client Enforcement"]
+    F_HUB["HubScreen: forfeit blocked if no_forfeit"]
+    F_BTL["BattleScreen: forfeit blocked if no_forfeit"]
+    F_RWD["RewardResolution: End Run disabled if no_forfeit"]
+    F_ORCH["orchestrator.ts: applyContractBarriers()"]
+    F_MAP["map.ts: filterMapGraphByContracts()"]
+  end
+
+  subgraph F4["Server Guard"]
+    F_END["endRun Cloud Function: reject fled if no_forfeit active"]
+  end
+
+  F_UI --> F_SEL
+  F_SEL --> F_SRV
+  F_SEL --> F_HUB
+  F_SEL --> F_BTL
+  F_SEL --> F_RWD
+  F_SEL --> F_ORCH
+  F_SEL --> F_MAP
+  F_DB --> F_END
+```
+
+#### Subgraph G: Run Passives + Synergy Tags (Planned — P4.1 + P4.2)
+
+```mermaid
+flowchart TD
+  subgraph G1["Passive Draft Flow"]
+    G_RR["RewardResolution: stage won"] --> G_CHK{"stage % 3 == 0?"}
+    G_CHK -->|Yes| G_PICK["PassiveDraftScreen: pick 1 of 3"]
+    G_CHK -->|No| G_MAP["RunMapScreen"]
+    G_PICK --> G_STORE["runStore.runPassiveIds"]
+    G_STORE --> G_MAP
+  end
+
+  subgraph G2["Synergy Tag System"]
+    G_TAGDB["content/tagDerivation.ts: auto-derive + manual override"]
+    G_GEAR["GearTemplate.tags: SynergyTag[]"]
+    G_SKILL["Skill.tags: SynergyTag[]"]
+    G_PASSIVE["RunPassiveDef.tags: SynergyTag[]"]
+    G_TAGDB --> G_GEAR
+    G_TAGDB --> G_SKILL
+    G_TAGDB --> G_PASSIVE
+  end
+
+  subgraph G3["Combat Application"]
+    G_ORCH["orchestrator.ts: prepareStage()"]
+    G_SYN["domain/run/synergy.ts: resolveSynergyBonuses()"]
+    G_EFFECT["applyPassiveEffects() + applySynergyBonuses()"]
+    G_ORCH --> G_SYN
+    G_SYN -->|"count tags, check ≥3"| G_EFFECT
+    G_EFFECT -->|"stat modifiers + statuses"| G_ENGINE["CombatEngine.withState()"]
+  end
+
+  subgraph G4["UI Feedback"]
+    G_CHIPS["BattleScreen: synergy chips"]
+    G_TOOLTIP["Gear tooltip: tag count (e.g., Fire 2/3)"]
+  end
+
+  G_STORE --> G_ORCH
+  G_GEAR --> G_SYN
+  G_SKILL --> G_SYN
+  G_PASSIVE --> G_SYN
+  G_ENGINE --> G_CHIPS
+  G_ENGINE --> G_TOOLTIP
+```
+
+#### Subgraph H: Room Conditions + Augment System + Corruption (Planned — P4.4 + P4.5 + P4.6)
+
+```mermaid
+flowchart TD
+  subgraph H1["Room Conditions (P4.4) — Simplified"]
+    H_MAPGEN["map.ts: createRunMapGraph()"] --> H_COND["generateRoomConditions(seed, stage)"]
+    H_COND -->|"deterministic modifier on elite/boss nodes only"| H_NODE["RunMapNode.condition?: StageCondition"]
+    H_NODE --> H_UI["RunMapScreen: condition chips visible before commit"]
+    H_NODE --> H_APPLY["orchestrator.ts: applyCondition() in prepareStage"]
+  end
+
+  subgraph H2["Augment System (P4.5) — Replaces Cruciball"]
+    H_DRAFT["RewardResolution: stage 4,8,12,16,20,24,28 won"] --> H_TIER["Select tier from unlocked pools (Bronze→Silver→Gold→Prismatic)"]
+    H_TIER --> H_DRAW["Draw 1 Neutral + 1 Positive + 1 Sacrificial from tier"]
+    H_DRAW --> H_PICK["AugmentDraftScreen: player picks 1 of 3"]
+    H_PICK --> H_STORE["runStore.augmentIds + playerStore.augmentsPicked"]
+    H_STORE --> H_APPLY_AUG["orchestrator.ts: applyAugmentEffects()"]
+    H_APPLY_AUG -->|"stat modifiers, status effects, gear slot changes"| H_ENGINE_AUG["CombatEngine"]
+    H_STORE --> H_UNLOCK["Tier unlock: augmentsPicked ≥6→Silver, ≥18→Gold, ≥36→Prismatic"]
+  end
+
+  subgraph H3["Anomaly Corruption (P4.6) — Deferred"]
+    H_STAGE["Stage completed"] --> H_FILL["fill corruption gauge"]
+    H_FILL --> H_THRESH{"crosses 25/50/75/100%?"}
+    H_THRESH -->|Yes| H_DECIDE["Player: accept penalty OR spend cells to cleanse"]
+    H_THRESH -->|No| H_CONT["continue"]
+    H_DECIDE -->|Accept| H_DEBUFF["apply permanent run debuff + bonus cells on settle"]
+    H_DECIDE -->|Cleanse| H_SPEND["spend ascensionCells, reset gauge"]
+    H_DEBUFF --> H_CONT
+    H_SPEND --> H_CONT
+  end
+
+  H_APPLY --> H_ENGINE["CombatEngine"]
+```
+
+#### Subgraph I: Skill Draft + Cross-System Build Identity (Planned — P4.3)
+
+```mermaid
+flowchart TD
+  subgraph I1["Skill Draft Flow"]
+    I_RR["RewardResolution: boss stage won"] --> I_CHK{"stage in 5,10,15,20,25?"}
+    I_CHK -->|Yes| I_PICK["SkillDraftScreen: pick 1 of 3"]
+    I_CHK -->|No| I_MAP["RunMapScreen"]
+    I_PICK --> I_STORE["runStore.draftedSkillIds"]
+    I_STORE --> I_MAP
+  end
+
+  subgraph I2["Draft Pool Construction"]
+    I_POOL["domain/run/skillDraft.ts: buildDraftPool()"]
+    I_LINEAGE["Lineage skills: same lineage, tier-gated"]
+    I_SYNERGY["Synergy skills: tag-matched to current build"]
+    I_WILD["Wildcard skills: any lineage, tier-gated"]
+    I_POOL --> I_LINEAGE
+    I_POOL --> I_SYNERGY
+    I_POOL --> I_WILD
+  end
+
+  subgraph I3["Combat Integration"]
+    I_ORCH["orchestrator.ts: prepareStage()"]
+    I_MERGE["merge classData.skillIds + draftedSkillIds"]
+    I_UNIT["playerUnit.skillIds: readonly SkillId[]"]
+    I_ORCH --> I_MERGE
+    I_MERGE --> I_UNIT
+    I_STORE --> I_MERGE
+  end
+
+  subgraph I4["Cross-System Build Identity (stage 25 example)"]
+    I_BUILD["Build: 5 class skills + 5 drafted skills + 8 passives + 6 augments"]
+    I_TAGS["Synergy tags counted across all sources"]
+    I_COND["Room conditions add per-battle modifiers"]
+    I_AUG["Augments apply stat/mechanic modifiers throughout run"]
+  end
+```
+
+---
+
 ## 2) Minimal file structure
 
-> **⚠️ NOTE:** This section shows an **aspirational reorganization**. The current canonical file layout uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`, `src/content/gear.ts`, `src/content/bosses.ts`, `src/content/enemies.ts`, `src/content/encounters.ts`, `src/content/anomalies.ts`). The nested folder structure below is a future refactoring. For now, code against the flat layout currently in place. (See [INTEGRATION_REPORT.md](../INTEGRATION_REPORT.md) §3 C8 decision.)
+> **⚠️ NOTE:** This section documents the **current canonical flat layout** as of May 2026. The nested structure previously shown here was aspirational and has been removed. All content lives in flat `src/content/*.ts` files. New files added since April 2026 are marked with ✨.
 
 ```text
 src/
-  content/
-    classes/
-      classDefinitions.ts
-      lineageDefinitions.ts
-      classMatrix.ts
-      branchGraph.ts
-      tierTables.ts
-      unlockRequirements.ts
-    skills/
-      skillDefinitions.ts
-      passiveDefinitions.ts
-    gear/
-      gearDefinitions.ts
-      itemDefinitions.ts
-      statSkewDefinitions.ts
-    bosses/
-      bossDefinitions.ts
-      raidPatterns.ts
-    rewards/
-      rewardTables.ts
+  content/                         ← flat TS registries (canonical)
+    types/
+      index.ts                     ← re-exports all type modules
+      ids.ts                       ← shared ID types (LineageId, ClassId, SkillId, etc.)
+      lineage.ts                   ← LineageDef
+      class.ts                     ← ClassData, ClassTier
+      skill.ts                     ← Skill, SkillEffect, SkillTag
+      gear.ts                      ← GearTemplate, GearSlot
+      enemy.ts                     ← EnemyArchetype
+      encounter.ts                 ← Encounter, EncounterCompositionTemplate
+      boss.ts                      ← BossDef
+      anomaly.ts                   ← AnomalyCategory
+      riskContract.ts ✨            ← RiskContractDef
+      runAdditions.ts ✨            ← RunPassiveDef, InnDecisionDef
+      augment.ts ✨                 ← AugmentDef, AugmentCategory, AugmentTier
+    index.ts                       ← barrel export
+    lineages.ts
+    classes.ts
+    skills.ts
+    gear.ts
+    enemies.ts
+    encounters.ts                  ← includes EncounterCompositionTemplate[]
+    bosses.ts
+    anomalies.ts
+    riskContracts.ts ✨             ← RISK_CONTRACTS catalog (3 authored)
+    runAdditions.ts ✨              ← RUN_PASSIVES + INN_DECISIONS catalogs
+    augments.ts ✨                  ← AUGMENTS catalog (36 authored: 9 per tier × 4 tiers)
 
   domain/
-    combat/
-      combatEngine.ts
-      combatReducer.ts
-      combatQueue.ts
-      combatResolution.ts
-      combatAI.ts
-      combatMath.ts
-      damagePipeline.ts
-      costPipeline.ts
-      targetResolver.ts
-      effectPipeline.ts
-      ctRules.ts
-      statRules.ts
-    progression/
-      classUnlockEngine.ts
-      classEvolutionEngine.ts
-      lineageUpgradeEngine.ts
-      slotUnlockEngine.ts
-      hybridUnlockEngine.ts
-    run/
-      runEngine.ts
-      checkpointEngine.ts
-      stageEngine.ts
-      randomEncounterEngine.ts
-    rewards/
-      rewardEngine.ts
-      bankingEngine.ts
-      lootEngine.ts
-    gear/
-      gearEngine.ts
-      statSkewEngine.ts
-      ctReductionEngine.ts
+    combat/                        ← pure battle engine
+      index.ts                     ← CombatEngine, createEngine
+      types.ts                     ← Unit, BattleState, Action, StatusInstance, etc.
+      factory.ts                   ← buildPlayerUnit, buildEnemyUnit, buildBossUnit
+      queue.ts                     ← CT ordering, ready detection
+      step.ts                      ← action resolution
+      effects.ts                   ← damage, heal, status, shield pipelines
+      stats.ts                     ← stat calculation, gear overlay
+      d20.ts                       ← hit/miss/crit resolution
+      prng.ts                      ← seeded RNG
+      defaults.ts                  ← constants
+      validate.ts                  ← canCast, target validation
+      bossAI.ts                    ← enemy action selection
+      stateUtils.ts                ← immutable state helpers (patchUnit, appendLog)
+    run/                           ← run flow + encounter generation
+      index.ts
+      types.ts                     ← RunDirectorInput, StageSelection, ResolvedEncounter
+      director.ts                  ← selectStage (boss + procedural routing)
+      map.ts                       ← createRunMapGraph, filterMapGraphByContracts ✨
+      progression.ts               ← class evolution, unlock checks
+      checkpoint.ts                ← checkpoint stage logic
+      __tests__/
+        director.test.ts
+        replayDeterminism.test.ts
+        map.test.ts ✨
+    combat/                        ← (alias — see domain/combat/)
 
   features/
-    hub/
-      screens/
-        HomeHubScreen.tsx
-        ClassUpgradeScreen.tsx
-        LineageUpgradeScreen.tsx
-        HybridUnlockScreen.tsx
     run/
-      screens/
-        RunMapScreen.tsx
-        StageScreen.tsx
-        RandomEncounterScreen.tsx
-        CheckpointScreen.tsx
-        RunRewardScreen.tsx
-    combat/
-      screens/
-        BattleScreen.tsx
-        BattlePrepScreen.tsx
-        BattleRewardScreen.tsx
-      components/
-        WaterfallCommandMenu.tsx
-        SkillList.tsx
-        TargetPicker.tsx
-        QueueTimeline.tsx
-        BattleLogPanel.tsx
-        StatusPanel.tsx
-        GearPanel.tsx
-    gear/
-      screens/
-        EquipmentScreen.tsx
-        ItemDetailScreen.tsx
-        GearEnhanceScreen.tsx
+      orchestrator.ts              ← prepareStage, buildStageReport, autoPlayStage
+      types.ts                     ← StageSimulationInput, PreparedStage, StageSimulationReport
+      __tests__/
+        orchestratorBoss.test.ts
+    (screens are in src/screens/)
+
+  screens/
+    Hub/HubScreen.tsx
+    OnboardingNarrative/OnboardingNarrativeScreen.tsx
+    ClassSelect/ClassSelectScreen.tsx   ← risk contract selection UI ✨
+    RunMap/RunMapScreen.tsx             ← branching graph with edges ✨
+    Battle/
+      BattleScreen.tsx                  ← action dock, forecast, contract enforcement ✨
+      AbilityButton.tsx
+      EnemyRow.tsx
+      EventLog.tsx
+      StatusChips.tsx
+      HpBar.tsx, MpBar.tsx, CtIndicator.tsx
+      CastPulse.tsx, DamagePopupOverlay.tsx
+    RewardResolution/RewardResolutionScreen.tsx  ← contract notice, tutorial, augment routing ✨
+    AugmentDraft/AugmentDraftScreen.tsx ✨         ← 1-of-3 augment pick screen
+    Equipment/EquipmentScreen.tsx
+    Shop/ShopScreen.tsx
+    Profile/ProfileScreen.tsx
+
+  stores/
+    playerStore.ts
+    runStore.ts                    ← map state, contract/passive/inn state fields ✨
+    combatStore.ts                 ← selectedRiskContractIds in SimulateStageInput ✨
+
+  services/
+    auth.ts
+    runApi.ts                      ← contract/passive/inn field normalization ✨
+    firebase.ts
+    uiHints.ts ✨                   ← AsyncStorage seen-state persistence
+
+  hooks/
+    useGearInventory.ts
+
+  navigation/
+    AppNavigator.tsx
+
+firebase/
+  functions/
+    src/
+      startRun.ts                  ← contract allowlist + persistence ✨
+      endRun.ts                    ← no_forfeit guard ✨
+      submitStageOutcome.ts
+      bankCheckpoint.ts
+      auditReplay.ts
+      shared/
+        types.ts                   ← RunDoc, StartRunPayload, etc. (extended) ✨
+        rewards.ts
+        guards.ts
+        progression.ts
 ```
 
 ---
@@ -706,27 +898,46 @@ Owns gear math.
 * No consumable item system in v1
 * Single-boss raid encounters only in v1
 * Manual targeting required for meaningful actions
+* **Risk contracts: selected pre-run, max 2, server-validated against allowlist, enforced at all layers** ✨
+* **Contract effects are deterministic and additive — no random contract outcomes** ✨
+* **Run passives: drafted at stage intervals, max 1 per draft, applied at battle start** ✨
+* **Drafted skills: picked 1-of-3 at boss stages (5,10,15,20,25), max 5 per run, lineage-gated pool, merged into unit.skillIds** ✨
+* **Augments: drafted 1-of-3 at stages 4,8,12,16,20,24,28, Neutral/Positive/Sacrificial categories, Bronze→Silver→Gold→Prismatic tiers, tier pools unlock via total augments picked across all runs** ✨
+* **Synergy tags: auto-derived from damage type + name keywords, manual overrides take precedence** ✨
+* **Room conditions: deterministic per seed+stage, visible before room commitment, elite/boss rooms only initially** ✨
+* **Corruption gauge: fills per stage, cleanse-or-accept decision at thresholds (deferred)** ✨
 
 ---
 
-## 6) First implementation checklist
+## 6) Implementation checklist
 
-1. Create `content/` and populate all class/lineage/gear/boss tables.
-2. Implement `domain/progression/` and `domain/run/`.
-3. Implement `domain/combat/` as pure functions.
-4. Implement `domain/rewards/` and banking logic.
-5. Wire `features/combat/` to the combat engine.
-6. Wire `features/run/` to checkpoint and encounter logic.
-7. Wire `features/hub/` to permanent upgrades.
-8. Add tests for:
+**✅ Completed (as of May 2026):**
+1. ✅ Content registries: all class/lineage/gear/boss/enemy/encounter/anomaly tables.
+2. ✅ `domain/progression/` — class unlock, evolution, lineage upgrade.
+3. ✅ `domain/run/` — stage progression, checkpoint logic, boss routing, procedural encounters.
+4. ✅ `domain/combat/` — CT queue, action resolution, effects, stats, AI.
+5. ✅ `domain/rewards/` — split, banking, vault, forfeit logic.
+6. ✅ `features/combat/` — BattleScreen with action dock, forecast, intent icons.
+7. ✅ `features/run/` — RunMapScreen with branching graph, room types, visual edges.
+8. ✅ Risk contracts — catalog, selection UI, server allowlist, client/server enforcement.
+9. ✅ Encounter composition templates — data-driven, tag-based, room-type-aware.
+10. ✅ First-run tutorials and contextual tips.
 
-   * class unlock
-   * evolution
-   * lineage upgrade
-   * checkpoint banking
-   * CT queue
-   * gear multiplier order
-   * CT reduction cap
+**🔲 Phase 4 — Build Identity & Replay Depth (Planned — Revised May 2026):**
+11. 🔲 Run passives — complete scaffold: draft UI, combat effects, server validation. (P4.1)
+12. 🔲 Synergy tags — tag derivation engine, synergy check, combat bonuses, UI chips. (P4.2)
+13. 🔲 **Skill draft** — draft pool construction, pick-1-of-3 UI at boss stages, merge into unit.skillIds, server pool validation. (P4.3) ✨
+14. 🔲 **Augment system** — 1-of-3 draft at stages 4,8,12,16,20,24,28 (Neutral/Positive/Sacrificial), Bronze→Silver→Gold→Prismatic tier pools, tier unlocking via `augmentsPicked`, combat effect pipeline. (P4.5) ✨
+15. 🔲 Room conditions — simplified: 3-4 conditions, elite/boss rooms only, deterministic generation, map UI, combat application. (P4.4)
+16. 🔲 Anomaly corruption — gauge UI, cleanse decision flow, anomaly room scaling. (P4.6, deferred)
+
+**🔲 Tests needed for new systems:**
+- Passive effect determinism (same passives + same seed → same combat outcome)
+- Synergy tag count correctness (unit tests for tag derivation and ≥3 threshold)
+- **Skill draft pool legality (lineage + tier gating, no-duplicate check, max-5 cap)** ✨
+- **Augment draft pool legality (tier gating, category separation, no-duplicate check, 7-per-run cap)** ✨
+- Room condition determinism (same seed+stage → same condition per node)
+- Corruption threshold crossing and cleanse cost verification
 
 ---
 

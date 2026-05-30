@@ -1,117 +1,432 @@
-import { useRef } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { useRunStore } from '@/stores';
-import { CLASS_BY_ID } from '@/content';
+import { useCombatStore } from '@/stores/combatStore';
+import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, STAGE_CONDITION_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
+import {
+  getAvailableNodeIdsForStage,
+  getRunMapNodesForStage,
+  getSelectedNodeForStage,
+  RUN_MAP_ROOM_LABELS,
+  type RunMapNode,
+} from '@/domain/run/map';
+import type { StageRoomType } from '@/domain/run/types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RunMap'>;
 
-const TOTAL_STAGES = 30;
+const LANE_MIN = 0;
+const LANE_MAX = 6;
+const NODE_SIZE = 44;
+const STAGE_GAP = 74;
+const BOARD_SIDE_PADDING = 24;
+const BOARD_TOP_PADDING = 26;
+const MIN_BOARD_WIDTH = 300;
+const MAX_BOARD_WIDTH = 420;
 
-type StageMarker = 'normal' | 'mini_boss' | 'gate' | 'counter';
+type EdgeTone = 'base' | 'preview' | 'chosen';
 
-const STAGE_MARKERS: Record<number, StageMarker> = {
-  5: 'mini_boss',
-  10: 'gate',
-  20: 'gate',
-  30: 'counter',
-};
-
-const MARKER_LABEL: Record<StageMarker, string> = {
-  normal: '',
-  mini_boss: 'Mini-Boss',
-  gate: 'Checkpoint',
-  counter: 'Counter Boss',
-};
-
-const MARKER_COLORS: Record<StageMarker, { bg: string; border: string; text: string }> = {
-  normal: { bg: '#fffdf8', border: '#d8cdbb', text: '#4a3a28' },
-  mini_boss: { bg: '#fff0e0', border: '#c06020', text: '#7a3000' },
-  gate: { bg: '#e8f4e8', border: '#4a9a5a', text: '#1a5a2a' },
-  counter: { bg: '#ffe8e8', border: '#c02020', text: '#7a0000' },
-};
-
-const CURRENT_COLORS = { bg: '#e8f0ff', border: '#2a5ab0', text: '#1a3a8a' };
-const DONE_COLORS = { bg: '#f0f0f0', border: '#c0c0c0', text: '#888' };
-
-function StageNode({
-  stageNum,
-  currentStage,
-}: {
-  stageNum: number;
-  currentStage: number;
-}) {
-  const marker = STAGE_MARKERS[stageNum] ?? 'normal';
-  const isCurrent = stageNum === currentStage;
-  const isDone = stageNum < currentStage;
-
-  const colors = isCurrent
-    ? CURRENT_COLORS
-    : isDone
-      ? DONE_COLORS
-      : MARKER_COLORS[marker];
-
-  return (
-    <View style={[styles.node, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-      <View style={styles.nodeLeft}>
-        <Text style={[styles.stageNum, { color: colors.text }]}>{stageNum}</Text>
-        {isDone && <Text style={styles.doneCheck}> ✓</Text>}
-        {isCurrent && <Text style={[styles.currentDot, { color: colors.text }]}> ●</Text>}
-      </View>
-      <View style={styles.nodeRight}>
-        {marker !== 'normal' && (
-          <View style={[styles.markerTag, { backgroundColor: colors.border }]}>
-            <Text style={styles.markerTagText}>{MARKER_LABEL[marker]}</Text>
-          </View>
-        )}
-        {isCurrent && (
-          <View style={styles.currentTag}>
-            <Text style={styles.currentTagText}>Current</Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
+interface GraphEdge {
+  id: string;
+  left: number;
+  top: number;
+  width: number;
+  angle: string;
+  tone: EdgeTone;
 }
 
+const ROOM_VISUALS: Record<
+  StageRoomType,
+  { short: string; bg: string; border: string; text: string }
+> = {
+  normal: { short: 'B', bg: '#f2f4f8', border: '#c2cad9', text: '#384860' },
+  elite: { short: 'E', bg: '#fee9df', border: '#d77b50', text: '#8b3516' },
+  event: { short: '?', bg: '#efe8ff', border: '#8f79d6', text: '#48308e' },
+  treasure: { short: 'T', bg: '#fff2d6', border: '#d4a248', text: '#805407' },
+  rest: { short: 'R', bg: '#e9f7eb', border: '#65a974', text: '#1f6433' },
+  merchant: { short: '$', bg: '#e4f4ff', border: '#4d91c4', text: '#165984' },
+  anomaly: { short: 'A', bg: '#f8e5ff', border: '#b76dd1', text: '#6d2e8f' },
+  mini_boss: { short: 'M', bg: '#ffe6dc', border: '#d1653a', text: '#8d2d10' },
+  gate: { short: 'G', bg: '#e8f6ed', border: '#5ea577', text: '#215f39' },
+  counter: { short: 'C', bg: '#ffe4e4', border: '#c75d5d', text: '#7b1f1f' },
+};
+
+function RoomNodeCard({
+  node,
+  isAvailable,
+  isSelected,
+  isCompleted,
+  onPress,
+}: {
+  node: RunMapNode;
+  isAvailable: boolean;
+  isSelected: boolean;
+  isCompleted: boolean;
+  onPress: () => void;
+}) {
+  const roomVisual = ROOM_VISUALS[node.roomType];
+  const conditionDef = node.condition !== undefined ? STAGE_CONDITION_BY_ID.get(node.condition) : undefined;
+
+  const card = (
+    <View
+      style={[
+        styles.graphNode,
+        {
+          backgroundColor: roomVisual.bg,
+          borderColor: roomVisual.border,
+          opacity: isCompleted && !isSelected ? 0.5 : 1,
+        },
+        isAvailable && styles.graphNodeAvailable,
+        isSelected && styles.graphNodeSelected,
+      ]}
+    >
+      <Text style={[styles.graphNodeShort, { color: roomVisual.text }]}>{roomVisual.short}</Text>
+      {conditionDef !== undefined && (
+        <View style={styles.conditionChip}>
+          <Text style={styles.conditionChipText} numberOfLines={1}>
+            {conditionDef.name}
+          </Text>
+        </View>
+      )}
+      {isSelected && <View style={styles.graphNodePin} />}
+    </View>
+  );
+
+  if (!isAvailable) return card;
+  return <TouchableOpacity onPress={onPress}>{card}</TouchableOpacity>;
+};
+
 export function RunMapScreen({ navigation }: Props) {
+  const { width: windowWidth } = useWindowDimensions();
+
+  const runId = useRunStore((state) => state.runId);
   const stage = useRunStore((state) => state.stage);
+  const mapGraph = useRunStore((state) => state.mapGraph);
+  const mapPathByStage = useRunStore((state) => state.mapPathByStage);
   const activeClassId = useRunStore((state) => state.activeClassId);
+  const runError = useRunStore((state) => state.error);
   const vaultStreak = useRunStore((state) => state.vaultStreak);
+  const runPassiveIds = useRunStore((state) => state.runPassiveIds);
+  const selectMapNodeForCurrentStage = useRunStore((state) => state.selectMapNodeForCurrentStage);
+  const clearMapNodeSelectionForCurrentStage = useRunStore(
+    (state) => state.clearMapNodeSelectionForCurrentStage,
+  );
+
+  const combatStatus = useCombatStore((state) => state.status);
+  const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
+
   const currentStage = stage ?? 1;
-
-  const stages = Array.from({ length: TOTAL_STAGES }, (_, i) => i + 1);
-
+  const totalStages = mapGraph?.totalStages ?? 30;
   const completedCount = Math.max(0, currentStage - 1);
-  const remaining = TOTAL_STAGES - completedCount;
+  const remaining = Math.max(0, totalStages - completedCount);
+  const selectedCurrentStageNodeId = mapPathByStage[currentStage];
+  const [showRules, setShowRules] = useState(false);
+  const [showStageRoutes, setShowStageRoutes] = useState(false);
+
+  const graphMetrics = useMemo(() => {
+    const laneCount = LANE_MAX - LANE_MIN + 1;
+    const boardWidth = Math.max(MIN_BOARD_WIDTH, Math.min(MAX_BOARD_WIDTH, windowWidth - 24));
+    const lanePitch = (boardWidth - BOARD_SIDE_PADDING * 2 - NODE_SIZE) / (laneCount - 1);
+    const boardHeight = BOARD_TOP_PADDING * 2 + (Math.max(1, totalStages) - 1) * STAGE_GAP + NODE_SIZE;
+
+    return {
+      boardWidth,
+      boardHeight,
+      nodeLeft: (lane: number): number => BOARD_SIDE_PADDING + (lane - LANE_MIN) * lanePitch,
+      nodeTop: (nodeStage: number): number => BOARD_TOP_PADDING + (nodeStage - 1) * STAGE_GAP,
+    };
+  }, [totalStages, windowWidth]);
+
+  const nodeById = useMemo(
+    () => new Map((mapGraph?.nodes ?? []).map((node) => [node.id, node])),
+    [mapGraph?.nodes],
+  );
+
+  const availableNodeIds = useMemo(() => {
+    if (mapGraph === null || stage === null) return [];
+    return getAvailableNodeIdsForStage(mapGraph, mapPathByStage, stage);
+  }, [mapGraph, mapPathByStage, stage]);
+
+  const availableNodeIdSet = useMemo(() => new Set(availableNodeIds), [availableNodeIds]);
+
+  const selectedNode = useMemo(() => {
+    if (mapGraph === null || stage === null) return null;
+    return getSelectedNodeForStage(mapGraph, mapPathByStage, stage);
+  }, [mapGraph, mapPathByStage, stage]);
+
+  const currentStageNodes = useMemo(() => {
+    if (mapGraph === null || stage === null) return [];
+    return getRunMapNodesForStage(mapGraph, stage);
+  }, [mapGraph, stage]);
+
+  const edges = useMemo<readonly GraphEdge[]>(() => {
+    if (mapGraph === null) return [];
+
+    const output: GraphEdge[] = [];
+
+    for (const node of mapGraph.nodes) {
+      const startX = graphMetrics.nodeLeft(node.lane) + NODE_SIZE / 2;
+      const startY = graphMetrics.nodeTop(node.stage) + NODE_SIZE / 2;
+
+      for (const nextId of node.nextNodeIds) {
+        const nextNode = nodeById.get(nextId);
+        if (nextNode === undefined) continue;
+
+        const endX = graphMetrics.nodeLeft(nextNode.lane) + NODE_SIZE / 2;
+        const endY = graphMetrics.nodeTop(nextNode.stage) + NODE_SIZE / 2;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const width = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+
+        let tone: EdgeTone = 'base';
+        if (mapPathByStage[node.stage] === node.id && mapPathByStage[node.stage + 1] === nextId) {
+          tone = 'chosen';
+        } else if (
+          node.stage === currentStage - 1 &&
+          mapPathByStage[node.stage] === node.id &&
+          availableNodeIdSet.has(nextId)
+        ) {
+          tone = 'preview';
+        } else if (node.stage === currentStage && mapPathByStage[currentStage] === node.id) {
+          tone = 'preview';
+        }
+
+        output.push({
+          id: `${node.id}->${nextId}`,
+          left: startX,
+          top: startY,
+          width,
+          angle: `${Math.atan2(dy, dx)}rad`,
+          tone,
+        });
+      }
+    }
+
+    return output;
+  }, [availableNodeIdSet, currentStage, graphMetrics, mapGraph, mapPathByStage, nodeById]);
+
+  const stageMarkers = useMemo(() => {
+    const markers: Array<{ stage: number; top: number }> = [];
+    for (let stageNum = 1; stageNum <= totalStages; stageNum += 1) {
+      if (stageNum === 1 || stageNum === totalStages || stageNum === currentStage || stageNum % 5 === 0) {
+        markers.push({
+          stage: stageNum,
+          top: graphMetrics.nodeTop(stageNum) + NODE_SIZE / 2 - 7,
+        });
+      }
+    }
+    return markers;
+  }, [currentStage, graphMetrics, totalStages]);
+
+  const isCombatLocked =
+    preparedStageIndex === currentStage &&
+    (combatStatus === 'in_progress' || combatStatus === 'simulating' || combatStatus === 'finished');
+
+  if (runId === null || stage === null) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyTitle}>No Active Run</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.replace('Hub')}>
+          <Text style={styles.backBtnText}>Return to Hub</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (mapGraph === null) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyTitle}>Building Run Map…</Text>
+      </View>
+    );
+  }
+
+  const selectedRoomName =
+    selectedNode !== null ? RUN_MAP_ROOM_LABELS[selectedNode.roomType] : 'None selected';
+
+  const handleSelectNode = (nodeId: string) => {
+    if (isCombatLocked) return;
+    try {
+      selectMapNodeForCurrentStage(nodeId);
+    } catch {
+      // surfaced through runStore.error
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Run Map</Text>
+        <Text style={styles.title}>Branching Run Map</Text>
         <Text style={styles.subtitle}>
-          Stage {currentStage} of {TOTAL_STAGES}  ·  {completedCount} completed  ·  {remaining} remaining
+          Stage {currentStage} of {totalStages} · {completedCount} cleared · {remaining} to go
         </Text>
         {activeClassId !== null && (
           <Text style={styles.classLabel}>{CLASS_BY_ID.get(activeClassId as ClassId)?.name ?? activeClassId}</Text>
         )}
-        {vaultStreak > 0 && (
-          <Text style={styles.vaultStreakLabel}>⚠ Vault streak: {vaultStreak} stage{vaultStreak > 1 ? 's' : ''} at risk
+        <Text style={styles.selectionLabel}>Current pick: {selectedRoomName}</Text>
+        {vaultStreak > 0 && <Text style={styles.vaultStreakLabel}>Vault streak: {vaultStreak} at risk</Text>}
+        {isCombatLocked && (
+          <Text style={styles.lockLabel}>
+            Route locked: this stage already has an active battle.
           </Text>
         )}
+        {runPassiveIds.length > 0 && (
+          <View style={styles.passiveChipsRow}>
+            {runPassiveIds.map((pid) => {
+              const def = RUN_PASSIVE_BY_ID.get(pid);
+              return (
+                <View key={pid} style={styles.passiveChip}>
+                  <Text style={styles.passiveChipText} numberOfLines={1}>
+                    {def?.name ?? pid}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+        <View style={styles.headerToolsRow}>
+          <Pressable onPress={() => setShowRules((v) => !v)} style={styles.headerToolChip}>
+            <Text style={styles.headerToolChipText}>{showRules ? 'Hide Rules' : 'Show Rules'}</Text>
+          </Pressable>
+          <Pressable onPress={() => setShowStageRoutes((v) => !v)} style={styles.headerToolChip}>
+            <Text style={styles.headerToolChipText}>{showStageRoutes ? 'Hide Routes' : 'Show Routes'}</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.stageList}>
-        {stages.map((n) => (
-          <StageNode key={n} stageNum={n} currentStage={currentStage} />
-        ))}
+      {showRules && (
+        <View style={styles.rulesCard}>
+          <Text style={styles.rulesTitle}>Map Rules</Text>
+          <Text style={styles.rulesLine}>One-way traversal only: each room connects forward to the next stage.</Text>
+          <Text style={styles.rulesLine}>Boss cadence: Stage 5 mini-boss, Stage 10 gate boss, Stage 30 counter boss.</Text>
+          <Text style={styles.rulesLine}>Checkpoint gates at Stage 10, Stage 20, and Stage 30.</Text>
+        </View>
+      )}
+
+      <ScrollView contentContainerStyle={styles.graphScrollContent}>
+        <View
+          style={[
+            styles.graphBoard,
+            {
+              width: graphMetrics.boardWidth,
+              height: graphMetrics.boardHeight,
+            },
+          ]}
+        >
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            {edges.map((edge) => (
+              <View
+                key={edge.id}
+                style={[
+                  styles.edge,
+                  edge.tone === 'chosen'
+                    ? styles.edgeChosen
+                    : edge.tone === 'preview'
+                      ? styles.edgePreview
+                      : styles.edgeBase,
+                  {
+                    left: edge.left,
+                    top: edge.top,
+                    width: edge.width,
+                    transform: [{ rotateZ: edge.angle }],
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
+          {stageMarkers.map((marker) => (
+            <View key={`marker.${marker.stage}`} style={[styles.stageMarker, { top: marker.top }]}>
+              <Text
+                style={[
+                  styles.stageMarkerText,
+                  marker.stage === currentStage && styles.stageMarkerTextCurrent,
+                ]}
+              >
+                {`S${marker.stage}`}
+              </Text>
+            </View>
+          ))}
+
+          {mapGraph.nodes.map((node) => {
+            const isCurrentStage = node.stage === currentStage;
+            const isCompleted = node.stage < currentStage;
+            const isAvailable = isCurrentStage && availableNodeIdSet.has(node.id) && !isCombatLocked;
+            const isSelected = mapPathByStage[node.stage] === node.id;
+            const left = graphMetrics.nodeLeft(node.lane);
+            const top = graphMetrics.nodeTop(node.stage);
+
+            return (
+              <View key={node.id} style={[styles.nodeSlot, { left, top }]}>
+                <RoomNodeCard
+                  node={node}
+                  isAvailable={isAvailable}
+                  isSelected={isSelected}
+                  isCompleted={isCompleted}
+                  onPress={() => handleSelectNode(node.id)}
+                />
+              </View>
+            );
+          })}
+        </View>
+
+        {showStageRoutes && currentStageNodes.length > 0 && (
+          <View style={styles.currentChoicesCard}>
+            <Text style={styles.currentChoicesTitle}>Current Stage Routes</Text>
+            <View style={styles.currentChoicesGrid}>
+              {currentStageNodes.map((node) => {
+                const roomVisual = ROOM_VISUALS[node.roomType];
+                const isReachable = availableNodeIdSet.has(node.id);
+                const isSelected = selectedCurrentStageNodeId === node.id;
+
+                return (
+                  <View
+                    key={`choice.${node.id}`}
+                    style={[
+                      styles.choiceChip,
+                      {
+                        borderColor: roomVisual.border,
+                        backgroundColor: roomVisual.bg,
+                      },
+                      !isReachable && !isSelected && styles.choiceChipLocked,
+                      isSelected && styles.choiceChipSelected,
+                    ]}
+                  >
+                    <Text style={[styles.choiceChipLabel, { color: roomVisual.text }]}>
+                      {RUN_MAP_ROOM_LABELS[node.roomType]}
+                    </Text>
+                    <Text style={styles.choiceChipMeta}>
+                      {isSelected ? 'Selected' : isReachable ? 'Reachable' : 'Blocked'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
+      {runError !== null && <Text style={styles.error}>{runError}</Text>}
+
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>← Back</Text>
+        {selectedNode !== null && !isCombatLocked && (
+          <TouchableOpacity style={styles.secondaryBtn} onPress={clearMapNodeSelectionForCurrentStage}>
+            <Text style={styles.secondaryBtnText}>Clear Pick</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.primaryBtn, selectedNode === null && styles.primaryBtnDisabled]}
+          disabled={selectedNode === null}
+          onPress={() => {
+            if (selectedNode === null) return;
+            navigation.replace(selectedNode.roomType === 'rest' ? 'InnDecision' : 'Battle');
+          }}
+        >
+          <Text style={styles.primaryBtnText}>
+            {selectedNode === null ? 'Pick A Reachable Room' : `Enter ${RUN_MAP_ROOM_LABELS[selectedNode.roomType]}`}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -120,6 +435,15 @@ export function RunMapScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f4ef' },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#f5f4ef',
+    padding: 20,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#2b1f10' },
   header: {
     padding: 20,
     paddingBottom: 12,
@@ -127,44 +451,227 @@ const styles = StyleSheet.create({
     borderBottomColor: '#d8cdbb',
     gap: 4,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2b1f10' },
+  title: { fontSize: 22, fontWeight: '800', color: '#2b1f10' },
   subtitle: { fontSize: 13, color: '#5d4d35' },
   classLabel: { fontSize: 12, color: '#7b684a', fontStyle: 'italic' },
+  selectionLabel: { fontSize: 12, color: '#244d88', fontWeight: '700', marginTop: 2 },
   vaultStreakLabel: { fontSize: 12, color: '#8b5a00', fontWeight: '600' },
-  stageList: { paddingHorizontal: 16, paddingVertical: 12, gap: 6 },
-  node: {
+  lockLabel: { fontSize: 12, color: '#8a2e2e', fontWeight: '700', marginTop: 2 },
+  passiveChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  passiveChip: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#e8f0ff',
+    borderWidth: 1,
+    borderColor: '#a0b8d8',
+  },
+  passiveChipText: { fontSize: 10, fontWeight: '600', color: '#2a4a7a' },
+  headerToolsRow: {
+    marginTop: 6,
     flexDirection: 'row',
+    gap: 6,
+  },
+  headerToolChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#d5ccb8',
+    backgroundColor: '#f9f4e8',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  headerToolChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6b583b',
+  },
+  rulesCard: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d8cdbb',
+    backgroundColor: '#fffdf8',
+    padding: 10,
+    gap: 3,
+  },
+  rulesTitle: { fontSize: 12, color: '#6f5838', fontWeight: '800', textTransform: 'uppercase' },
+  rulesLine: { fontSize: 12, color: '#5c4b36' },
+  graphScrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  graphBoard: {
+    alignSelf: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dfd5c4',
+    backgroundColor: '#fffdf8',
+    overflow: 'hidden',
+  },
+  edge: {
+    position: 'absolute',
+    borderRadius: 999,
+  },
+  edgeBase: {
+    height: 1.5,
+    backgroundColor: '#ded6c8',
+  },
+  edgePreview: {
+    height: 2.4,
+    backgroundColor: '#7ea3cc',
+  },
+  edgeChosen: {
+    height: 2.8,
+    backgroundColor: '#2d5ca8',
+  },
+  stageMarker: {
+    position: 'absolute',
+    left: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+    backgroundColor: '#f2ede5',
+  },
+  stageMarkerText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#8a7962',
+  },
+  stageMarkerTextCurrent: {
+    color: '#24579f',
+  },
+  nodeSlot: {
+    position: 'absolute',
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+  },
+  graphNode: {
+    width: NODE_SIZE,
+    height: NODE_SIZE,
+    borderRadius: NODE_SIZE / 2,
+    borderWidth: 1.8,
     alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1.5,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  graphNodeAvailable: {
+    shadowColor: '#2a5ab0',
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  graphNodeSelected: {
+    borderWidth: 3,
+    borderColor: '#1d5bab',
+  },
+  graphNodeShort: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  graphNodePin: {
+    position: 'absolute',
+    bottom: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#1d5bab',
+  },
+  conditionChip: {
+    position: 'absolute',
+    bottom: -16,
+    alignSelf: 'center',
+    backgroundColor: '#fdf2d0',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 0.5,
+    borderColor: '#d4a248',
+    minWidth: 36,
+  },
+  conditionChipText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#805407',
+    textAlign: 'center',
+  },
+  currentChoicesCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#dfd5c4',
+    backgroundColor: '#fffdf8',
+    padding: 10,
     gap: 8,
   },
-  nodeLeft: { flexDirection: 'row', alignItems: 'center', width: 52 },
-  nodeRight: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  stageNum: { fontSize: 14, fontWeight: '700', minWidth: 24 },
-  doneCheck: { fontSize: 13, color: '#5a9a6a' },
-  currentDot: { fontSize: 13 },
-  markerTag: {
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  currentChoicesTitle: {
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    color: '#6f5c40',
+    fontWeight: '800',
   },
-  markerTagText: { fontSize: 10, color: '#fff', fontWeight: '600' },
-  currentTag: {
-    borderRadius: 4,
-    backgroundColor: '#2a5ab0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  currentChoicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  currentTagText: { fontSize: 10, color: '#fff', fontWeight: '700' },
+  choiceChip: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    minWidth: 90,
+  },
+  choiceChipLocked: {
+    opacity: 0.45,
+  },
+  choiceChipSelected: {
+    borderColor: '#1d5bab',
+    borderWidth: 2,
+  },
+  choiceChipLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  choiceChipMeta: {
+    fontSize: 10,
+    marginTop: 2,
+    color: '#6c6a68',
+  },
+  error: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    color: '#8b1a1a',
+    fontSize: 12,
+  },
   footer: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#d8cdbb',
     backgroundColor: '#fffdf8',
+    gap: 8,
   },
+  primaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: '#2d5ca8',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  primaryBtnDisabled: { opacity: 0.45 },
+  primaryBtnText: { fontSize: 14, color: '#fff', fontWeight: '800' },
+  secondaryBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d8cdbb',
+    backgroundColor: '#fffdf8',
+    paddingVertical: 10,
+  },
+  secondaryBtnText: { fontSize: 13, color: '#4a3a28', fontWeight: '700' },
   backBtn: {
     alignSelf: 'flex-start',
     paddingVertical: 8,

@@ -174,6 +174,7 @@ const normalizePlayerSnapshot = (value: unknown): PlayerSnapshot => {
     classRanks: asIntRecord(obj['classRanks']),
     ownedClassIds: asStringArray(obj['ownedClassIds']),
     currentRunId: asNullableString(obj['currentRunId']),
+    augmentsPicked: Math.max(0, asInt(obj['augmentsPicked'], 0)),
   };
 };
 
@@ -400,6 +401,10 @@ export const getRunSnapshot = async (runId: string): Promise<RunSnapshot> => {
     activeClassId: asString(data['activeClassId']),
     activeLineageId: asString(data['activeLineageId']),
     evolutionTargetClassId: asNullableString(data['evolutionTargetClassId']),
+    selectedRiskContractIds: asStringArray(data['selectedRiskContractIds']),
+    runPassiveIds: asStringArray(data['runPassiveIds']),
+    augmentIds: asStringArray(data['augmentIds']),
+    pendingInnDecisionId: asNullableString(data['pendingInnDecisionId']),
     bankedRewards: normalizeRewardBundle(data['bankedRewards'] ?? EMPTY_REWARD_BUNDLE),
     vaultedRewards: normalizeRewardBundle(data['vaultedRewards'] ?? EMPTY_REWARD_BUNDLE),
     result: data['result'] === 'won' || data['result'] === 'lost' ? data['result'] : 'ongoing',
@@ -525,5 +530,6 @@ export const getPlayerSnapshot = async (uid: string): Promise<PlayerSnapshot | n
     classRanks: asIntRecord(data['classRanks']),
     ownedClassIds: asStringArray(data['ownedClassIds']),
     currentRunId: asNullableString(data['currentRunId']),
+    augmentsPicked: Math.max(0, asInt(data['augmentsPicked'], 0)),
   };
 };

@@ -56,6 +56,17 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
       requireOwnership(runData, uid);
       requireOngoing(runData);
 
+      // Enforce no_forfeit risk contract: fled is blocked server-side.
+      const activeContractIds: string[] = Array.isArray(runData.selectedRiskContractIds)
+        ? runData.selectedRiskContractIds
+        : [];
+      if (finalResult === 'fled' && activeContractIds.includes('contract.no_forfeit')) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Cannot forfeit a run with an active No Retreat Oath contract.'
+        );
+      }
+
       // Stage at terminal: stage advances to N+1 after submitStageOutcome at N.
       // The "stage completed" for progression is therefore stage - 1.
       const stageCompleted = Math.max(0, runData.stage - 1);
