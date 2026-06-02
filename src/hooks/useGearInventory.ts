@@ -8,6 +8,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { getFirestore } from '@/services/firebase';
 import { usePlayerStore } from '@/stores';
+import { temperGear } from '@/services/runApi';
 import {
   type GearLookupResult,
   type GearSlot,
@@ -19,6 +20,7 @@ export interface GearInstance {
   templateId: string;
   obtainedFromRunId: string | null;
   equipped: boolean;
+  temperLevel: number;
   resolved?: GearLookupResult;
 }
 
@@ -51,6 +53,8 @@ export interface UseGearInventoryResult {
   equip: (instanceId: string) => Promise<void>;
   /** Unequip a gear instance. No-op if already unequipped. */
   unequip: (instanceId: string) => Promise<void>;
+  /** Attempt to temper a gear instance (spends gold, success not guaranteed). */
+  temper: (instanceId: string) => Promise<{ success: boolean; newLevel: number; goldSpent: number }>;
 }
 
 /**
@@ -86,17 +90,23 @@ export function useGearInventory(): UseGearInventoryResult {
             templateId?: unknown;
             obtainedFromRunId?: unknown;
             equipped?: unknown;
+            temperLevel?: unknown;
           };
           const templateId = typeof data.templateId === 'string' ? data.templateId : '';
           const obtainedFromRunId =
             typeof data.obtainedFromRunId === 'string' ? data.obtainedFromRunId : null;
           const equipped = data.equipped === true;
+          const temperLevel =
+            typeof data.temperLevel === 'number' && Number.isFinite(data.temperLevel)
+              ? Math.max(0, Math.trunc(data.temperLevel))
+              : 0;
           const resolved = templateId.length > 0 ? lookupGearTemplate(templateId) : undefined;
           return {
             instanceId: d.id,
             templateId,
             obtainedFromRunId,
             equipped,
+            temperLevel,
             ...(resolved !== undefined ? { resolved } : {}),
           };
         });
@@ -153,5 +163,14 @@ export function useGearInventory(): UseGearInventoryResult {
     await updateDoc(ref, { equipped: false });
   };
 
-  return { instances, bySlot, equippedBySlot, loading, error, equip, unequip };
+  const temper = async (
+    instanceId: string,
+  ): Promise<{ success: boolean; newLevel: number; goldSpent: number }> => {
+    const result = await temperGear(instanceId);
+    // Sync gold balance back to the player store.
+    usePlayerStore.setState({ goldBank: result.goldRemaining });
+    return { success: result.success, newLevel: result.temperLevel, goldSpent: result.goldSpent };
+  };
+
+  return { instances, bySlot, equippedBySlot, loading, error, equip, unequip, temper };
 }

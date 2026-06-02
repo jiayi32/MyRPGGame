@@ -203,7 +203,7 @@ export function validateRewardBundle(rewards: unknown, label = 'rewards'): void 
 // ---------------------------------------------------------------------------
 const REWARD_CAPS = {
   gold: 50_000,
-  ascensionCells: 10,
+  ascensionCells: 20,
   xpScrollMinor: 20,
   xpScrollStandard: 10,
   xpScrollGrand: 3,

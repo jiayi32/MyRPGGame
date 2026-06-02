@@ -2,6 +2,7 @@ import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { SKILL_BY_ID } from '@/content';
 import type { SkillId } from '@/content/types';
 import { SYNTHETIC_BASIC_ATTACK_ID } from '@/domain/combat';
+import { colors, spacing, radius, typography } from '@/design';
 
 export function describeSkillCost(skillId: SkillId): string {
   if (skillId === SYNTHETIC_BASIC_ATTACK_ID) return '';
@@ -47,23 +48,39 @@ export function AbilityButton({
   reason?: string;
   compact?: boolean;
 }) {
+  const bgColor = disabled ? '#2a2520' : colors.button.primary.bg;
+  const borderColor = disabled ? '#3d3628' : colors.button.primary.border;
+  const labelColor = disabled ? colors.dark.text.dim : colors.button.primary.text;
+
   return (
     <TouchableOpacity
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
       disabled={disabled}
-      style={[styles.abilityBtn, compact && styles.abilityBtnCompact, disabled && styles.abilityBtnDisabled]}
+      style={[
+        styles.abilityBtn,
+        compact && styles.abilityBtnCompact,
+        { backgroundColor: bgColor, borderColor },
+      ]}
     >
-      <Text style={[styles.abilityBtnLabel, disabled && styles.abilityBtnLabelDisabled]}>{label}</Text>
+      <Text style={[typography.style.bodySm, { color: labelColor, fontWeight: '600' }]}>
+        {label}
+      </Text>
       {cost.length > 0 && (
-        <Text style={[styles.abilityBtnCost, disabled && styles.abilityBtnCostDisabled]}>{cost}</Text>
+        <Text style={[typography.style.bodyXs, { color: disabled ? colors.dark.text.dim : colors.accent.amber }]}>
+          {cost}
+        </Text>
       )}
       {cooldown !== undefined && cooldown > 0 && (
-        <Text style={styles.abilityBtnCooldown}>CD {cooldown.toFixed(1)}s</Text>
+        <Text style={[typography.style.bodyXs, { color: colors.accent.amber, fontStyle: 'italic' }]}>
+          CD {cooldown.toFixed(1)}s
+        </Text>
       )}
       {!compact && reason !== undefined && reason.length > 0 && disabled && (
-        <Text style={styles.abilityBtnReason}>{reason}</Text>
+        <Text style={[typography.style.bodyXs, { color: colors.accent.crimson, fontStyle: 'italic' }]}>
+          {reason}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -73,24 +90,16 @@ const styles = StyleSheet.create({
   abilityBtn: {
     minWidth: 100,
     flexGrow: 1,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#7a3b00',
-    backgroundColor: '#7a3b00',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
+    gap: spacing.xs,
   },
   abilityBtnCompact: {
     minWidth: 92,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  abilityBtnDisabled: { backgroundColor: '#e6e6ea', borderColor: '#bbb' },
-  abilityBtnLabel: { fontSize: 13, color: '#fff', fontWeight: '600' },
-  abilityBtnLabelDisabled: { color: '#888' },
-  abilityBtnCost: { fontSize: 10, color: '#ffd9a0' },
-  abilityBtnCostDisabled: { color: '#aaa' },
-  abilityBtnCooldown: { fontSize: 10, color: '#ffd9a0', fontStyle: 'italic' },
-  abilityBtnReason: { fontSize: 10, color: '#a04040', fontStyle: 'italic' },
 });

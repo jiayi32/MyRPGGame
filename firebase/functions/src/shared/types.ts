@@ -108,6 +108,10 @@ export interface GearInstanceDoc {
   obtainedAt: Timestamp;
   /** True when currently equipped; written by client via EquipmentScreen. */
   equipped: boolean;
+  /** Tempering level (0 = untempered). Each level adds 1.5% stat bonus. */
+  temperLevel?: number;
+  /** Timestamp of the last successful temper attempt. */
+  lastTemperedAt?: Timestamp;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -65,8 +65,13 @@ export function SkillDraftScreen({ navigation }: Props) {
     navigation.replace('RunMap');
   };
 
+  useEffect(() => {
+    if (draftOptions.length === 0) {
+      navigation.replace('RunMap');
+    }
+  }, [draftOptions.length, navigation]);
+
   if (draftOptions.length === 0) {
-    navigation.replace('RunMap');
     return null;
   }
 

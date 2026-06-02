@@ -490,6 +490,25 @@ export const buyGear = async (payload: BuyGearPayload): Promise<BuyGearResponse>
   };
 };
 
+export interface TemperGearResult {
+  success: boolean;
+  temperLevel: number;
+  goldSpent: number;
+  goldRemaining: number;
+}
+
+export const temperGear = async (instanceId: string): Promise<TemperGearResult> => {
+  const data = asRecord(
+    await callCallable<{ instanceId: string }, unknown>('temperGear', { instanceId }),
+  );
+  return {
+    success: asBoolean(data['success']),
+    temperLevel: Math.max(0, asInt(data['temperLevel'])),
+    goldSpent: Math.max(0, asInt(data['goldSpent'])),
+    goldRemaining: Math.max(0, asInt(data['goldRemaining'])),
+  };
+};
+
 export const upgradeClass = async (
   payload: UpgradeClassPayload,
 ): Promise<UpgradeClassResponse> => {

@@ -1,4 +1,5 @@
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors, spacing, radius, typography, touchTarget } from '../../design';
 
 export type PrimaryButtonVariant = 'primary' | 'secondary' | 'destructive';
 
@@ -15,15 +16,21 @@ interface PrimaryButtonProps {
 }
 
 const VARIANT_BG: Record<PrimaryButtonVariant, string> = {
-  primary: '#7a3b00',
-  secondary: '#3a8a5a',
-  destructive: '#a04040',
+  primary: colors.button.primary.bg,
+  secondary: colors.button.secondary.bg,
+  destructive: colors.button.destructive.bg,
 };
 
 const VARIANT_BORDER: Record<PrimaryButtonVariant, string> = {
-  primary: '#5a2a00',
-  secondary: '#2a6a3a',
-  destructive: '#7a3030',
+  primary: colors.button.primary.border,
+  secondary: colors.button.secondary.border,
+  destructive: colors.button.destructive.border,
+};
+
+const VARIANT_TEXT: Record<PrimaryButtonVariant, string> = {
+  primary: colors.button.primary.text,
+  secondary: colors.button.secondary.text,
+  destructive: colors.button.destructive.text,
 };
 
 /**
@@ -42,6 +49,9 @@ export function PrimaryButton({
   style,
 }: PrimaryButtonProps) {
   const isInactive = disabled || busy;
+  const bgColor = isInactive ? colors.button.primary.disabledBg : VARIANT_BG[variant];
+  const borderColor = isInactive ? colors.button.primary.disabledBorder : VARIANT_BORDER[variant];
+  const textColor = isInactive ? colors.button.primary.disabledText : VARIANT_TEXT[variant];
 
   return (
     <TouchableOpacity
@@ -51,15 +61,13 @@ export function PrimaryButton({
       style={[
         styles.btn,
         fullWidth && styles.fullWidth,
-        isInactive
-          ? styles.btnDisabled
-          : { backgroundColor: VARIANT_BG[variant], borderColor: VARIANT_BORDER[variant] },
+        { backgroundColor: bgColor, borderColor },
         style,
       ]}
     >
       <View style={styles.row}>
-        {busy && <ActivityIndicator size="small" color="#fff" style={styles.spinner} />}
-        <Text style={[styles.label, isInactive && styles.labelDisabled]}>{title}</Text>
+        {busy && <ActivityIndicator size="small" color={textColor} style={styles.spinner} />}
+        <Text style={[typography.style.buttonLabel, { color: textColor }]}>{title}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -67,21 +75,15 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   btn: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing['2xl'],
+    borderRadius: radius.md,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: touchTarget.button,
   },
   fullWidth: { alignSelf: 'stretch' },
-  btnDisabled: {
-    backgroundColor: '#e6e0d4',
-    borderColor: '#c8c0b0',
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  spinner: { marginRight: 4 },
-  label: { fontSize: 15, color: '#fff', fontWeight: '700', letterSpacing: 0.3 },
-  labelDisabled: { color: '#8a8074' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  spinner: { marginRight: spacing.sm },
 });

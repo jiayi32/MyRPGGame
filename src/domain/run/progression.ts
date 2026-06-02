@@ -60,6 +60,47 @@ const ascensionCellsForOutcome = (runResult: RunResult, stageCompleted: number):
   return stage;
 };
 
+/**
+ * Generate a human-readable unlock hint for a locked class.
+ *
+ * - Tier 1: "Available as starting class — pick during onboarding"
+ * - Tier 2+: Looks up which owned class has this locked class as an
+ *   evolution target and returns a specific hint.
+ * - If no parent is found (should not happen in current data): generic hint.
+ *
+ * @param classData   The locked class to generate a hint for.
+ * @param ownedClassIds  Set of class IDs the player already owns.
+ * @param allClasses     The full CLASS_BY_ID registry.
+ */
+export const getUnlockHint = (
+  classData: { readonly id: string; readonly tier: number; readonly evolutionTargetClassIds?: readonly string[] },
+  ownedClassIds: readonly string[],
+  allClasses: ReadonlyMap<string, { readonly name: string; readonly lineageId: string; readonly evolutionTargetClassIds: readonly string[] }>,
+): string => {
+  // Tier 1 → starting class, available at character creation / onboarding.
+  if (classData.tier <= 1) {
+    return 'Starting class — available at character creation';
+  }
+
+  // Find the parent: any owned class that has this class as an evolution target.
+  for (const ownedId of ownedClassIds) {
+    const ownedClass = allClasses.get(ownedId);
+    if (ownedClass === undefined) continue;
+    if (ownedClass.evolutionTargetClassIds.includes(classData.id)) {
+      return `Complete a run at Stage 1+ with ${ownedClass.name}`;
+    }
+  }
+
+  // Fallback: check all classes (not just owned) to find ANY parent.
+  for (const [, candidate] of allClasses) {
+    if (candidate.evolutionTargetClassIds.includes(classData.id)) {
+      return `Unlock ${candidate.name} first, then complete a run with it`;
+    }
+  }
+
+  return 'Complete runs with earlier classes to unlock';
+};
+
 export const applyProgression = (input: ProgressionInput): ProgressionResult => {
   const activeClass = CLASS_BY_ID.get(input.activeClassId);
   if (activeClass === undefined) {

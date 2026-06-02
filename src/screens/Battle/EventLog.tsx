@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { colors, typography } from '@/design';
 
 const EVENT_LOG_TAIL = 6;
 
@@ -15,20 +16,20 @@ interface SummarizedEvent {
 }
 
 const EVENT_STYLE: Record<string, { icon: string; color: string }> = {
-  damage: { icon: '⚔', color: '#e57373' },
-  heal: { icon: '💚', color: '#81c784' },
-  skill_cast: { icon: '◆', color: '#64b5f6' },
-  unit_died: { icon: '💀', color: '#bdbdbd' },
-  status_applied: { icon: '✨', color: '#ce93d8' },
-  status_expired: { icon: '⏳', color: '#90a4ae' },
-  status_tick: { icon: '•', color: '#ffb74d' },
-  battle_ended: { icon: '🏁', color: '#ffb74d' },
-  battle_started: { icon: '▶', color: '#81c784' },
-  ct_shift: { icon: '⏱', color: '#ffb74d' },
-  effect_stub: { icon: '⬡', color: '#90a4ae' },
+  damage: { icon: '⚔', color: colors.damagePopup.damage },
+  heal: { icon: '💚', color: colors.damagePopup.heal },
+  skill_cast: { icon: '◆', color: colors.accent.sapphire },
+  unit_died: { icon: '💀', color: colors.dark.text.dim },
+  status_applied: { icon: '✨', color: colors.accent.amethyst },
+  status_expired: { icon: '⏳', color: colors.dark.text.secondary },
+  status_tick: { icon: '•', color: colors.accent.amber },
+  battle_ended: { icon: '🏁', color: colors.accent.amber },
+  battle_started: { icon: '▶', color: colors.accent.emerald },
+  ct_shift: { icon: '⏱', color: colors.accent.amber },
+  effect_stub: { icon: '⬡', color: colors.dark.text.secondary },
 };
 
-const FALLBACK_STYLE = { icon: '·', color: '#9aa0c0' };
+const FALLBACK_STYLE = { icon: '·', color: colors.dark.text.dim };
 
 function summarizeEvent(e: EventLogEntry): SummarizedEvent {
   const style = EVENT_STYLE[e.type] ?? FALLBACK_STYLE;
@@ -98,15 +99,26 @@ export function EventLog({
 const styles = StyleSheet.create({
   eventLog: {
     borderRadius: 10,
-    backgroundColor: '#1d212e',
+    backgroundColor: colors.dark.background.secondary,
     paddingHorizontal: 10,
     paddingVertical: 8,
     gap: 3,
   },
-  eventLogTitle: { fontSize: 11, fontWeight: '700', color: '#9aa0c0', marginBottom: 2 },
+  eventLogTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.dark.text.secondary,
+    fontFamily: typography.font.sans,
+    marginBottom: 2,
+  },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  eventTime: { fontSize: 10, color: '#5a6080', fontFamily: 'monospace', width: 42 },
+  eventTime: {
+    fontSize: 10,
+    color: colors.dark.text.dim,
+    fontFamily: typography.font.mono,
+    width: 42,
+  },
   eventIcon: { fontSize: 11, width: 16, textAlign: 'center' },
-  eventText: { fontSize: 11, fontWeight: '600', flex: 1 },
+  eventText: { fontSize: 11, fontWeight: '600', flex: 1, fontFamily: typography.font.sans },
 });
 

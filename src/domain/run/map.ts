@@ -50,11 +50,127 @@ const MAX_PER_STAGE: Readonly<Partial<Record<StageRoomType, number>>> = {
   anomaly: 1,
 };
 
-const LANE_PRESETS: Readonly<Record<number, readonly number[]>> = {
-  1: [3],
-  2: [2, 4],
-  3: [1, 3, 5],
-  4: [0, 2, 4, 6],
+const LANE_MIN = 0;
+const LANE_MAX = 6;
+
+// ---------------------------------------------------------------------------
+// Curated map shapes — deterministic templates for node-count variety.
+// The seed selects one shape per run; within the shape, room types and lanes
+// are still randomized. This preserves mobile readability while delivering
+// structural variety across runs.
+// ---------------------------------------------------------------------------
+
+type MapShapeId = 'wide_open' | 'tight_start' | 'diamond' | 'hourglass' | 'uniform';
+
+interface MapShape {
+  id: MapShapeId;
+  /** Node count for a non-boss stage within the given range. */
+  nodeCount: (stage: number, seed: number) => number;
+}
+
+const MAP_SHAPES: readonly MapShape[] = [
+  {
+    id: 'wide_open',
+    nodeCount: (stage: number, seed: number): number => {
+      if (stage <= 4) return 3 + (hash(seed, stage * 7 + 1) % 2);       // 3-4
+      if (stage <= 9) return 3 + (hash(seed, stage * 13 + 3) % 2);       // 3-4
+      if (stage <= 19) return 2 + (hash(seed, stage * 17 + 5) % 2);      // 2-3
+      return 2 + (hash(seed, stage * 19 + 7) % 2);                        // 2-3
+    },
+  },
+  {
+    id: 'tight_start',
+    nodeCount: (stage: number, seed: number): number => {
+      if (stage <= 4) return 2 + (hash(seed, stage * 11 + 2) % 2);       // 2-3
+      if (stage <= 9) return 2 + (hash(seed, stage * 13 + 4) % 3);       // 2-4
+      if (stage <= 19) return 3 + (hash(seed, stage * 17 + 6) % 2);      // 3-4
+      return 3 + (hash(seed, stage * 23 + 8) % 2);                        // 3-4
+    },
+  },
+  {
+    id: 'diamond',
+    nodeCount: (stage: number, seed: number): number => {
+      if (stage <= 4) return 2 + (hash(seed, stage * 9 + 1) % 2);        // 2-3
+      if (stage <= 9) return 3 + (hash(seed, stage * 13 + 3) % 2);       // 3-4
+      if (stage <= 19) return 3 + (hash(seed, stage * 17 + 5) % 2);      // 3-4
+      return 2 + (hash(seed, stage * 21 + 7) % 2);                        // 2-3
+    },
+  },
+  {
+    id: 'hourglass',
+    nodeCount: (stage: number, seed: number): number => {
+      if (stage <= 4) return 3 + (hash(seed, stage * 7 + 2) % 2);        // 3-4
+      if (stage <= 9) return 2 + (hash(seed, stage * 13 + 4) % 2);       // 2-3
+      if (stage <= 19) return 2 + (hash(seed, stage * 17 + 6) % 3);      // 2-4
+      return 3 + (hash(seed, stage * 23 + 8) % 2);                        // 3-4
+    },
+  },
+  {
+    id: 'uniform',
+    nodeCount: (stage: number, seed: number): number => {
+      if (stage <= 4) return 3;
+      if (stage <= 9) return 3 + (hash(seed, stage * 13) % 2);           // 3-4
+      if (stage <= 19) return 3;
+      return 3 + (hash(seed, stage * 21) % 2);                             // 3-4
+    },
+  },
+];
+
+const selectMapShape = (seed: number): MapShape => {
+  const idx = hash(seed, 42) % MAP_SHAPES.length;
+  return MAP_SHAPES[idx] ?? MAP_SHAPES[4]!;
+};
+
+const defaultNodeCountForStage = (seed: number, stage: number, shape: MapShape): number => {
+  if (FORCED_ROOM_BY_STAGE[stage] !== undefined) return 1;
+  if (stage >= 30) return 1;
+  return Math.max(2, Math.min(4, shape.nodeCount(stage, seed)));
+};
+
+/**
+ * Compute lane positions for N nodes, evenly spaced across 0–LANE_MAX
+ * with optional deterministic ±1 jitter.
+ */
+const computeDynamicLanes = (count: number, seed: number, stage: number): readonly number[] => {
+  if (count <= 0) return [3];
+  if (count === 1) return [3];
+
+  const lanes: number[] = [];
+  const span = LANE_MAX - LANE_MIN;
+  for (let i = 0; i < count; i += 1) {
+    const base = LANE_MIN + Math.round((span * i) / (count - 1));
+    // Small deterministic jitter (±1) for organic feel, clamped to range.
+    if (count >= 3 && i > 0 && i < count - 1) {
+      const jitter = (hash(seed, stage * 37 + i * 13) % 3) - 1; // -1, 0, or +1
+      lanes.push(Math.max(LANE_MIN, Math.min(LANE_MAX, base + jitter)));
+    } else {
+      lanes.push(base);
+    }
+  }
+
+  // Ensure at least 1 lane gap between adjacent nodes.
+  for (let i = 1; i < lanes.length; i += 1) {
+    if (lanes[i]! - lanes[i - 1]! < 1) {
+      if (lanes[i]! < LANE_MAX) {
+        lanes[i] = lanes[i]! + 1;
+      } else if (lanes[i - 1]! > LANE_MIN) {
+        lanes[i - 1] = lanes[i - 1]! - 1;
+      }
+      // If both clamped at edges, accept adjacency — rare with 2-4 nodes in 0-6 range.
+    }
+  }
+
+  return lanes;
+};
+
+export const getActualLaneRange = (graph: RunMapGraph): { min: number; max: number } => {
+  let min = LANE_MAX;
+  let max = LANE_MIN;
+  for (const node of graph.nodes) {
+    if (node.lane < min) min = node.lane;
+    if (node.lane > max) max = node.lane;
+  }
+  return { min: min > max ? LANE_MIN : min, max: max > min ? max : LANE_MAX };
 };
 
 const normalizeSeed = (seed: number): number => {
@@ -90,15 +206,6 @@ const sortedStageNodes = (graph: RunMapGraph, stage: number): RunMapNode[] =>
   graph.nodes
     .filter((node) => node.stage === stage)
     .sort((a, b) => a.lane - b.lane || a.id.localeCompare(b.id));
-
-const defaultNodeCountForStage = (seed: number, stage: number): number => {
-  if (FORCED_ROOM_BY_STAGE[stage] !== undefined) return 1;
-  if (stage <= 4) return 3;
-  if (stage <= 9) return 3 + (hash(seed, stage * 13) % 2);
-  if (stage <= 19) return 4;
-  if (stage <= 29) return 3 + (hash(seed, stage * 17) % 2);
-  return 1;
-};
 
 const weightTableForStage = (stage: number): readonly [StageRoomType, number][] => {
   if (stage <= 3) {
@@ -372,11 +479,27 @@ export const getAvailableNodeIdsForStage = (
   pathByStage: RunMapPath,
   stage: number,
 ): readonly string[] => {
-  if (!Number.isInteger(stage) || stage < 1 || stage > graph.totalStages) return [];
+  if (!Number.isInteger(stage) || stage < 0 || stage > graph.totalStages) return [];
 
   const stageNodes = getRunMapNodesForStage(graph, stage);
   if (stageNodes.length === 0) return [];
-  if (stage === 1) return stageNodes.map((node) => node.id);
+
+  // Stage 0: the starting room is always available (no previous stage needed).
+  if (stage === 0) return stageNodes.map((node) => node.id);
+
+  // Stage 1: reachable from Stage 0. If the player has completed S0 (has a
+  // selected node there), only show nodes reachable from that node; otherwise
+  // all S1 nodes are available (S0 connects to every S1 room).
+  if (stage === 1) {
+    const s0NodeId = pathByStage[0];
+    if (typeof s0NodeId !== 'string' || s0NodeId.length === 0) {
+      return stageNodes.map((node) => node.id);
+    }
+    const s0Node = getRunMapNodeById(graph, s0NodeId);
+    if (s0Node === undefined) return stageNodes.map((node) => node.id);
+    const allowed = new Set(stageNodes.map((node) => node.id));
+    return s0Node.nextNodeIds.filter((nodeId) => allowed.has(nodeId));
+  }
 
   const previousNodeId = pathByStage[stage - 1];
   if (typeof previousNodeId !== 'string' || previousNodeId.length === 0) return [];
@@ -393,7 +516,7 @@ export const getSelectedNodeForStage = (
   pathByStage: RunMapPath,
   stage: number,
 ): RunMapNode | null => {
-  if (!Number.isInteger(stage) || stage < 1 || stage > graph.totalStages) return null;
+  if (!Number.isInteger(stage) || stage < 0 || stage > graph.totalStages) return null;
   const nodeId = pathByStage[stage];
   if (typeof nodeId !== 'string' || nodeId.length === 0) return null;
   const node = getRunMapNodeById(graph, nodeId);
@@ -429,7 +552,15 @@ export const repairRunMapPath = (
 ): Record<number, string> => {
   const sanitizedInput = sanitizePathInput(rawPathByStage);
   const output: Record<number, string> = {};
-  const stageLimit = Math.max(1, Math.min(graph.totalStages, Math.trunc(currentStage)));
+  const stageLimit = Math.max(0, Math.min(graph.totalStages, Math.trunc(currentStage)));
+
+  // Stage 0: always valid — auto-select the single S0 node.
+  if (stageLimit >= 0) {
+    const s0Nodes = getRunMapNodesForStage(graph, 0);
+    if (s0Nodes.length === 1 && s0Nodes[0] !== undefined) {
+      output[0] = s0Nodes[0].id;
+    }
+  }
 
   // Completed stages need a valid deterministic path to preserve one-way traversal.
   for (let stage = 1; stage < stageLimit; stage += 1) {
@@ -517,11 +648,24 @@ export const createRunMapGraph = (
   const clampedStages = Math.max(1, Math.min(RUN_MAP_TOTAL_STAGES, Math.trunc(totalStages)));
 
   const mutableNodes: MutableNode[] = [];
+  const shape = selectMapShape(mapSeed);
+
+  // Stage 0 — single normal battle room at center lane, no condition.
+  // Always present; connects to every Stage 1 node so the player has full
+  // branching choice starting from their first post-S0 decision.
+  mutableNodes.push({
+    id: 'map.s0.n0',
+    stage: 0,
+    lane: 3,
+    roomType: 'normal',
+    nextNodeIds: [],
+    condition: undefined,
+  });
 
   for (let stage = 1; stage <= clampedStages; stage += 1) {
     const forcedRoom = FORCED_ROOM_BY_STAGE[stage];
-    const nodeCount = defaultNodeCountForStage(mapSeed, stage);
-    const lanes = LANE_PRESETS[nodeCount] ?? LANE_PRESETS[1] ?? [3];
+    const nodeCount = defaultNodeCountForStage(mapSeed, stage, shape);
+    const lanes = computeDynamicLanes(nodeCount, mapSeed, stage);
 
     const stageCounts: Partial<Record<StageRoomType, number>> = {};
 
@@ -565,15 +709,29 @@ export const createRunMapGraph = (
     ensureIncomingCoverage(mapSeed, stage, currentNodes, nextNodes);
   }
 
+  // Stage 0 → all Stage 1 nodes: the starting room connects to every
+  // first-stage node so the player has unrestricted branching choice.
+  const s0Node = mutableNodes.find((n) => n.stage === 0);
+  const s1Nodes = mutableNodes.filter((n) => n.stage === 1);
+  if (s0Node !== undefined) {
+    s0Node.nextNodeIds = s1Nodes.map((n) => n.id);
+  }
+
   return {
     seed: mapSeed,
     totalStages: clampedStages,
-    nodes: mutableNodes.map((node) => ({
-      id: node.id,
-      stage: node.stage,
-      lane: node.lane,
-      roomType: node.roomType,
-      nextNodeIds: [...node.nextNodeIds],
-    })),
+    nodes: mutableNodes.map((node) => {
+      const result: RunMapNode = {
+        id: node.id,
+        stage: node.stage,
+        lane: node.lane,
+        roomType: node.roomType,
+        nextNodeIds: [...node.nextNodeIds],
+      };
+      if (node.condition !== undefined) {
+        result.condition = node.condition;
+      }
+      return result;
+    }),
   };
 };

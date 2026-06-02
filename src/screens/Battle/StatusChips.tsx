@@ -1,16 +1,17 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Unit } from '@/domain/combat';
+import { colors } from '@/design';
 
 export function statusChipColor(kind: string): { backgroundColor: string; borderColor: string } {
   switch (kind) {
-    case 'dot': return { backgroundColor: '#fde0e0', borderColor: '#a04040' };
-    case 'hot': return { backgroundColor: '#e0fde0', borderColor: '#40a040' };
-    case 'buff': return { backgroundColor: '#e0e8ff', borderColor: '#4060c0' };
-    case 'debuff': return { backgroundColor: '#fde0fd', borderColor: '#a040a0' };
-    case 'shield': return { backgroundColor: '#fff8e0', borderColor: '#a08040' };
-    case 'stun': return { backgroundColor: '#e8e8e8', borderColor: '#808080' };
-    case 'counter': return { backgroundColor: '#fde8c8', borderColor: '#c08040' };
-    default: return { backgroundColor: '#f0f0f0', borderColor: '#808080' };
+    case 'dot': return { backgroundColor: colors.statusEffect.negative.bg, borderColor: colors.accent.crimson };
+    case 'hot': return { backgroundColor: colors.statusEffect.positive.bg, borderColor: colors.accent.emerald };
+    case 'buff': return { backgroundColor: colors.statusEffect.positive.bg, borderColor: colors.accent.sapphire };
+    case 'debuff': return { backgroundColor: colors.statusEffect.negative.bg, borderColor: colors.accent.amethyst };
+    case 'shield': return { backgroundColor: colors.statusEffect.neutral.bg, borderColor: colors.accent.amber };
+    case 'stun': return { backgroundColor: colors.dark.background.secondary, borderColor: colors.dark.text.dim };
+    case 'counter': return { backgroundColor: '#fde8c8', borderColor: colors.accent.amber };
+    default: return { backgroundColor: colors.dark.background.secondary, borderColor: colors.dark.text.dim };
   }
 }
 

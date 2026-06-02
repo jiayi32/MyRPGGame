@@ -109,7 +109,7 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
       tx.set(runRef, {
         playerId: uid,
         seed,
-        stage: 1,
+        stage: 0,
         turn: 0,
         vaultStreak: 0,
         activeClassId,

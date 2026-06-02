@@ -6,6 +6,11 @@ import { useRunStore } from '@/stores';
 import { useCombatStore } from '@/stores/combatStore';
 import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, STAGE_CONDITION_BY_ID } from '@/content';
 import type { ClassId } from '@/content/types';
+import { ScreenWrapper } from '@/components/atoms/ScreenWrapper';
+import { RoomNodeCard } from '@/components/atoms/RoomNodeCard';
+import { ThemeText } from '@/components/atoms/ThemeText';
+import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { colors, spacing, radius } from '@/design';
 import {
   getAvailableNodeIdsForStage,
   getRunMapNodesForStage,
@@ -37,68 +42,9 @@ interface GraphEdge {
   tone: EdgeTone;
 }
 
-const ROOM_VISUALS: Record<
-  StageRoomType,
-  { short: string; bg: string; border: string; text: string }
-> = {
-  normal: { short: 'B', bg: '#f2f4f8', border: '#c2cad9', text: '#384860' },
-  elite: { short: 'E', bg: '#fee9df', border: '#d77b50', text: '#8b3516' },
-  event: { short: '?', bg: '#efe8ff', border: '#8f79d6', text: '#48308e' },
-  treasure: { short: 'T', bg: '#fff2d6', border: '#d4a248', text: '#805407' },
-  rest: { short: 'R', bg: '#e9f7eb', border: '#65a974', text: '#1f6433' },
-  merchant: { short: '$', bg: '#e4f4ff', border: '#4d91c4', text: '#165984' },
-  anomaly: { short: 'A', bg: '#f8e5ff', border: '#b76dd1', text: '#6d2e8f' },
-  mini_boss: { short: 'M', bg: '#ffe6dc', border: '#d1653a', text: '#8d2d10' },
-  gate: { short: 'G', bg: '#e8f6ed', border: '#5ea577', text: '#215f39' },
-  counter: { short: 'C', bg: '#ffe4e4', border: '#c75d5d', text: '#7b1f1f' },
-};
+// Room visuals now use design tokens via RoomNodeCard component (colors.roomType)
 
-function RoomNodeCard({
-  node,
-  isAvailable,
-  isSelected,
-  isCompleted,
-  onPress,
-}: {
-  node: RunMapNode;
-  isAvailable: boolean;
-  isSelected: boolean;
-  isCompleted: boolean;
-  onPress: () => void;
-}) {
-  const roomVisual = ROOM_VISUALS[node.roomType];
-  const conditionDef = node.condition !== undefined ? STAGE_CONDITION_BY_ID.get(node.condition) : undefined;
-
-  const card = (
-    <View
-      style={[
-        styles.graphNode,
-        {
-          backgroundColor: roomVisual.bg,
-          borderColor: roomVisual.border,
-          opacity: isCompleted && !isSelected ? 0.5 : 1,
-        },
-        isAvailable && styles.graphNodeAvailable,
-        isSelected && styles.graphNodeSelected,
-      ]}
-    >
-      <Text style={[styles.graphNodeShort, { color: roomVisual.text }]}>{roomVisual.short}</Text>
-      {conditionDef !== undefined && (
-        <View style={styles.conditionChip}>
-          <Text style={styles.conditionChipText} numberOfLines={1}>
-            {conditionDef.name}
-          </Text>
-        </View>
-      )}
-      {isSelected && <View style={styles.graphNodePin} />}
-    </View>
-  );
-
-  if (!isAvailable) return card;
-  return <TouchableOpacity onPress={onPress}>{card}</TouchableOpacity>;
-};
-
-export function RunMapScreen({ navigation }: Props) {
+function RunMapScreenInner({ navigation }: Props) {
   const { width: windowWidth } = useWindowDimensions();
 
   const runId = useRunStore((state) => state.runId);
@@ -117,7 +63,7 @@ export function RunMapScreen({ navigation }: Props) {
   const combatStatus = useCombatStore((state) => state.status);
   const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
 
-  const currentStage = stage ?? 1;
+  const currentStage = stage ?? 0;
   const totalStages = mapGraph?.totalStages ?? 30;
   const completedCount = Math.max(0, currentStage - 1);
   const remaining = Math.max(0, totalStages - completedCount);
@@ -129,13 +75,13 @@ export function RunMapScreen({ navigation }: Props) {
     const laneCount = LANE_MAX - LANE_MIN + 1;
     const boardWidth = Math.max(MIN_BOARD_WIDTH, Math.min(MAX_BOARD_WIDTH, windowWidth - 24));
     const lanePitch = (boardWidth - BOARD_SIDE_PADDING * 2 - NODE_SIZE) / (laneCount - 1);
-    const boardHeight = BOARD_TOP_PADDING * 2 + (Math.max(1, totalStages) - 1) * STAGE_GAP + NODE_SIZE;
+    const boardHeight = BOARD_TOP_PADDING * 2 + totalStages * STAGE_GAP + NODE_SIZE;
 
     return {
       boardWidth,
       boardHeight,
       nodeLeft: (lane: number): number => BOARD_SIDE_PADDING + (lane - LANE_MIN) * lanePitch,
-      nodeTop: (nodeStage: number): number => BOARD_TOP_PADDING + (nodeStage - 1) * STAGE_GAP,
+      nodeTop: (nodeStage: number): number => BOARD_TOP_PADDING + nodeStage * STAGE_GAP,
     };
   }, [totalStages, windowWidth]);
 
@@ -178,7 +124,11 @@ export function RunMapScreen({ navigation }: Props) {
         const endY = graphMetrics.nodeTop(nextNode.stage) + NODE_SIZE / 2;
         const dx = endX - startX;
         const dy = endY - startY;
-        const width = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const lineLength = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        // Position edge at midpoint so rotation-around-center aligns the line
+        // between the two node centers.
+        const midX = (startX + endX) / 2;
+        const midY = (startY + endY) / 2;
 
         let tone: EdgeTone = 'base';
         if (mapPathByStage[node.stage] === node.id && mapPathByStage[node.stage + 1] === nextId) {
@@ -195,9 +145,9 @@ export function RunMapScreen({ navigation }: Props) {
 
         output.push({
           id: `${node.id}->${nextId}`,
-          left: startX,
-          top: startY,
-          width,
+          left: midX - lineLength / 2,
+          top: midY,
+          width: lineLength,
           angle: `${Math.atan2(dy, dx)}rad`,
           tone,
         });
@@ -209,8 +159,8 @@ export function RunMapScreen({ navigation }: Props) {
 
   const stageMarkers = useMemo(() => {
     const markers: Array<{ stage: number; top: number }> = [];
-    for (let stageNum = 1; stageNum <= totalStages; stageNum += 1) {
-      if (stageNum === 1 || stageNum === totalStages || stageNum === currentStage || stageNum % 5 === 0) {
+    for (let stageNum = 0; stageNum <= totalStages; stageNum += 1) {
+      if (stageNum === 0 || stageNum === 1 || stageNum === totalStages || stageNum === currentStage || stageNum % 5 === 0) {
         markers.push({
           stage: stageNum,
           top: graphMetrics.nodeTop(stageNum) + NODE_SIZE / 2 - 7,
@@ -361,10 +311,11 @@ export function RunMapScreen({ navigation }: Props) {
             return (
               <View key={node.id} style={[styles.nodeSlot, { left, top }]}>
                 <RoomNodeCard
-                  node={node}
+                  roomType={node.roomType}
                   isAvailable={isAvailable}
                   isSelected={isSelected}
                   isCompleted={isCompleted}
+                  conditionLabel={node.condition !== undefined ? STAGE_CONDITION_BY_ID.get(node.condition)?.effectLabel : undefined}
                   onPress={() => handleSelectNode(node.id)}
                 />
               </View>
@@ -377,7 +328,7 @@ export function RunMapScreen({ navigation }: Props) {
             <Text style={styles.currentChoicesTitle}>Current Stage Routes</Text>
             <View style={styles.currentChoicesGrid}>
               {currentStageNodes.map((node) => {
-                const roomVisual = ROOM_VISUALS[node.roomType];
+                const roomColors = colors.roomType[node.roomType === 'mini_boss' ? 'miniBoss' : node.roomType === 'gate' ? 'gateBoss' : node.roomType === 'counter' ? 'counterBoss' : node.roomType];
                 const isReachable = availableNodeIdSet.has(node.id);
                 const isSelected = selectedCurrentStageNodeId === node.id;
 
@@ -387,14 +338,14 @@ export function RunMapScreen({ navigation }: Props) {
                     style={[
                       styles.choiceChip,
                       {
-                        borderColor: roomVisual.border,
-                        backgroundColor: roomVisual.bg,
+                        borderColor: roomColors.border,
+                        backgroundColor: roomColors.bg,
                       },
                       !isReachable && !isSelected && styles.choiceChipLocked,
                       isSelected && styles.choiceChipSelected,
                     ]}
                   >
-                    <Text style={[styles.choiceChipLabel, { color: roomVisual.text }]}>
+                    <Text style={[styles.choiceChipLabel, { color: roomColors.text }]}>
                       {RUN_MAP_ROOM_LABELS[node.roomType]}
                     </Text>
                     <Text style={styles.choiceChipMeta}>
@@ -433,8 +384,16 @@ export function RunMapScreen({ navigation }: Props) {
   );
 }
 
+export function RunMapScreen(props: Props) {
+  return (
+    <ScreenWrapper mode="dark" padded={false}>
+      <RunMapScreenInner {...props} />
+    </ScreenWrapper>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f4ef' },
+  container: { flex: 1, backgroundColor: colors.dark.background.primary },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
@@ -589,9 +548,10 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: '#d4a248',
     minWidth: 36,
+    maxWidth: 90,
   },
   conditionChipText: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: '700',
     color: '#805407',
     textAlign: 'center',

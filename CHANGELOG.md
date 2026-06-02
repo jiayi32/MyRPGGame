@@ -6,6 +6,77 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — Phase 4 Build Identity & Replay Depth (2026-05-30)
+
+All five Phase 4 systems shipped end-to-end, plus inn/camp node decisions and a combat UI polish pass. Each system follows the same architectural pattern: content catalog → draft screen → runStore persistence → orchestrator effect pipeline. 34 tests pass with zero regressions.
+
+#### P4.1 — Run Passives (draft every 3 stages)
+- [src/screens/PassiveDraft/PassiveDraftScreen.tsx](src/screens/PassiveDraft/PassiveDraftScreen.tsx): 3-option passive pick at stages 3,6,9,12,15,18,21,24,27. Deterministic selection via seeded hash. Chains to SkillDraft when next stage is divisible by 5 (fixes the stage-15 collision).
+- [src/stores/runStore.ts](src/stores/runStore.ts): `runPassiveIds: string[]`, `selectPassive()`, AsyncStorage persistence (`run.passives.v1.`).
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `applyPassiveEffects()` — Vanguard Heart (+10% HP), Arc Flux (+8% CT speed). Wired into `prepareStage` after contract barriers.
+- [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx) / [src/screens/RunMap/RunMapScreen.tsx](src/screens/RunMap/RunMapScreen.tsx): blue passive chips displayed on both screens.
+
+#### P4.2 — Synergy Tags (tag-based build discovery)
+- [src/content/types/synergy.ts](src/content/types/synergy.ts): `SynergyTag` (6 elemental types), `SynergyBonusDef`, `SYNERGY_BONUSES` array, `SYNERGY_THRESHOLD = 3`.
+- [src/content/tagDerivation.ts](src/content/tagDerivation.ts): auto-derives synergy tags from `DamageType` mapping + name keyword matching + manual override.
+- [src/domain/run/synergy.ts](src/domain/run/synergy.ts): `collectSynergyTags()` and `resolveSynergyBonuses()` — deterministic per-tag bonuses (fire +15% str/int, frost +10% int, shadow +5% crit, light +10% stamina, physical +12% str, arcane +10% int). Includes basic attack skill via `isSpecified` guard.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `applySynergyBonuses()` patches player `baseStats` with per-tag multipliers. Wired into `prepareStage`. Previously computed but never applied — fixed.
+- [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx): gold synergy chips with tag label + count.
+
+#### P4.3 — Skill Draft (pick 1 of 3 at boss stages)
+- [src/screens/SkillDraft/SkillDraftScreen.tsx](src/screens/SkillDraft/SkillDraftScreen.tsx): 3-option draft at stages 5,10,15,20,25 with lineage (blue), synergy (gold), and wildcard (purple) slot badges.
+- [src/domain/run/skillDraft.ts](src/domain/run/skillDraft.ts): `buildDraftPool()` — deterministic pool from seed+stage. Lineage pool via prefix matching, synergy pool via tag overlap, wildcard pool excludes lineage skills. Filters enemy/boss/owned skills.
+- [src/stores/runStore.ts](src/stores/runStore.ts): `draftedSkillIds: SkillId[]`, `selectDraftedSkill()`, AsyncStorage persistence (`run.draftedSkills.v1.`).
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `prepareStage` merges `classData.skillIds` + `draftedSkillIds` into `playerUnit.skillIds`. No new combat engine code needed — CT queue, cooldowns, and validation work identically.
+
+#### P4.5 — Augment System (1-of-3 draft every 4 stages, replaces Cruciball)
+- [src/content/types/augment.ts](src/content/types/augment.ts): `AugmentDef`, `AugmentCategory` (`neutral`/`positive`/`sacrificial`), `AugmentTier` (`bronze`/`silver`/`gold`/`prismatic`), `AugmentId`.
+- [src/content/augments.ts](src/content/augments.ts): 36 augment catalog (9 per tier × 4 tiers) + `AUGMENT_BY_ID` + `getUnlockedTiers()` + `getTierWeightsForStage()` + tier threshold constants (Bronze:0, Silver:≥6, Gold:≥18, Prismatic:≥36).
+- [src/screens/AugmentDraft/AugmentDraftScreen.tsx](src/screens/AugmentDraft/AugmentDraftScreen.tsx): 3 fixed-category cards (Neutral/Positive/Sacrificial) with tier badges. Weighted random tier selection from unlocked pools.
+- [src/stores/runStore.ts](src/stores/runStore.ts): `augmentIds: string[]`, `selectAugment()` (max 7 per run), AsyncStorage persistence (`run.augments.v1.`).
+- [src/stores/playerStore.ts](src/stores/playerStore.ts): `augmentsPicked: number`, `incrementAugmentsPicked()` — account-level tier progression.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `applyAugmentEffects()` — 21 augment ID handlers for stat patching (Hardy +8% HP, Glass Cannon +20% dmg/−15% HP, etc.). Neutral augments deferred. Wired after synergy bonuses in `prepareStage`.
+- [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx): purple augment chips with tier badge (B/S/G/P) displayed below synergy chips.
+- [src/screens/RewardResolution/RewardResolutionScreen.tsx](src/screens/RewardResolution/RewardResolutionScreen.tsx): routes to `AugmentDraft` at stages 4,8,12,16,20,24,28 (before passive/skill checks — augments take priority at collision stages).
+- [firebase/functions/src/shared/types.ts](firebase/functions/src/shared/types.ts): `augmentIds` on `RunDoc`, `augmentsPicked` on `PlayerDoc`.
+
+#### P4.4 — Room Conditions (deterministic per-room modifiers)
+- [src/content/types/stageCondition.ts](src/content/types/stageCondition.ts): `StageConditionId`, `StageConditionDef` with `allowedRoomTypes` + `weight`.
+- [src/content/stageConditions.ts](src/content/stageConditions.ts): 8-condition catalog — Fortified (enemy HP +15%), Exposed, Treasure Cache, Cursed (−10% all stats), Swift (+15% CT), Barrier Pulse (8 HP shield), Merchant's Favor, Restful.
+- [src/domain/run/map.ts](src/domain/run/map.ts): `RunMapNode.condition?: StageConditionId`, `generateRoomCondition()` — deterministic from seed+stage+nodeId with room-type-tiered probabilities (elite/boss ~60%, normal ~30%, economy ~25%). Wired into `createRunMapGraph`.
+- [src/screens/RunMap/RunMapScreen.tsx](src/screens/RunMap/RunMapScreen.tsx): condition chips displayed below node cards.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `applyStageCondition()` — Fortified (enemy HP), Cursed (player −10% stats), Swift (all units CT speed), Barrier Pulse (enemy shield). Wired after inn decision in `prepareStage`.
+- [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx): condition badge in stage banner during combat.
+
+#### Inn/Camp Node Decisions (pre-combat buffs at rest rooms)
+- [src/screens/InnDecision/InnDecisionScreen.tsx](src/screens/InnDecision/InnDecisionScreen.tsx): 3-option pick at rest nodes (Recover +25% HP, Cleanse 1 debuff, Focus Drill +10% CT).
+- [src/stores/runStore.ts](src/stores/runStore.ts): `selectInnDecision()` stores `pendingInnDecisionId`, `clearInnDecision()` consumes it.
+- [src/features/run/orchestrator.ts](src/features/run/orchestrator.ts): `applyInnDecision()` — Recover heals player before combat, Cleanse removes first negative status, Focus Drill adds CT speed. Wired after augment effects.
+- [src/screens/RunMap/RunMapScreen.tsx](src/screens/RunMap/RunMapScreen.tsx): rest rooms route to `InnDecision` instead of `Battle`.
+- Decision is consumed on first use — does not persist to subsequent battles.
+
+#### Combat Feel & UI Polish Pass
+- [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx): augment chips (purple with tier badge B/S/G/P), condition indicator in stage banner (amber chip with condition name).
+- [src/screens/Battle/EventLog.tsx](src/screens/Battle/EventLog.tsx): rewritten — color-coded events with icons (⚔ damage, 💚 heal, 💀 death, etc.), elapsed seconds instead of raw ticks, 3-column layout (time | icon | text). Default tail 6 (was 8).
+- [src/screens/Battle/StatusChips.tsx](src/screens/Battle/StatusChips.tsx): thin duration progress bars below each status chip showing `remainingSec` fraction. Color matches status kind.
+- Enemy intent icons deferred (requires forecast data threading).
+
+### Fixed — Route map edge lines broken + infinite battle restart loop (2026-05-31)
+
+Two critical bugs reported by testers.
+
+#### Edge lines not connecting nodes
+- **Root cause**: Edge Views were positioned at `(startX, startY)` — the top-left corner. `rotateZ` rotates around the View's center, displacing every edge by half its length from the intended midpoint.
+- **Fix**: [src/screens/RunMap/RunMapScreen.tsx](src/screens/RunMap/RunMapScreen.tsx) — edges now positioned at midpoint `(midX - lineLength/2, midY)` where `midX = (startX + endX) / 2`, `midY = (startY + endY) / 2`.
+
+#### Battles never ending (infinite restart loop)
+- **Root cause**: `needsFreshSetup` in BattleScreen's useEffect included `combatStatus === 'finished'`. When a battle ended, `combatStatus` changed to `'finished'`, the useEffect re-fired, the condition evaluated to `true`, and `beginInteractive` was called again — preparing a brand new battle with the same stage/room before the player could see the result card or press submit. This cycled indefinitely.
+- **Fix**: [src/screens/Battle/BattleScreen.tsx](src/screens/Battle/BattleScreen.tsx) — removed `combatStatus === 'finished'` from `needsFreshSetup`. A new battle is only prepared when `combatStatus === 'idle'` (fresh start), `preparedStageIndex !== stage` (stage advanced), or `preparedRoomNodeId !== currentStageNode.id` (different room selected). The `'finished'` state is handled by showing the result card — the engine stays at its terminal state until submission.
+
+#### Additional routing fixes
+- [src/screens/RewardResolution/RewardResolutionScreen.tsx](src/screens/RewardResolution/RewardResolutionScreen.tsx): augment routing added (stages 4,8,12,16,20,24,28) before passive/skill checks. Augments take priority at collision stages (12 overrides passive, 20 overrides skill draft).
+- [src/screens/PassiveDraft/PassiveDraftScreen.tsx](src/screens/PassiveDraft/PassiveDraftScreen.tsx): chains to `SkillDraft` when `nextStage % 5 === 0` (fixes stage 15 passive→skill collision).
+
 ### Added — Narrative wrapper for run flow (2026-05-27)
 
 Started the benchmark-driven improvement plan by adding lightweight narrative framing to the start and end of runs, without changing combat authority or progression math.

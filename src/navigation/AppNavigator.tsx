@@ -16,10 +16,13 @@ import { PassiveDraftScreen } from '@/screens/PassiveDraft/PassiveDraftScreen';
 import { SkillDraftScreen } from '@/screens/SkillDraft/SkillDraftScreen';
 import { AugmentDraftScreen } from '@/screens/AugmentDraft/AugmentDraftScreen';
 import { InnDecisionScreen } from '@/screens/InnDecision/InnDecisionScreen';
+import { RiskContractSelectScreen } from '@/screens/RiskContractSelect/RiskContractSelectScreen';
 import { PlaceholderScreen } from '@/screens/Placeholder';
 import { SignInScreen } from '@/screens/SignIn';
 import { DevToolsScreen } from '@/screens/DevTools';
 import { usePlayerStore, useRunStore } from '@/stores';
+import { Icon, type IconName } from '@/components/atoms/Icon';
+import { colors } from '@/design';
 
 export type HomeStackParamList = {
   Hub: undefined;
@@ -32,6 +35,7 @@ export type HomeStackParamList = {
   SkillDraft: undefined;
   AugmentDraft: undefined;
   InnDecision: undefined;
+  RiskContractSelect: { classId: string };
   Placeholder: undefined;
 };
 
@@ -51,13 +55,17 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
-  const icons: Record<string, string> = { HomeStack: '⚔', Shop: '🧰', Equipment: '🛡', Profile: '👤' };
-  return (
-    <Text style={{ fontSize: 18, opacity: focused ? 1 : 0.5 }}>
-      {icons[label] ?? label[0]}
-    </Text>
-  );
+const TAB_ICONS: Record<string, IconName> = {
+  HomeStack: 'castle',
+  Shop: 'coin-sack',
+  Equipment: 'shield',
+  Profile: 'crest',
+};
+
+function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }) {
+  const iconName = TAB_ICONS[routeName] ?? 'castle';
+  const iconColor = focused ? colors.tabBar.active : colors.tabBar.inactive;
+  return <Icon name={iconName} size={22} color={iconColor} />;
 }
 
 function HomeStackNavigator() {
@@ -125,6 +133,15 @@ function HomeStackNavigator() {
           gestureEnabled: false,
         }}
       />
+      <HomeStack.Screen
+        name="RiskContractSelect"
+        component={RiskContractSelectScreen}
+        options={{
+          title: 'Risk Contracts',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
       <HomeStack.Screen name="Placeholder" component={PlaceholderScreen} options={{ title: 'Diagnostics' }} />
     </HomeStack.Navigator>
   );
@@ -150,10 +167,14 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
-        tabBarActiveTintColor: '#7a3b00',
-        tabBarInactiveTintColor: '#9e8870',
-        tabBarStyle: { backgroundColor: '#fffdf8', borderTopColor: '#d8cdbb' },
+        tabBarIcon: ({ focused }) => <TabIcon routeName={route.name} focused={focused} />,
+        tabBarActiveTintColor: colors.tabBar.active,
+        tabBarInactiveTintColor: colors.tabBar.inactive,
+        tabBarStyle: {
+          backgroundColor: colors.tabBar.background,
+          borderTopColor: colors.tabBar.border,
+          height: 56,
+        },
       })}
     >
       <Tab.Screen
@@ -235,10 +256,10 @@ export function AppNavigator() {
 const styles = StyleSheet.create({
   bootstrapContainer: {
     flex: 1,
-    backgroundColor: '#f5f4ef',
+    backgroundColor: colors.parchment.background.primary,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
-  bootstrapText: { fontSize: 13, color: '#5d4d35' },
+  bootstrapText: { fontSize: 13, color: colors.parchment.text.secondary },
 });

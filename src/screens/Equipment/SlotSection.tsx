@@ -19,13 +19,17 @@ export function SlotSection({
   instances,
   equipped,
   onToggleEquip,
+  onTemper,
   busyInstanceId,
+  temperBusyInstanceId,
 }: {
   slot: GearSlot;
   instances: GearInstance[];
   equipped: GearInstance | undefined;
   onToggleEquip: (instanceId: string) => Promise<void>;
+  onTemper?: ((instanceId: string) => void) | undefined;
   busyInstanceId: string | null;
+  temperBusyInstanceId?: string | null;
 }) {
   const sorted = [...instances].sort((a, b) => {
     if (a.equipped !== b.equipped) return a.equipped ? -1 : 1;
@@ -62,6 +66,12 @@ export function SlotSection({
             onToggleEquip={() => {
               onToggleEquip(inst.instanceId).catch(() => undefined);
             }}
+            onTemper={
+              onTemper !== undefined
+                ? () => onTemper(inst.instanceId)
+                : undefined
+            }
+            temperBusy={temperBusyInstanceId === inst.instanceId}
           />
         ))
       )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -154,15 +154,18 @@ export function AugmentDraftScreen({ navigation }: Props) {
     }
   };
 
-  if (draftOptions.length === 0) {
-    // No augments available in the selected tier — skip to Run Map.
-    // Also handle the case where next stage is a skill draft.
-    const nextStage = (stage ?? 0) + 1;
-    if (nextStage % 5 === 0 && nextStage <= 25) {
-      navigation.replace('SkillDraft');
-    } else {
-      navigation.replace('RunMap');
+  useEffect(() => {
+    if (draftOptions.length === 0) {
+      const nextStage = (stage ?? 0) + 1;
+      if (nextStage % 5 === 0 && nextStage <= 25) {
+        navigation.replace('SkillDraft');
+      } else {
+        navigation.replace('RunMap');
+      }
     }
+  }, [draftOptions.length, navigation, stage]);
+
+  if (draftOptions.length === 0) {
     return null;
   }
 

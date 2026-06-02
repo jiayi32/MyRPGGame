@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
@@ -63,9 +63,18 @@ export function PassiveDraftScreen({ navigation }: Props) {
     }
   };
 
+  useEffect(() => {
+    if (draftOptions.length === 0) {
+      const nextStage = (stage ?? 0) + 1;
+      if (nextStage % 5 === 0 && nextStage <= 25) {
+        navigation.replace('SkillDraft');
+      } else {
+        navigation.replace('RunMap');
+      }
+    }
+  }, [draftOptions.length, navigation, stage]);
+
   if (draftOptions.length === 0) {
-    // No more passives to draft — skip directly to Run Map.
-    navigation.replace('RunMap');
     return null;
   }
 

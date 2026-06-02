@@ -12,9 +12,15 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useShallow } from 'zustand/react/shallow';
 import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { ScreenWrapper } from '@/components/atoms/ScreenWrapper';
+import { ThemeText } from '@/components/atoms/ThemeText';
+import { Card } from '@/components/atoms/Card';
+import { Bar, UnitBars } from '@/components/atoms/Bar';
+import { StatusChip, StatusChipRow } from '@/components/atoms/StatusChip';
 import { AbilityDetailsModal } from '@/components/organisms/AbilityDetailsModal';
 import { CastPulse } from '@/components/molecules/CastPulse';
 import { DamagePopupOverlay } from '@/components/molecules/DamagePopupOverlay';
+import { colors, spacing, radius, typography } from '@/design';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, SKILL_BY_ID, AUGMENT_BY_ID, STAGE_CONDITION_BY_ID } from '@/content';
@@ -57,33 +63,17 @@ const STAGE_TYPE_LABELS: Record<StageType, string> = {
   gate: 'Checkpoint Gate',
   counter: 'Counter Boss',
 };
-const STAGE_TYPE_COLORS: Record<StageType, string> = {
-  normal: '#4a3a28',
-  mini_boss: '#7a3000',
-  gate: '#1a5a2a',
-  counter: '#7a0000',
-};
-const STAGE_TYPE_BG: Record<StageType, string> = {
-  normal: '#fffdf8',
-  mini_boss: '#fff3e6',
-  gate: '#edfaee',
-  counter: '#fde8e8',
+// Stage type colors now use design tokens inline (see render section)
+const STAGE_TYPE_COLOR_MAP: Record<StageType, keyof typeof colors.roomType> = {
+  normal: 'normal',
+  mini_boss: 'miniBoss',
+  gate: 'gateBoss',
+  counter: 'counterBoss',
 };
 
 const ACTION_DOCK_HEIGHT = 118;
 
-const ROOM_TYPE_BADGES: Record<StageRoomType, { bg: string; text: string }> = {
-  normal: { bg: '#ecf0f7', text: '#3a4a65' },
-  elite: { bg: '#fde9e3', text: '#8b2c1b' },
-  event: { bg: '#ede7ff', text: '#47348e' },
-  treasure: { bg: '#fff3d6', text: '#8a5a00' },
-  rest: { bg: '#e8f6ea', text: '#1f6a38' },
-  merchant: { bg: '#dff2ff', text: '#14598a' },
-  anomaly: { bg: '#f9e6ff', text: '#7a2d9b' },
-  mini_boss: { bg: '#ffe5d8', text: '#9b3410' },
-  gate: { bg: '#e6f5eb', text: '#21643c' },
-  counter: { bg: '#ffe3e3', text: '#8a1f1f' },
-};
+// Room type badges now use design colors.roomType tokens inline (see render)
 
 type ForecastIntent = 'Player' | 'Burst' | 'Sustain' | 'Control' | 'Summon' | 'Basic' | 'Unknown';
 
@@ -101,13 +91,13 @@ const FORECAST_DEFAULT_VISIBLE = 3;
 const FORECAST_MAX_ITERATIONS = 120;
 
 const FORECAST_INTENT_STYLES: Record<ForecastIntent, { bg: string; fg: string }> = {
-  Player: { bg: '#dff2e5', fg: '#1f5f3a' },
-  Burst: { bg: '#fde3e3', fg: '#8b1a1a' },
-  Sustain: { bg: '#e4f2e7', fg: '#245b2f' },
-  Control: { bg: '#e3ecfb', fg: '#2b4f93' },
-  Summon: { bg: '#efe4fb', fg: '#5d3a8f' },
-  Basic: { bg: '#eceef5', fg: '#465078' },
-  Unknown: { bg: '#f1f2f7', fg: '#606a88' },
+  Player: colors.intent.player,
+  Burst: colors.intent.burst,
+  Sustain: colors.intent.sustain,
+  Control: colors.intent.control,
+  Summon: colors.intent.summon,
+  Basic: colors.intent.basic,
+  Unknown: colors.intent.unknown,
 };
 
 const FORECAST_INTENT_ICONS: Record<ForecastIntent, string> = {
@@ -340,7 +330,7 @@ export function BattleScreen({ navigation }: Props) {
     currentStageNode !== null
       ? {
           label: RUN_MAP_ROOM_LABELS[currentStageNode.roomType],
-          style: ROOM_TYPE_BADGES[currentStageNode.roomType],
+          roomType: currentStageNode.roomType,
         }
       : null;
 
@@ -374,8 +364,7 @@ export function BattleScreen({ navigation }: Props) {
     const needsFreshSetup =
       combatStatus === 'idle' ||
       preparedStageIndex !== stage ||
-      preparedRoomNodeId !== currentStageNode.id ||
-      combatStatus === 'finished';
+      preparedRoomNodeId !== currentStageNode.id;
     if (needsFreshSetup) {
       beginInteractive({
         seed,
@@ -561,26 +550,32 @@ export function BattleScreen({ navigation }: Props) {
     [expandedForecast, turnForecast],
   );
 
+  const stageRoomColorKey = STAGE_TYPE_COLOR_MAP[stageType];
+  const stageColors = colors.roomType[stageRoomColorKey];
+
   return (
-    <>
+    <ScreenWrapper mode="dark" padded={false}>
     <ScrollView
       style={styles.scrollContainer}
       contentContainerStyle={[styles.container, !battleEnded && styles.containerWithDock]}
     >
       {stage !== null && (
-        <View style={[styles.stageBanner, { backgroundColor: STAGE_TYPE_BG[stageType], borderColor: STAGE_TYPE_COLORS[stageType] }]}>
+        <View style={[styles.stageBanner, { backgroundColor: stageColors.bg, borderColor: stageColors.border }]}>
           <View style={styles.stageBannerRow}>
-            <Text style={[styles.stageNum, { color: STAGE_TYPE_COLORS[stageType] }]}>Stage {stage}</Text>
-            <View style={[styles.stageTypeBadge, { backgroundColor: STAGE_TYPE_COLORS[stageType] }]}>
+            <Text style={[styles.stageNum, { color: stageColors.text }]}>Stage {stage}</Text>
+            <View style={[styles.stageTypeBadge, { backgroundColor: stageColors.text }]}>
               <Text style={styles.stageTypeBadgeText}>{STAGE_TYPE_LABELS[stageType]}</Text>
             </View>
-            {roomBadge !== null && (
-              <View style={[styles.roomTypeBadge, { backgroundColor: roomBadge.style.bg }]}> 
-                <Text style={[styles.roomTypeBadgeText, { color: roomBadge.style.text }]}>
-                  {roomBadge.label}
-                </Text>
-              </View>
-            )}
+            {roomBadge !== null && (() => {
+              const rbColors = colors.roomType[roomBadge.roomType === 'mini_boss' ? 'miniBoss' : roomBadge.roomType === 'gate' ? 'gateBoss' : roomBadge.roomType === 'counter' ? 'counterBoss' : roomBadge.roomType];
+              return (
+                <View style={[styles.roomTypeBadge, { backgroundColor: rbColors.bg }]}> 
+                  <Text style={[styles.roomTypeBadgeText, { color: rbColors.text }]}>
+                    {roomBadge.label}
+                  </Text>
+                </View>
+              );
+            })()}
             {currentStageNode?.condition !== undefined && (() => {
               const condDef = STAGE_CONDITION_BY_ID.get(currentStageNode.condition);
               if (condDef === undefined) return null;
@@ -879,14 +874,14 @@ export function BattleScreen({ navigation }: Props) {
       target={selectedTarget}
       onClose={() => setDetailsSkillId(null)}
     />
-    </>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flex: 1, backgroundColor: '#f6f6fa' },
-  container: { padding: 16, gap: 12, paddingBottom: 32 },
-  containerWithDock: { paddingBottom: ACTION_DOCK_HEIGHT + 16 },
+  scrollContainer: { flex: 1, backgroundColor: colors.dark.background.primary },
+  container: { padding: spacing.xl, gap: spacing.lg, paddingBottom: spacing['4xl'] },
+  containerWithDock: { paddingBottom: ACTION_DOCK_HEIGHT + spacing.xl },
   stageBanner: {
     borderRadius: 12,
     borderWidth: 1.5,
@@ -1127,34 +1122,16 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     minHeight: ACTION_DOCK_HEIGHT,
-    backgroundColor: '#fffdf8',
+    backgroundColor: colors.dark.background.secondary,
     borderTopWidth: 1,
-    borderTopColor: '#d8cdbb',
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 10,
-    gap: 6,
+    borderTopColor: colors.dark.border.default,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: spacing.sm,
   },
-  actionDockTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#6a7090',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  actionDockSkillsRow: {
-    gap: 6,
-    paddingRight: 6,
-  },
-  actionDockReason: {
-    fontSize: 10,
-    color: '#8b1a1a',
-  },
-  actionDockWaitingText: {
-    fontSize: 12,
-    color: '#5a5a78',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 10,
-  },
+  actionDockTitle: { fontSize: 11, fontWeight: '700', color: colors.dark.text.secondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  actionDockSkillsRow: { gap: spacing.sm, paddingRight: spacing.sm },
+  actionDockReason: { fontSize: 10, color: colors.accent.crimson, fontStyle: 'italic', textAlign: 'center' },
+  actionDockWaitingText: { fontSize: 12, color: colors.dark.text.secondary, fontStyle: 'italic', textAlign: 'center', paddingVertical: spacing.lg },
 });

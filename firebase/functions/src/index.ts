@@ -12,6 +12,7 @@ export { bankCheckpoint } from './bankCheckpoint';
 export { endRun } from './endRun';
 export { getShopOffer } from './getShopOffer';
 export { buyGear } from './buyGear';
+export { temperGear } from './temperGear';
 export { upgradeClass } from './upgradeClass';
 
 // Replay audit (background trigger; not user-callable)

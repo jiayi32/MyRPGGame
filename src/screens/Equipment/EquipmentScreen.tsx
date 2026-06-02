@@ -15,9 +15,12 @@ const SLOT_ORDER: readonly GearSlot[] = ['weapon', 'armor', 'accessory'];
 
 export function EquipmentScreen() {
   const playerStatus = usePlayerStore((state) => state.status);
-  const { bySlot, equippedBySlot, instances, loading, error, equip, unequip } =
+  const goldBank = usePlayerStore((state) => state.goldBank);
+  const { bySlot, equippedBySlot, instances, loading, error, equip, unequip, temper } =
     useGearInventory();
   const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
+  const [temperBusyInstanceId, setTemperBusyInstanceId] = useState<string | null>(null);
+  const [temperFeedback, setTemperFeedback] = useState<string | null>(null);
 
   const handleToggleEquip = async (instanceId: string): Promise<void> => {
     const inst = instances.find((i) => i.instanceId === instanceId);
@@ -34,6 +37,29 @@ export function EquipmentScreen() {
     }
   };
 
+  const handleTemper = (instanceId: string) => {
+    setTemperBusyInstanceId(instanceId);
+    setTemperFeedback(null);
+    temper(instanceId)
+      .then((result) => {
+        if (result.success) {
+          setTemperFeedback(
+            `Temper successful! +${result.newLevel}  (${result.goldSpent}g spent)`,
+          );
+        } else {
+          setTemperFeedback(
+            `Temper failed — lost ${result.goldSpent}g. Try again!`,
+          );
+        }
+      })
+      .catch((err) => {
+        setTemperFeedback(err instanceof Error ? err.message : 'Temper failed');
+      })
+      .finally(() => {
+        setTemperBusyInstanceId(null);
+      });
+  };
+
   const isLoading = playerStatus !== 'ready' || loading;
   const totalItems = instances.length;
 
@@ -46,10 +72,16 @@ export function EquipmentScreen() {
             ? 'Gear acquired from completed runs'
             : `${totalItems} item${totalItems === 1 ? '' : 's'} in inventory`}
         </Text>
+        <Text style={styles.goldLabel}>Gold: {goldBank}g</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
         {error !== null && <Text style={styles.error}>{error}</Text>}
+        {temperFeedback !== null && (
+          <Text style={temperFeedback.startsWith('Temper successful') ? styles.temperSuccess : styles.temperFailure}>
+            {temperFeedback}
+          </Text>
+        )}
         {isLoading && instances.length === 0 ? (
           <View style={styles.loadingCard}>
             <Text style={styles.loadingText}>Loading…</Text>
@@ -70,7 +102,9 @@ export function EquipmentScreen() {
               instances={bySlot[slot] ?? []}
               equipped={equippedBySlot[slot]}
               onToggleEquip={handleToggleEquip}
+              onTemper={handleTemper}
               busyInstanceId={busyInstanceId}
+              temperBusyInstanceId={temperBusyInstanceId}
             />
           ))
         )}
@@ -90,6 +124,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: '700', color: '#2b1f10' },
   subtitle: { fontSize: 13, color: '#5d4d35' },
+  goldLabel: { fontSize: 13, color: '#7a3b00', fontWeight: '700' },
   content: { padding: 16, gap: 16 },
   error: {
     backgroundColor: '#fde8e8',
@@ -119,4 +154,19 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 40 },
   emptyTitle: { fontSize: 16, fontWeight: '600', color: '#4a3a28' },
   emptyHint: { fontSize: 13, color: '#7b684a', textAlign: 'center', lineHeight: 18 },
+  temperSuccess: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 8,
+    padding: 10,
+    color: '#2e7d32',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  temperFailure: {
+    backgroundColor: '#fde8e8',
+    borderRadius: 8,
+    padding: 10,
+    color: '#8b1a1a',
+    fontSize: 13,
+  },
 });

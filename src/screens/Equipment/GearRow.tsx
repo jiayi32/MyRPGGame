@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { GearInstance } from '@/hooks/useGearInventory';
 import type { GearRarity } from '@/content/gear';
+import { computeTemperChance, computeTemperCost, formatTemperLevel } from '@/domain/run/temper';
 
 const RARITY_COLORS: Record<GearRarity, string> = {
   common: '#6e6e6e',
@@ -31,10 +32,14 @@ function formatStatSummary(instance: GearInstance): string | null {
 export function GearRow({
   instance,
   onToggleEquip,
+  onTemper,
+  temperBusy,
   busy,
 }: {
   instance: GearInstance;
   onToggleEquip: () => void;
+  onTemper?: (() => void) | undefined;
+  temperBusy?: boolean;
   busy: boolean;
 }) {
   const resolved = instance.resolved;
@@ -43,6 +48,11 @@ export function GearRow({
   const rarity = resolved?.rarity;
   const rarityColor = rarity ? RARITY_COLORS[rarity] : '#888';
   const statSummary = formatStatSummary(instance);
+  const temperLevel = instance.temperLevel ?? 0;
+  const hasTemper = onTemper !== undefined;
+  const temperCost = computeTemperCost(temperLevel);
+  const temperChance = computeTemperChance(temperLevel);
+  const temperChancePct = Math.round(temperChance * 100);
 
   return (
     <View style={[styles.gearRow, instance.equipped && styles.gearRowEquipped]}>
@@ -54,6 +64,11 @@ export function GearRow({
           <View style={[styles.tierBadge, { backgroundColor: rarityColor }]}>
             <Text style={styles.tierBadgeText}>T{tier}</Text>
           </View>
+          {temperLevel > 0 && (
+            <View style={styles.temperBadge}>
+              <Text style={styles.temperBadgeText}>{formatTemperLevel(temperLevel)}</Text>
+            </View>
+          )}
         </View>
         {rarity !== undefined && (
           <Text style={[styles.rarityLabel, { color: rarityColor }]}>{rarity}</Text>
@@ -61,6 +76,22 @@ export function GearRow({
         {statSummary !== null && <Text style={styles.statSummary}>{statSummary}</Text>}
         {resolved === undefined && (
           <Text style={styles.unknownTemplate}>unknown template</Text>
+        )}
+        {hasTemper && (
+          <View style={styles.temperRow}>
+            <Text style={styles.temperInfo}>
+              Temper: {temperCost}g · {temperChancePct}% chance
+            </Text>
+            <TouchableOpacity
+              onPress={onTemper}
+              disabled={temperBusy}
+              style={[styles.temperBtn, temperBusy && styles.temperBtnBusy]}
+            >
+              <Text style={styles.temperBtnText}>
+                {temperBusy ? '…' : 'Temper'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
       <TouchableOpacity
@@ -132,4 +163,29 @@ const styles = StyleSheet.create({
   equipBtnBusy: { opacity: 0.5 },
   equipBtnText: { fontSize: 12, color: '#fff', fontWeight: '600' },
   equipBtnTextEquipped: { color: '#1a5a2a' },
+  temperBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    backgroundColor: '#e07b20',
+  },
+  temperBadgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
+  temperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    gap: 8,
+  },
+  temperInfo: { fontSize: 10, color: '#7a5a30', flex: 1 },
+  temperBtn: {
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#e07b20',
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  temperBtnBusy: { opacity: 0.5 },
+  temperBtnText: { fontSize: 11, color: '#fff', fontWeight: '600' },
 });

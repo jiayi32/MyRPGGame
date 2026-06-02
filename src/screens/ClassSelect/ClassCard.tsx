@@ -15,12 +15,14 @@ export function ClassCard({
   owned,
   selected,
   unlocksFromName,
+  unlockHint,
   onPress,
 }: {
   classData: ClassData;
   owned: boolean;
   selected: boolean;
   unlocksFromName?: string | undefined;
+  unlockHint?: string | undefined;
   onPress: () => void;
 }) {
   const roleColor = ROLE_COLORS[classData.role] ?? '#444';
@@ -57,9 +59,11 @@ export function ClassCard({
         </Text>
       ) : (
         <Text style={styles.lockHint}>
-          {unlocksFromName !== undefined
-            ? `Unlocks from: ${unlocksFromName}`
-            : 'Unlock by completing a run with an evolution path to this class.'}
+          {unlockHint !== undefined
+            ? unlockHint
+            : unlocksFromName !== undefined
+              ? `Unlocks from: ${unlocksFromName}`
+              : 'Unlock by completing a run with an evolution path to this class.'}
         </Text>
       )}
 

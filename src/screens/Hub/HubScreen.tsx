@@ -1,11 +1,15 @@
 import { useEffect } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { useCombatStore } from '@/stores/combatStore';
 import { PrimaryButton } from '@/components/atoms/PrimaryButton';
+import { ScreenWrapper } from '@/components/atoms/ScreenWrapper';
+import { Card } from '@/components/atoms/Card';
+import { ThemeText } from '@/components/atoms/ThemeText';
+import { colors, spacing, radius } from '@/design';
 import { useGearInventory } from '@/hooks/useGearInventory';
 
 export function HubScreen() {
@@ -69,39 +73,70 @@ export function HubScreen() {
   const error = runError ?? playerError;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>MyRPGGame</Text>
-      <Text style={styles.subtitle}>Firebase vertical slice</Text>
+    <ScreenWrapper mode="parchment">
+      <ThemeText textRole="heading" size="2xl" color={colors.accent.gold}>
+        MyRPGGame
+      </ThemeText>
+      <ThemeText textRole="body" size="sm" colorKey="secondary" style={{ marginBottom: spacing.lg }}>
+        Forge Your Lineage
+      </ThemeText>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Player</Text>
-        <Text style={styles.value}>{uid ?? 'Signing in…'}</Text>
-        <Text style={styles.label}>Status</Text>
-        <Text style={styles.value}>{playerStatus}</Text>
-      </View>
+      <Card variant="stat" style={{ marginBottom: spacing.lg }}>
+        <ThemeText textRole="label" size="xs" colorKey="secondary" uppercase>
+          Player
+        </ThemeText>
+        <ThemeText textRole="body" size="md" style={{ marginBottom: spacing.sm }}>
+          {uid ?? 'Signing in…'}
+        </ThemeText>
+        <ThemeText textRole="label" size="xs" colorKey="secondary" uppercase>
+          Status
+        </ThemeText>
+        <ThemeText textRole="body" size="md">
+          {playerStatus}
+        </ThemeText>
+      </Card>
 
       {hasActiveRun && (
-        <View style={styles.runCard}>
-          <Text style={styles.runLabel}>Active Run — Stage {stage ?? '?'}</Text>
-          <Text style={styles.runId}>{runId}</Text>
+        <Card
+          variant="selection"
+          selected
+          style={{ marginBottom: spacing.lg }}
+        >
+          <ThemeText textRole="heading" size="md">
+            Active Run
+          </ThemeText>
+          <ThemeText textRole="pixel" size="md" style={{ marginVertical: spacing.sm }}>
+            Stage {stage ?? '?'}
+          </ThemeText>
+          <ThemeText textRole="body" size="xs" colorKey="secondary">
+            {runId}
+          </ThemeText>
           {hasUnequippedGear && (
-            <Text style={styles.gearNudge}>⚠ You have unequipped gear — check the Equipment tab before heading back.
-            </Text>
+            <ThemeText textRole="body" size="xs" color={colors.accent.amber} style={{ fontStyle: 'italic', marginTop: spacing.sm }}>
+              ⚠ You have unequipped gear — check the Equipment tab before heading back.
+            </ThemeText>
           )}
           {forfeitBlocked ? (
             <View style={styles.forfeitBlockedRow}>
-              <Text style={styles.forfeitBlockedIcon}>🚫</Text>
-              <Text style={styles.forfeitBlockedText}>No Retreat Oath active — forfeit disabled</Text>
+              <ThemeText textRole="body" size="sm" colorKey="secondary" style={{ fontStyle: 'italic' }}>
+                🚫 No Retreat Oath active — forfeit disabled
+              </ThemeText>
             </View>
           ) : (
             <TouchableOpacity onPress={handleForfeit} style={styles.forfeitLink}>
-              <Text style={styles.forfeitLinkText}>Forfeit Run</Text>
+              <ThemeText textRole="body" size="xs" color={colors.accent.crimson} style={{ textDecorationLine: 'underline' }}>
+                Forfeit Run
+              </ThemeText>
             </TouchableOpacity>
           )}
-        </View>
+        </Card>
       )}
 
-      {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+      {error !== null && (
+        <ThemeText textRole="body" size="sm" color={colors.accent.crimson} style={{ marginBottom: spacing.md }}>
+          {error}
+        </ThemeText>
+      )}
 
       <View style={styles.actions}>
         {hasActiveRun ? (
@@ -115,78 +150,17 @@ export function HubScreen() {
           />
         )}
       </View>
-    </View>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    gap: 16,
-    backgroundColor: '#f5f4ef',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#2b1f10',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#5d4d35',
-  },
-  card: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
-    gap: 4,
-  },
-  label: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    color: '#7b684a',
-    letterSpacing: 0.5,
-  },
-  value: {
-    fontSize: 14,
-    color: '#2d2d2d',
-    marginBottom: 6,
-  },
-  runCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#b7c9a0',
-    backgroundColor: '#f2f8ec',
-    gap: 4,
-  },
-  runLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2a4a1a',
-  },
-  runId: {
-    fontSize: 11,
-    color: '#5a7a4a',
-  },
-  forfeitLink: { alignSelf: 'flex-start', marginTop: 4 },
-  forfeitLinkText: { fontSize: 11, color: '#a04040', textDecorationLine: 'underline' },
+  forfeitLink: { alignSelf: 'flex-start', marginTop: spacing.sm },
   forfeitBlockedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
-  forfeitBlockedIcon: { fontSize: 13 },
-  forfeitBlockedText: { fontSize: 11, color: '#7a684a', fontStyle: 'italic' },
-  gearNudge: { fontSize: 12, color: '#8b5a00', fontStyle: 'italic' },
-  actions: {
-    gap: 8,
-  },
-  error: {
-    fontSize: 13,
-    color: '#a10f0f',
-  },
+  actions: { gap: spacing.md, marginTop: spacing.xl },
 });

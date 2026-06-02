@@ -53,6 +53,7 @@ export const buyGear = onCall<BuyGearPayload, Promise<BuyGearResponse>>(
         obtainedFromRunId: null,
         obtainedAt: now,
         equipped: false,
+        temperLevel: 0,
       };
       tx.set(gearRef, gearDoc);
 
