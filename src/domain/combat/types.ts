@@ -76,6 +76,10 @@ export interface Unit {
   readonly statuses: readonly StatusInstance[];
   readonly insertionIndex: number;
   readonly isDead: boolean;
+  /** Whether this unit is a companion (drone/ally) controlled by the player. */
+  readonly isCompanion: boolean;
+  /** Remaining CT reduction from the last Defend action. Applied to next action. */
+  readonly defendStance: number;
 }
 
 export type BattleResult = 'ongoing' | 'won' | 'lost' | 'draw';
@@ -103,6 +107,18 @@ export type Action =
       readonly unitId: InstanceId;
       readonly targetId: InstanceId;
     }
+  | {
+      /** Take a defensive stance. Reduces next action CT cost + grants defense buff. */
+      readonly kind: 'defend';
+      readonly unitId: InstanceId;
+    }
+  | {
+      /** Use an item from inventory (stimpack, energy cell, etc.). */
+      readonly kind: 'use_item';
+      readonly unitId: InstanceId;
+      readonly itemSkillId: SkillId; // References a skill representing the consumable
+      readonly targetId?: InstanceId;
+    }
   | { readonly kind: 'wait'; readonly unitId: InstanceId };
 
 export type StepError =
@@ -113,6 +129,7 @@ export type StepError =
   | 'skill_on_cooldown'
   | 'insufficient_resource'
   | 'invalid_target'
+  | 'item_not_available'
   | 'battle_ended';
 
 export type StepResult =
@@ -205,6 +222,12 @@ export type BattleEvent =
       readonly tick: number;
       readonly type: 'battle_ended';
       readonly result: BattleResult;
+    }
+  | {
+      /** Unit took a defensive stance, reducing next action CT cost. */
+      readonly tick: number;
+      readonly type: 'defend_used';
+      readonly unitId: InstanceId;
     };
 
 export type HitTier = 'fail' | 'normal' | 'strong' | 'critical';

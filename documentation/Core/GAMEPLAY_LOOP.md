@@ -1,5 +1,13 @@
 # Gameplay Loop Deep Research (May 2026)
 
+> **⚠️ RECONCILIATION NOTE (2026-06-02):**
+> **Major Pivot — Sci-Fi GPS RPG.** The roguelite gameplay loop documented below has been superseded by a persistent-world GPS-based loop inspired by Orna/Hero of Aethric. See `Orna_Research.md` for the new loop design. Key changes:
+> - **Old**: Hub → ClassSelect → RunMap → Battle → RewardResolution (30-stage run)
+> - **New**: WorldMap (GPS + joystick) → tap spawn → Battle (CT+Turn) → return to WorldMap → repeat (persistent)
+> - Daily quests, persistent character leveling, and Tech Point class unlocks replace run-based progression.
+>
+> The original 16-game research and loop diagrams remain valuable as genre reference but no longer describe the active gameplay loop.
+
 ## Scope and method
 
 This document delivers:

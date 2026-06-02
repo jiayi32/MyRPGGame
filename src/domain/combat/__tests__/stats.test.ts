@@ -16,6 +16,8 @@ const makeUnit = (stats: Partial<Parameters<typeof makeBaseStats>[0]>, statuses:
   statuses,
   insertionIndex: 0,
   isDead: false,
+  isCompanion: false,
+  defendStance: 0,
 });
 
 describe('stats', () => {

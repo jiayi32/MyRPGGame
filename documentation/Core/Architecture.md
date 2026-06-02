@@ -1,4 +1,24 @@
-> **⚠️ RECONCILIATION NOTE (2026-05-30):**
+> **⚠️ RECONCILIATION NOTE (2026-06-02):**
+> **Major Pivot — Sci-Fi GPS RPG:** As of June 2, 2026, the project has pivoted from a fantasy roguelite to a **sci-fi GPS-based persistent-world RPG** inspired by Orna and Hero of Aethric. See `Orna_Research.md` for the full research blueprint.
+>
+> **What Changed:**
+> - **Theme**: Fantasy → Sci-Fi / Cyberpunk (Corporations replace Lineages, Specializations replace Classes)
+> - **World Model**: Roguelite 30-stage runs → Persistent GPS world with joystick overlay
+> - **Combat**: CT engine preserved but extended with Defend, Items, and Companion slots (CT+Turn hybrid)
+> - **Progression**: Run-based class evolution → Persistent leveling with Tech Point unlocks (Orna-style)
+> - **New Domain**: `src/domain/world/` — spawnDirector, GPS grid system
+> - **New Stores**: `worldStore`, `characterStore`, `questStore` — replacing run-centric stores
+> - **New Screens**: `WorldMapScreen`, `BattleScreenV2` — GPS map + CT combat
+> - **New Services**: `worldApi.ts` — replaces `runApi.ts` for persistent-world paradigm
+>
+> **What's Preserved:**
+> - `src/domain/combat/*` — CT engine intact, extended with new actions
+> - `src/services/auth.ts` + Firebase infrastructure — fully reusable
+> - Content type system structure — adapted for sci-fi
+> - `src/content/` fantasy registries — kept as legacy reference
+>
+> **Original (May 2026) architecture notes below for historical reference.**"
+>
 > **Current Canonical Layout:** The actual codebase uses **flat registries** in `src/content/` (e.g., `src/content/lineages.ts`, `src/content/classes.ts`, `src/content/skills.ts`, `src/content/riskContracts.ts`, `src/content/runAdditions.ts`). The nested folder structure in Section 2 is aspirational/deferred.
 >
 > **New Since April 2026:** Risk contracts (full enforcement), branching Run Map with visual edges, encounter composition templates, room-type-aware run director, run passive + inn decision scaffolding, synergy tag type definitions, and Phase 4 build-identity systems are planned per [GAMEPLAY_LOOP.md](GAMEPLAY_LOOP.md).

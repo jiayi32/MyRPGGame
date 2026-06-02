@@ -405,6 +405,8 @@ const applySummonEffect = (ctx: EffectContext): EffectOutcome => {
     statuses: [],
     insertionIndex: nextInsertionIndex,
     isDead: false,
+    isCompanion: false,
+    defendStance: 0,
   };
 
   const nextState = appendLog(

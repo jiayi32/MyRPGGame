@@ -1,4 +1,9 @@
 export * from './types';
+// Sci-fi content (new — Phase B)
+export * from './corporations';
+export * from './specializations';
+export * from './abilities';
+export * from './cyberware';export * from './dailyQuests';    // Phase D: daily/weekly quests// Legacy fantasy content (deprecated — kept for reference until full migration)
 export * from './lineages';
 export * from './classes';
 export * from './skills';

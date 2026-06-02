@@ -46,6 +46,8 @@ export const buildUnit = (spec: UnitSpec): Unit => {
     statuses: [],
     insertionIndex: spec.insertionIndex ?? 0,
     isDead: false,
+    isCompanion: false,
+    defendStance: 0,
   };
   if (spec.basicAttackSkillId !== undefined) {
     return { ...unit, basicAttackSkillId: spec.basicAttackSkillId };

@@ -188,7 +188,10 @@ const classifyActionIntent = (action: Action): ForecastIntent => {
 const describeForecastAction = (action: Action): string => {
   if (action.kind === 'basic_attack') return 'Basic Attack';
   if (action.kind === 'wait') return 'Wait';
-  return SKILL_BY_ID.get(action.skillId)?.name ?? 'Skill';
+  if (action.kind === 'defend') return 'Defend';
+  if (action.kind === 'use_item') return 'Item';
+  if (action.kind === 'cast_skill') return SKILL_BY_ID.get(action.skillId)?.name ?? 'Skill';
+  return 'Action';
 };
 
 const buildTurnForecast = (

@@ -1,7 +1,18 @@
 # UI Design System — MyRPGGame
 
-> **Version:** 1.0 · **Date:** June 1, 2026 · **Status:** Phase 1 Complete, Phase 2+ Planned
+> **Version:** 1.1 · **Date:** June 2, 2026 · **Status:** Phase 1 Complete, Sci-Fi Adaptation Planned
 >
+> **⚠️ RECONCILIATION NOTE (2026-06-02):**
+> **Theme Pivot — Sci-Fi / Cyberpunk.** The hybrid dark/parchment theme and typography system documented below remain the visual foundation, but all thematic references (lineages, classes, fantasy elements, skill tags) must be reinterpreted through a sci-fi lens:
+> - **Dark mode** (combat/dungeon screens) → Enhanced with neon cyan (`#00ffff`) accents for cyberpunk aesthetic
+> - **Parchment mode** (hub/narrative) → Reimagined as "Terminal" mode with dark UI panels and amber/holographic accents
+> - **Icon set** → New sci-fi icons needed (satellite, chip, circuit, terminal) alongside existing set
+> - **Color additions** → `neon-cyan` (#00ffff), `neon-magenta` (#ff00ff), `terminal-amber` (#ffb000) for sci-fi UI elements
+> - **Screen additions** → WorldMapScreen (GPS map, dark cyberpunk overlay), BattleScreenV2 (CT+Turn hybrid)
+> - **Font stack** → Unchanged. Press Start 2P, Cinzel, Inter, JetBrains Mono all work for sci-fi aesthetics
+>
+> See `Orna_Research.md` for the full theme adaptation blueprint. The design pillars, component specs, and animation system below remain canonical.
+
 > **Design Direction:** Hybrid dark/parchment theme · Pixel typography for key elements · Progressive icon-based art · Rich animation layer
 >
 > This document defines the complete visual system. Every screen, component, and interaction follows these specifications.

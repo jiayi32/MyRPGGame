@@ -10,6 +10,7 @@ import { ProfileScreen } from '@/screens/Profile';
 import { OnboardingNarrativeScreen } from '@/screens/OnboardingNarrative';
 import { ClassSelectScreen } from '@/screens/ClassSelect';
 import { BattleScreen } from '@/screens/Battle';
+import { BattleScreen as BattleScreenV2 } from '@/screens/Battle/BattleScreenV2';
 import { RunMapScreen } from '@/screens/RunMap';
 import { RewardResolutionScreen } from '@/screens/RewardResolution';
 import { PassiveDraftScreen } from '@/screens/PassiveDraft/PassiveDraftScreen';
@@ -20,12 +21,17 @@ import { RiskContractSelectScreen } from '@/screens/RiskContractSelect/RiskContr
 import { PlaceholderScreen } from '@/screens/Placeholder';
 import { SignInScreen } from '@/screens/SignIn';
 import { DevToolsScreen } from '@/screens/DevTools';
+// Phase D: New sci-fi screens
+import { WorldMapScreen } from '@/screens/WorldMap/WorldMapScreen';
 import { usePlayerStore, useRunStore } from '@/stores';
+import { useWorldStore } from '@/stores/worldStore';
+import { useCharacterStore } from '@/stores/characterStore';
 import { Icon, type IconName } from '@/components/atoms/Icon';
 import { colors } from '@/design';
 
 export type HomeStackParamList = {
   Hub: undefined;
+  // Legacy roguelite screens
   OnboardingNarrative: undefined;
   ClassSelect: undefined;
   Battle: undefined;
@@ -37,10 +43,16 @@ export type HomeStackParamList = {
   InnDecision: undefined;
   RiskContractSelect: { classId: string };
   Placeholder: undefined;
+  // Phase D: Sci-fi world screens
+  WorldMap: undefined;
+  BattleV2: undefined;
 };
 
 export type MainTabParamList = {
   HomeStack: NavigatorScreenParams<HomeStackParamList> | undefined;
+  WorldMap: NavigatorScreenParams<HomeStackParamList> | undefined;
+  Character: undefined;
+  Inventory: undefined;
   Shop: undefined;
   Equipment: undefined;
   Profile: undefined;
@@ -56,7 +68,10 @@ const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const TAB_ICONS: Record<string, IconName> = {
+  WorldMap: 'castle',
   HomeStack: 'castle',
+  Character: 'crest',
+  Inventory: 'shield',
   Shop: 'coin-sack',
   Equipment: 'shield',
   Profile: 'crest',
@@ -68,6 +83,31 @@ function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }
   return <Icon name={iconName} size={22} color={iconColor} />;
 }
 
+/** Phase D: World Map Stack — primary game flow with GPS map and combat. */
+function WorldMapStackNavigator() {
+  return (
+    <HomeStack.Navigator initialRouteName="WorldMap">
+      <HomeStack.Screen
+        name="WorldMap"
+        component={WorldMapScreen as React.ComponentType<any>}
+        options={{ headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="BattleV2"
+        component={BattleScreenV2}
+        options={{
+          title: 'Encounter',
+          headerBackVisible: false,
+          gestureEnabled: false,
+          headerStyle: { backgroundColor: '#0a0a1a' },
+          headerTintColor: '#00ffff',
+        }}
+      />
+    </HomeStack.Navigator>
+  );
+}
+
+/** Legacy Hub Stack — kept for existing roguelite flow compatibility. */
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator initialRouteName="Hub">
@@ -177,11 +217,28 @@ function MainTabs() {
         },
       })}
     >
+      {/* Phase D: World Map — primary tab */}
+      <Tab.Screen
+        name="WorldMap"
+        component={WorldMapStackNavigator}
+        options={{ tabBarLabel: 'Grid' }}
+      />
+      {/* Legacy Hub — kept for existing roguelite flow */}
       <Tab.Screen
         name="HomeStack"
         component={HomeStackNavigator}
         options={{ tabBarLabel: 'Hub' }}
         listeners={withTabGuard}
+      />
+      <Tab.Screen
+        name="Character"
+        component={PlaceholderScreen}
+        options={{ tabBarLabel: 'Character' }}
+      />
+      <Tab.Screen
+        name="Inventory"
+        component={EquipmentScreen}
+        options={{ tabBarLabel: 'Gear' }}
       />
       <Tab.Screen
         name="Shop"

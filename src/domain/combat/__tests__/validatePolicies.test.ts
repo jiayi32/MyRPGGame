@@ -29,6 +29,8 @@ const makeUnit = (id: string, team: Unit['team'], hpMax: number): Unit => ({
   statuses: [],
   insertionIndex: 0,
   isDead: false,
+  isCompanion: false,
+  defendStance: 0,
 });
 
 describe('combat validation policies', () => {

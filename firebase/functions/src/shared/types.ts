@@ -79,22 +79,47 @@ export interface StageOutcomeDoc {
 
 export interface PlayerDoc {
   uid: string;
-  /** Persistent currencies — survive run loss/flee. */
+  /** Persistent currencies — survive encounter losses. */
   goldBank: number;
   xpScrolls: XpScrollPouch;
   ascensionCells: number;
-  /** Rare currency from boss kills only; spent on cross-lineage evolution. */
   sigilShards: number;
-  /** Per-lineage rank, 0..10, +1 per completed run (won/lost). */
   lineageRanks: Record<string, number>;
-  /** Per-class mastery rank, 0..10, spent from currencies via upgradeClass. */
   classRanks: Record<string, number>;
-  /** Class IDs the player has unlocked. New profiles start with the canonical T5 starter. */
   ownedClassIds: string[];
-  /** ID of an in-progress run, or null. Set by startRun, cleared by endRun. */
   currentRunId: string | null;
-  /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
   augmentsPicked?: number;
+
+  // ── Persistent World Fields (Phase D — June 2026) ──
+  /** Display name. Default "Runner". */
+  characterName?: string;
+  /** Character level, 1-250. */
+  level?: number;
+  /** Total XP accumulated. */
+  xp?: number;
+  /** Currently active specialization ID (sci-fi class). */
+  activeSpecId?: string | null;
+  /** All permanently unlocked specialization IDs. */
+  unlockedSpecIds?: string[];
+  /** Corporation mastery ranks (0-10 per corp). */
+  corpRanks?: Record<string, number>;
+  /** Standard credits. */
+  credits?: number;
+  /** Premium currency for specialization unlocks (like Orna's Orns). */
+  techPoints?: number;
+  /** Dismantling materials. */
+  scrap?: number;
+  /** Rare crafting components. */
+  quantumCores?: number;
+  /** Currently equipped weapon instance ID. */
+  equippedWeaponId?: string | null;
+  /** Currently equipped armor instance ID. */
+  equippedArmorId?: string | null;
+  /** Currently equipped accessory instance IDs (max 2). */
+  equippedAccessoryIds?: string[];
+  /** All owned gear instance IDs. */
+  inventoryIds?: string[];
+
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

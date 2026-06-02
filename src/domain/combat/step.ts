@@ -10,8 +10,9 @@ import { sortedTurnOrder } from './queue';
 import { appendLog, patchUnit } from './stateUtils';
 import { effectiveStats } from './stats';
 import { canCast, resolveTargets } from './validate';
-import type {
-  Action,
+import {
+  toInstanceId,
+  type Action,
   BattleEvent,
   BattleResult,
   BattleState,
@@ -188,7 +189,168 @@ export const step = (
       const basicId = caster.basicAttackSkillId ?? SYNTHETIC_BASIC_ATTACK_ID;
       return castSkillInternal(state, caster, basicId, [action.targetId], skillLookup);
     }
+    case 'defend':
+      return defendInternal(state, caster);
+    case 'use_item':
+      return useItemInternal(state, caster, action.itemSkillId, action.targetId, skillLookup);
     case 'wait':
       return waitInternal(state, caster);
   }
+};
+
+// ─── Defend Action ────────────────────────────────────────────────
+
+const DEFEND_CT_COST = 10;
+const DEFEND_CT_REDUCTION = 20;
+const DEFEND_DEFENSE_BUFF = 30;
+const DEFEND_BUFF_DURATION = 8;
+
+/**
+ * Defend: unit takes a defensive stance.
+ * - Low CT cost (10).
+ * - Grants +30% defense buff for 8 seconds.
+ * - Reduces next action CT cost by 20.
+ */
+const defendInternal = (state: BattleState, caster: Unit): StepResult => {
+  if (caster.isDead) return fail(state, 'unit_dead');
+  if (caster.ct > EPSILON) return fail(state, 'not_ready');
+
+  const tick = state.tick + 1;
+  let next = chargeCt(state, caster, DEFEND_CT_COST);
+  const casterAfterCt = next.units[caster.id] ?? caster;
+
+  // Apply defense buff as a status
+  const defenseBuff: Unit['statuses'][number] = {
+    id: toInstanceId(`defend_${caster.id}_${tick}`),
+    kind: 'buff',
+    sourceUnitId: caster.id,
+    skillId: 'skill.defend' as SkillId,
+    snapshot: {
+      magnitude: DEFEND_DEFENSE_BUFF,
+      magnitudeUnit: 'percent',
+      sourceStrength: caster.baseStats.strength,
+      sourceIntellect: caster.baseStats.intellect,
+      sourceAgility: caster.baseStats.agility,
+      statTag: 'defense',
+    },
+    remainingSec: DEFEND_BUFF_DURATION,
+    stacks: 1,
+    tickIntervalSec: 0,
+    secSinceLastTick: 0,
+    tags: ['defensive'],
+  };
+
+  next = patchUnit(next, casterAfterCt.id, {
+    defendStance: DEFEND_CT_REDUCTION,
+    statuses: [...casterAfterCt.statuses, defenseBuff],
+  });
+
+  next = appendLog(next, [
+    {
+      tick,
+      type: 'status_applied',
+      sourceUnitId: caster.id,
+      targetUnitId: caster.id,
+      statusKind: 'buff',
+      skillId: 'skill.defend' as SkillId,
+      remainingSec: DEFEND_BUFF_DURATION,
+      stacks: 1,
+    },
+    {
+      tick,
+      type: 'defend_used',
+      unitId: caster.id,
+    },
+  ]);
+
+  next = { ...next, tick };
+  next = resortAfterChange(next);
+  return { ok: true, state: next };
+};
+
+// ─── Use Item Action ──────────────────────────────────────────────
+
+const ITEM_CT_COST = 15;
+const ITEM_COOLDOWN_SEC = 30;
+
+/**
+ * Use an item: resolves like a self-target (or ally-target) skill.
+ * Items are consumable skills (stimpack, energy cell, etc.).
+ * Low CT cost, shared cooldown per item type.
+ */
+const useItemInternal = (
+  state: BattleState,
+  caster: Unit,
+  itemSkillId: SkillId,
+  targetId: InstanceId | undefined,
+  skillLookup: (id: SkillId) => Skill | undefined,
+): StepResult => {
+  if (caster.isDead) return fail(state, 'unit_dead');
+  if (caster.ct > EPSILON) return fail(state, 'not_ready');
+
+  const skill = skillLookup(itemSkillId);
+  if (skill === undefined) return fail(state, 'skill_not_owned');
+
+  // Check item-specific cooldown
+  const currentCooldown = caster.cooldowns[itemSkillId];
+  if (currentCooldown !== undefined && currentCooldown > EPSILON) {
+    return fail(state, 'skill_on_cooldown');
+  }
+
+  // Items always target self or ally
+  const targetIds: readonly InstanceId[] = targetId ? [targetId] : [caster.id];
+
+  // Use the standard skill resolution pipeline, but with item-specific CT/cooldown
+  const tick = state.tick + 1;
+
+  // Pay resource costs (items typically have none)
+  const mpCost = skill.resource.type === 'MP' ? (isSpecified(skill.resource.cost) ? skill.resource.cost : 0) : 0;
+  const hpCost = skill.resource.type === 'HP'
+    ? Math.round(caster.hpMax * (isSpecified(skill.resource.cost) ? skill.resource.cost : 0))
+    : 0;
+
+  let next = payResourceCosts(state, caster, mpCost, hpCost);
+  const casterAfterCost = next.units[caster.id] ?? caster;
+  next = chargeCt(next, casterAfterCost, ITEM_CT_COST);
+  const casterAfterCt = next.units[caster.id] ?? caster;
+
+  // Set item cooldown
+  next = patchUnit(next, casterAfterCt.id, {
+    cooldowns: { ...casterAfterCt.cooldowns, [itemSkillId]: ITEM_COOLDOWN_SEC },
+  });
+
+  // Resolve effect (self-targeted)
+  const casterStats = effectiveStats(caster);
+  const hitThresholds = computeHitThresholds(
+    casterStats.agility,
+    casterStats.agility,
+    0,
+  );
+  const hit: HitRoll = rollHit(state.seed, state.rngCursor, {
+    ...hitThresholds,
+    failThreshold: 0,
+  });
+  let cursor = hit.nextCursor;
+
+  next = appendLog(next, [
+    {
+      tick,
+      type: 'skill_cast',
+      unitId: caster.id,
+      skillId: skill.id,
+      targetIds,
+      hitTier: hit.tier,
+      severity: hit.severity,
+    },
+  ]);
+
+  const effectOutcome = applySkillEffects(next, casterAfterCt, targetIds, skill, hit, cursor, tick);
+  cursor = effectOutcome.cursor;
+  next = effectOutcome.state;
+
+  next = { ...next, tick, rngCursor: cursor };
+  next = resortAfterChange(next);
+  next = sealResultIfEnded(next, tick);
+
+  return { ok: true, state: next };
 };

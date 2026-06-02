@@ -15,6 +15,11 @@ export { buyGear } from './buyGear';
 export { temperGear } from './temperGear';
 export { upgradeClass } from './upgradeClass';
 
+// Phase D: Persistent World endpoints (June 2026)
+export { submitEncounter } from './submitEncounter';
+export { updatePlayerLocation } from './updatePlayerLocation';
+export { syncCharacter } from './syncCharacter';
+
 // Replay audit (background trigger; not user-callable)
 export { auditRunCompletion } from './auditReplay';
 

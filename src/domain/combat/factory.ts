@@ -88,6 +88,8 @@ export interface PlayerUnitOptions {
   readonly insertionIndex?: number;
   readonly classRank?: number;
   readonly statOverlays?: Partial<ResolvedStats>;
+  /** Whether this unit is a companion (drone/ally) rather than the main character. */
+  readonly isCompanion?: boolean;
 }
 
 export const buildPlayerUnit = (
@@ -162,6 +164,8 @@ export const buildPlayerUnit = (
     statuses: [],
     insertionIndex: opts.insertionIndex ?? 0,
     isDead: false,
+    isCompanion: opts.isCompanion ?? false,
+    defendStance: 0,
   };
   if (isSpecified(classData.basicAttackSkillId)) {
     return { ...unit, basicAttackSkillId: classData.basicAttackSkillId };
@@ -222,6 +226,8 @@ export const buildEnemyUnit = (
     statuses: [],
     insertionIndex: opts.insertionIndex ?? 0,
     isDead: false,
+    isCompanion: false,
+    defendStance: 0,
   };
 };
 
@@ -278,6 +284,8 @@ export const buildBossUnit = (boss: BossDef, opts: BossUnitOptions): Unit => {
     statuses: [],
     insertionIndex: opts.insertionIndex ?? 0,
     isDead: false,
+    isCompanion: false,
+    defendStance: 0,
   };
 };
 
