@@ -8,7 +8,10 @@ import {
 } from '@react-native-firebase/firestore';
 import { getFirestore } from '@/services/firebase';
 import { usePlayerStore } from '@/stores';
+import { useCharacterStore } from '@/stores/characterStore';
 import { temperGear } from '@/services/runApi';
+import { getDismantleYield } from '@/content/dismantlingYields';
+import { deleteDoc } from '@react-native-firebase/firestore';
 import {
   type GearLookupResult,
   type GearSlot,
@@ -55,6 +58,8 @@ export interface UseGearInventoryResult {
   unequip: (instanceId: string) => Promise<void>;
   /** Attempt to temper a gear instance (spends gold, success not guaranteed). */
   temper: (instanceId: string) => Promise<{ success: boolean; newLevel: number; goldSpent: number }>;
+  /** Dismantle a gear instance for scrap + quantum cores. Gear must be unequipped. */
+  dismantle: (instanceId: string) => Promise<{ scrap: number; quantumCores: number; credits: number }>;
 }
 
 /**
@@ -172,5 +177,36 @@ export function useGearInventory(): UseGearInventoryResult {
     return { success: result.success, newLevel: result.temperLevel, goldSpent: result.goldSpent };
   };
 
-  return { instances, bySlot, equippedBySlot, loading, error, equip, unequip, temper };
+  const dismantle = async (
+    instanceId: string,
+  ): Promise<{ scrap: number; quantumCores: number; credits: number }> => {
+    if (uid === null) throw new Error('Not authenticated.');
+
+    const target = instances.find((i) => i.instanceId === instanceId);
+    if (target === undefined) throw new Error(`Instance ${instanceId} not found.`);
+    if (target.equipped) throw new Error('Cannot dismantle equipped gear. Unequip first.');
+
+    const tier = target.resolved?.tier ?? 1;
+    const rarity = target.resolved?.rarity ?? 'common';
+    if (typeof tier !== 'number' || tier < 1 || tier > 5) {
+      throw new Error(`Invalid tier for dismantle: ${String(tier)}`);
+    }
+    const validTier = Math.min(5, Math.max(1, tier)) as 1 | 2 | 3 | 4 | 5;
+    const yield_ = getDismantleYield(validTier, rarity);
+
+    // Atomically delete gear doc + add currencies client-side
+    const db = getFirestore();
+    const ref = doc(db, 'players', uid, 'gear', instanceId);
+    await deleteDoc(ref);
+
+    // Update character store with dismantle yields
+    const charStore = useCharacterStore.getState();
+    charStore.addScrap(yield_.scrap);
+    charStore.addQuantumCores(yield_.quantumCores);
+    charStore.addCredits(yield_.credits);
+
+    return yield_;
+  };
+
+  return { instances, bySlot, equippedBySlot, loading, error, equip, unequip, temper, dismantle };
 }

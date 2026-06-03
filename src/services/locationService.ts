@@ -74,6 +74,24 @@ export async function startLocationTracking(
     listeners.push(callback);
   }
 
+  // ── Fire an immediate one-shot position so the UI isn't stuck waiting ──
+  //    watchPositionAsync may not fire for a while (or at all on emulators
+  //    with no movement), so we seed the initial position via getCurrentPosition.
+  try {
+    const initial = await getCurrentPosition();
+    if (initial) {
+      for (const listener of listeners) {
+        try {
+          listener(initial);
+        } catch (err) {
+          console.error('[locationService] Listener error (initial):', err);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[locationService] Could not get initial position:', err);
+  }
+
   // Already watching
   if (watchSubscription) return;
 
@@ -82,7 +100,7 @@ export async function startLocationTracking(
       {
         accuracy: Location.Accuracy.Balanced,
         timeInterval: 5000,     // 5 seconds in foreground
-        distanceInterval: 10,   // 10 meters minimum displacement
+        distanceInterval: 0,    // fire even without movement (critical for emulators)
       },
       (loc) => {
         const update: LocationUpdate = {
@@ -147,8 +165,39 @@ export async function getCurrentPosition(): Promise<LocationUpdate | null> {
       accuracy: loc.coords.accuracy ?? null,
       speed: loc.coords.speed ?? null,
     };
-  } catch (err) {
-    console.error('[locationService] getCurrentPosition failed:', err);
+  } catch (_currentErr) {
+    // getCurrentPositionAsync may fail on emulators / devices with
+    // location services off. Try last-known position as softer fallback.
+    try {
+      const lastKnown = await Location.getLastKnownPositionAsync({});
+      if (lastKnown) {
+        return {
+          position: {
+            lat: lastKnown.coords.latitude,
+            lng: lastKnown.coords.longitude,
+          },
+          timestamp: lastKnown.timestamp,
+          accuracy: lastKnown.coords.accuracy ?? null,
+          speed: lastKnown.coords.speed ?? null,
+        };
+      }
+    } catch (_lastKnownErr) {
+      // last-known also unavailable — expected on emulators.
+    }
+
+    // On dev builds / emulators with no GPS, fall back to a demo
+    // position so the world map isn't stuck on "Calibrating...".
+    if (__DEV__) {
+      console.warn(
+        '[locationService] GPS unavailable — using fallback demo position (dev mode)',
+      );
+      return {
+        position: { lat: 37.7749, lng: -122.4194 },
+        timestamp: Date.now(),
+        accuracy: null,
+        speed: null,
+      };
+    }
     return null;
   }
 }

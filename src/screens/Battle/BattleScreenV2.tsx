@@ -17,6 +17,7 @@ import { createEngine, type CombatEngine } from '@/domain/combat';
 import { buildPlayerUnit, buildEnemyUnit } from '@/domain/combat/factory';
 import { ABILITIES } from '@/content/abilities';
 import { SPECIALIZATIONS } from '@/content/specializations';
+import { decideCompanionAction } from '@/features/combat/companionAI';
 import type { Skill, SkillId } from '@/content/types';
 import type { Action, Unit, InstanceId } from '@/domain/combat/types';
 
@@ -119,6 +120,17 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         return;
       }
 
+      // If it's a companion's turn, auto-decide and dispatch
+      if (readyUnit && readyUnit.isCompanion) {
+        const companionAction = decideCompanionAction(readyUnit, current.state);
+        const { engine: nextEngine } = current.step(companionAction);
+        setEngine(nextEngine);
+        if (nextEngine.state.result !== 'ongoing') {
+          handleBattleEnd(nextEngine);
+        }
+        return;
+      }
+
       // Player action
       const { engine: nextEngine } = current.step(action);
       setEngine(nextEngine);
@@ -143,6 +155,22 @@ export const BattleScreen: React.FC<BattleScreenProps> = ({
         const creditGain = 10 + world.playerTier * 5;
         character.addXp(xpGain);
         character.addCredits(creditGain);
+
+        // Record defeated enemies in the bestiary
+        const enemies = Object.values(eng.state.units).filter(
+          (u) => u.team === 'enemy' && u.isDead && u.archetypeId,
+        );
+        for (const enemy of enemies) {
+          if (enemy.archetypeId) {
+            // Estimate damage dealt (enemy lost HP = their max HP minus remaining)
+            const damageEstimate = enemy.hpMax - enemy.hp;
+            character.recordEnemyDefeated(
+              enemy.archetypeId,
+              enemy.displayName,
+              Math.max(0, damageEstimate),
+            );
+          }
+        }
 
         setTimeout(() => {
           world.clearEncounter();

@@ -33,12 +33,14 @@ export function GearRow({
   instance,
   onToggleEquip,
   onTemper,
+  onDismantle,
   temperBusy,
   busy,
 }: {
   instance: GearInstance;
   onToggleEquip: () => void;
   onTemper?: (() => void) | undefined;
+  onDismantle?: (() => void) | undefined;
   temperBusy?: boolean;
   busy: boolean;
 }) {
@@ -90,6 +92,17 @@ export function GearRow({
               <Text style={styles.temperBtnText}>
                 {temperBusy ? '…' : 'Temper'}
               </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {onDismantle !== undefined && !instance.equipped && (
+          <View style={styles.dismantleRow}>
+            <TouchableOpacity
+              onPress={onDismantle}
+              disabled={busy}
+              style={[styles.dismantleBtn, busy && styles.dismantleBtnBusy]}
+            >
+              <Text style={styles.dismantleBtnText}>🔧 Dismantle</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -187,5 +200,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   temperBtnBusy: { opacity: 0.5 },
+  dismantleRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  dismantleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(200, 100, 50, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 100, 50, 0.4)',
+  },
+  dismantleBtnBusy: { opacity: 0.5 },
+  dismantleBtnText: {
+    fontSize: 11,
+    color: '#cc9966',
+    fontWeight: '600',
+  },
   temperBtnText: { fontSize: 11, color: '#fff', fontWeight: '600' },
 });

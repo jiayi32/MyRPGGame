@@ -6,6 +6,8 @@
 import { create } from 'zustand';
 import type { CorporationId, TechTier } from '@/content/types/corporation';
 import type { ClassId } from '@/content/types';
+import type { BestiaryState, BestiaryEntry } from '@/domain/world/bestiary';
+import { EMPTY_BESTIARY, recordDefeat } from '@/domain/world/bestiary';
 
 // ─── XP Curve ──────────────────────────────────────────────────────
 
@@ -75,6 +77,9 @@ export interface CharacterStoreState {
   maxHp: number;
   currentHp: number;
 
+  // ── Bestiary ──
+  bestiary: BestiaryState;
+
   // ── Actions ──
   /** Gain XP and handle level-ups. */
   addXp: (amount: number) => void;
@@ -86,6 +91,10 @@ export interface CharacterStoreState {
   addCredits: (amount: number) => void;
   /** Add tech points. */
   addTechPoints: (amount: number) => void;
+  /** Add scrap from dismantling. */
+  addScrap: (amount: number) => void;
+  /** Add quantum cores from dismantling. */
+  addQuantumCores: (amount: number) => void;
   /** Equip an item by ID. */
   equipItem: (itemId: string, slot: 'weapon' | 'armor' | 'accessory') => void;
   /** Unequip an item. */
@@ -96,6 +105,10 @@ export interface CharacterStoreState {
   fullHeal: () => void;
   /** Take damage. */
   takeDamage: (amount: number) => void;
+  /** Record a defeated enemy in the bestiary. */
+  recordEnemyDefeated: (archetypeId: string, displayName: string, damageDealt: number) => void;
+  /** Get a bestiary entry by archetype ID, or null if never encountered. */
+  getBestiaryEntry: (archetypeId: string) => BestiaryEntry | null;
 }
 
 // ─── Store ─────────────────────────────────────────────────────────
@@ -121,6 +134,7 @@ export const useCharacterStore = create<CharacterStoreState>()((set, get) => ({
   inventoryIds: [],
   maxHp: 100,
   currentHp: 100,
+  bestiary: EMPTY_BESTIARY,
 
   // ── XP & Leveling ──
   addXp: (amount: number) => {
@@ -182,6 +196,18 @@ export const useCharacterStore = create<CharacterStoreState>()((set, get) => ({
     }));
   },
 
+  addScrap: (amount: number) => {
+    set((s) => ({
+      currencies: { ...s.currencies, scrap: s.currencies.scrap + amount },
+    }));
+  },
+
+  addQuantumCores: (amount: number) => {
+    set((s) => ({
+      currencies: { ...s.currencies, quantumCores: s.currencies.quantumCores + amount },
+    }));
+  },
+
   // ── Equipment ──
   equipItem: (itemId: string, slot: 'weapon' | 'armor' | 'accessory') => {
     set((s) => {
@@ -215,5 +241,15 @@ export const useCharacterStore = create<CharacterStoreState>()((set, get) => ({
     set((s) => ({
       currentHp: Math.max(0, s.currentHp - amount),
     }));
+  },
+
+  recordEnemyDefeated: (archetypeId: string, displayName: string, damageDealt: number) => {
+    set((s) => ({
+      bestiary: recordDefeat(s.bestiary, archetypeId, displayName, damageDealt),
+    }));
+  },
+
+  getBestiaryEntry: (archetypeId: string) => {
+    return get().bestiary.entries[archetypeId] ?? null;
   },
 }));

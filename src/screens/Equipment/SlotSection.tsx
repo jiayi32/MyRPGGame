@@ -20,6 +20,7 @@ export function SlotSection({
   equipped,
   onToggleEquip,
   onTemper,
+  onDismantle,
   busyInstanceId,
   temperBusyInstanceId,
 }: {
@@ -28,6 +29,7 @@ export function SlotSection({
   equipped: GearInstance | undefined;
   onToggleEquip: (instanceId: string) => Promise<void>;
   onTemper?: ((instanceId: string) => void) | undefined;
+  onDismantle?: ((instanceId: string) => void) | undefined;
   busyInstanceId: string | null;
   temperBusyInstanceId?: string | null;
 }) {
@@ -69,6 +71,11 @@ export function SlotSection({
             onTemper={
               onTemper !== undefined
                 ? () => onTemper(inst.instanceId)
+                : undefined
+            }
+            onDismantle={
+              onDismantle !== undefined
+                ? () => onDismantle(inst.instanceId)
                 : undefined
             }
             temperBusy={temperBusyInstanceId === inst.instanceId}

@@ -1,0 +1,518 @@
+# Custom Map Rendering Engine
+
+> **Date**: June 3, 2026 | **Status**: Architecture Decision | **Replaces**: MapLibre experiment
+
+---
+
+## 1. Decision
+
+**We will build a custom OpenGL map rendering engine** using `expo-gl` + Three.js (direct bridge, **no `expo-three`**), because no existing React Native map SDK can replicate the Orna/Pokémon GO visual experience.
+
+MapLibre, Leaflet, Google Maps, and similar SDKs are **geospatial data viewers** — they render tiles accurately on a Mercator projection. Orna uses map tiles as a **texture** in a custom game rendering pipeline with pixelation shaders, orthographic/oblique projection, player-centered orbit camera, and game-entity spawning — all of which are outside the scope of any map SDK.
+
+> **Revised June 3, 2026**: Based on deep investigation, the following updates have been made:
+> - **Skip `expo-three`** — unmaintained (last commit ~2 years ago, 86 open issues). Use a custom ~50-line `WebGLRenderer` bridge directly on `expo-gl`.
+> - **Built-in pixelation** — Three.js r182+ ships `RenderPixelatedPass` for the `EffectComposer` pipeline. No custom GLSL shader needed.
+> - **PerspectiveCamera at 45° tilt** — following Google Maps vector map camera model (tilt from nadir, heading orbit, fractional zoom).
+> - **Standard OSM raster tiles** — `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
+> - **MapLibre removed** — `@maplibre/maplibre-react-native` dependency and `app.json` plugin cleaned up.
+
+---
+
+## 2. Orna's Visual Pipeline (Target)
+
+```
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  Download     │ → │  Apply       │ → │  Render on   │ → │  Overlay     │
+│  OSM tiles    │    │  Pixelation  │    │  oblique     │    │  game        │
+│  (within      │    │  shader      │    │  plane       │    │  entities    │
+│   radius)     │    │              │    │  (3D tilt)   │    │              │
+└──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘
+```
+
+| Step | Orna Behavior | Our Implementation |
+|---|---|---|
+| 1. Tile fetch | Download OSM raster tiles within ~300m of player GPS | `fetch()` OSM `{z}/{x}/{y}.png` tiles; cache to `expo-file-system` |
+| 2. Pixelation | Apply retro pixel-art filter via shader | Three.js **built-in** `retroPass()` / `pixelationPass()` (TSL, r183+) |
+| 3. Oblique view | Render flat tiles onto a tilted 3D plane, centered on player | Three.js `PerspectiveCamera` at 45° tilt (Google Maps vector map style), textured `PlaneGeometry` |
+| 4. Entity spawn | Game buildings, enemies, player ring on the oblique plane | Three.js sprites / `SpriteMaterial` positioned on the plane |
+| 5. Orbit camera | Swipe revolves camera around player (player always centered) | Manual spherical orbit via `react-native-gesture-handler` pan/pinch gestures (no DOM-dependent `OrbitControls`) |
+
+---
+
+## 3. Technology Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| OpenGL surface | `expo-gl` (`GLView`) | Native OpenGL ES render target in React Native view tree |
+| 3D engine | `three` (r184+, **direct import**, no `expo-three`) | Scene graph, camera, materials, shaders, sprites |
+| GL bridge | Custom `ExpoWebGLRenderer` (~50-line adapter) | Bridges `expo-gl` context to `THREE.WebGLRenderer` |
+| Pixelation | Three.js built-in `retroPass()` / `pixelationPass()` (TSL) | Retro pixel-art post-processing — no custom GLSL |
+| Tile fetching | Custom fetcher + `expo-file-system` | Download OSM raster tiles, cache locally |
+| GPS integration | `expo-location` + `worldStore` (existing) | Player position → camera anchor |
+| UI overlays | React Native `View` (existing) | HUD, joystick, action bar — positioned absolutely over GLView |
+| Gestures | `react-native-gesture-handler` + Reanimated (existing) | Pan → orbit camera (heading), pinch → zoom (radius), tap → entity select |
+
+### Why Three.js (not raw WebGL)
+
+- Scene graph abstracts object management (no manual matrix math)
+- Built-in `PerspectiveCamera`, `Sprite`, `PlaneGeometry`, `RingGeometry`
+- Built-in `retroPass()` / `pixelationPass()` for pixelation post-processing (r183+)
+- `RenderPipeline` for post-processing chain management
+- Large ecosystem of loaders, utilities, and examples
+- Custom `ExpoWebGLRenderer` bridge (~50 lines) replaces unmaintained `expo-three`
+
+### Why not `expo-three`
+
+- Last meaningful commit ~2 years ago (Three.js 0.166.0 vs current r184)
+- 86 open issues, many about SDK 53/54 incompatibility
+- The bridge is thin and stable — a custom adapter is ~50 lines and stays in our control
+
+### Why not MapLibre / Leaflet / Google Maps
+
+- Cannot apply pixelation shaders to map tiles
+- Cannot render in orthographic/oblique projection
+- Cannot orbit camera around an arbitrary world point (player)
+- Cannot seamlessly blend game entities (sprites) with map geometry
+- These are map SDKs, not game engines
+
+---
+
+## 4. Architecture
+
+### System Overview
+
+```mermaid
+graph TB
+    subgraph "React Native Layer"
+        WMS[WorldMapScreen]
+        GLV["GLView (expo-gl)"]
+        TOP[TopBar HUD]
+        JOY[JoystickOverlay]
+        BOT[BottomBar Actions]
+    end
+
+    subgraph "Three.js Scene"
+        SCENE[THREE.Scene]
+        CAM["PerspectiveCamera<br/>45° tilt, Google Maps style"]
+        PLANE["TilePlane<br/>PlaneGeometry + per-tile<br/>MeshBasicMaterial"]
+        PLAYER["PlayerMarker<br/>Sprite at world origin"]
+        SPAWNS["SpawnSprites<br/>Sprite array from spawnDirector"]
+        RING["VirtualRadiusRing<br/>RingGeometry, 500m radius"]
+        PXL["PostProcessing<br/>retroPass / pixelationPass"]
+    end
+
+    subgraph "Data Layer"
+        GPS[expo-location]
+        WS["worldStore (Zustand)"]
+        SD[spawnDirector.ts]
+        TF["TileFetcher<br/>+ expo-file-system cache"]
+    end
+
+    subgraph "External"
+        OSM["OSM Tile CDN<br/>tile.openstreetmap.org"]
+    end
+
+    WMS --> GLV
+    WMS --> TOP & JOY & BOT
+    GLV --> SCENE
+    SCENE --> PLANE & PLAYER & SPAWNS & RING & CAM & PXL
+
+    GPS -->|"position updates"| WS
+    WS -->|"virtualPosition"| PLAYER
+    WS -->|"refreshSpawns()"| SD
+    SD -->|"visibleSpawns"| SPAWNS
+    WS -->|"position → tile coords"| TF
+    TF -->|"z/x/y.png"| OSM
+    TF -->|"PNG textures"| PLANE
+    JOY -->|"moveVirtual(dx,dy)"| WS
+```
+
+### Rendering Pipeline (Per-Frame Loop)
+
+```mermaid
+flowchart TD
+    A["requestAnimationFrame"] --> B["Read virtualPosition<br/>from worldStore"]
+    B --> C{"Position crossed<br/>tile boundary?"}
+    C -->|"Yes"| D["Determine visible tile set<br/>GPS lat/lng → z/x/y coords"]
+    C -->|"No"| E["Skip tile refresh"]
+    D --> F{"Each tile<br/>in cache?"}
+    F -->|"Yes"| G["Load Texture from<br/>filesystem URI"]
+    F -->|"No"| H["fetch() OSM tile<br/>→ cache to filesystem<br/>→ create THREE.Texture"]
+    G --> I["Update PlaneGeometry<br/>per-tile materials"]
+    H --> I
+    E --> I
+    I --> J["Read gesture deltas<br/>from shared values"]
+    J --> K["Update spherical coords:<br/>theta += dx · SENS<br/>phi = clamp(phi + dy · SENS, 20°, 70°)<br/>radius *= 1/scale"]
+    K --> L["camera.position =<br/>playerPos + spherical→Vector3"]
+    L --> M["camera.lookAt(playerPos)"]
+    M --> N["Update PlayerMarker<br/>+ SpawnSprites positions"]
+    N --> O["Apply retroPass / pixelationPass<br/>via RenderPipeline"]
+    O --> P["renderer.render(scene, camera)"]
+    P --> Q["gl.endFrameEXP()"]
+    Q --> A
+```
+
+### Component Tree
+
+```
+WorldMapScreen
+├── GLView (fills screen, behind everything)
+│   └── Three.js Scene (managed by useGameMap hook)
+│       ├── ObliqueMapPlane (TilePlane with per-tile MeshBasicMaterial)
+│       ├── PlayerMarker (Sprite at world origin)
+│       ├── SpawnSprites[] (ported from MapLibre MarkerView)
+│       ├── VirtualRadiusRing (RingGeometry, 500m radius)
+│       ├── Camera (PerspectiveCamera, 45° tilt, player-centered orbit)
+│       └── PostProcessing (retroPass / pixelationPass via RenderPipeline)
+├── TopBar (absolute position, top)
+├── JoystickOverlay (absolute position, bottom-left)
+└── BottomBar (absolute position, bottom)
+```
+
+The GLView renders the 3D map. React Native views (HUD, joystick, action bar) sit on top via absolute positioning — same as current architecture.
+
+---
+
+## 5. Rendering Pipeline Detail
+
+### 5.1 Tile Fetching
+
+```
+GPS position → grid cell → tile coordinates (zoom 16-18, LOD)
+    → check expo-file-system cache
+    → fetch missing tiles from OSM CDN
+    → create Three.js Texture from tile PNG (file:// URI)
+    → map onto PlaneGeometry segments (MeshBasicMaterial per tile)
+```
+
+- Tile URL: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+- Cache: `expo-file-system` cache directory, LRU eviction
+- Radius: 300m (SPAWN_VISIBLE_RADIUS_M), 3×3 tile grid at zoom 18
+- LOD: zoom 18 center, zoom 17 adjacent, zoom 16 edge
+- Each tile = 256×256 PNG, mapped to a `MeshBasicMaterial` on a plane segment
+
+**GPS → Tile → World Coordinate Pipeline:**
+```mermaid
+flowchart LR
+    subgraph "GPS to Tile Coords"
+        GPS_POS["GPS (lat, lng)"] --> MERC["Web Mercator<br/>Projection"]
+        MERC --> TILE["Tile coords<br/>(z, x, y)"]
+        TILE --> URL["tile.openstreetmap.org<br/>/z/x/y.png"]
+    end
+    subgraph "GPS to World Position"
+        GPS_POS2["GPS (lat, lng)"] --> REF["Reference =<br/>player anchor"]
+        REF --> OFFSET["Δlat, Δlng<br/>→ meters offset"]
+        OFFSET --> WORLD["World coords<br/>(x, 0, z) on plane"]
+    end
+    subgraph "Spawn Placement"
+        GRID["200m grid cell"] --> SNAP["snapToGrid(pos)"]
+        SNAP --> SEED["PRNG seeded with<br/>gridKey + worldSeed"]
+        SEED --> SPAWN["World position<br/>(x, 0, z) within cell"]
+    end
+    WORLD --> SCENE["THREE.Vector3<br/>on PlaneGeometry"]
+    SPAWN --> SCENE
+```
+
+### 5.2 Pixelation (Three.js EffectComposer + RenderPixelatedPass)
+
+Three.js r182+ provides `RenderPixelatedPass` for the traditional `EffectComposer` pipeline:
+
+```ts
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { RenderPixelatedPass } from 'three/examples/jsm/postprocessing/RenderPixelatedPass.js';
+
+// Set up post-processing chain
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new RenderPixelatedPass(pixelSize, scene, camera));
+
+// Render each frame via composer instead of renderer
+composer.render();
+```
+
+`pixelSize` controls blockiness (higher = more pixelated, recommended 2-8). This approach uses the traditional `EffectComposer` rather than TSL, ensuring compatibility with `expo-gl`'s OpenGL ES context.
+
+**Post-Processing Chain:**
+```mermaid
+flowchart LR
+    RENDER["renderer.render<br/>(scene, camera)"] --> RT["RenderTarget"]
+    RT --> PXL["pixelationPass(pixelSize)<br/>or retroPass()"]
+    RT -.->|"optional"| VIG["vignette()"]
+    RT -.->|"optional"| SCAN["scanlines()"]
+    VIG -.-> PXL
+    SCAN -.-> PXL
+    PXL --> OUT["OutputPass → screen"]
+```
+
+### 5.3 Perspective Camera (Google Maps Vector Style)
+
+Following the Google Maps vector map camera model:
+- **Tilt**: 45° from nadir (straight down = 0°, horizon = 90°)
+- **Heading/Bearing**: Compass direction of top-of-screen
+- **Target**: Player world position (always centered)
+
+```ts
+// PerspectiveCamera: FOV, aspect, near, far
+const camera = new THREE.PerspectiveCamera(
+  60,           // FOV — wider for more peripheral vision
+  width/height, // aspect ratio from GLView dimensions
+  0.1,          // near plane
+  1000          // far plane
+);
+
+// Position camera at 45° tilt (phi = π/4 from vertical)
+const spherical = new THREE.Spherical(radius, Math.PI / 4, heading);
+camera.position.copy(playerWorldPosition).add(
+  new THREE.Vector3().setFromSpherical(spherical)
+);
+camera.lookAt(playerWorldPosition);
+```
+
+For a Pokémon GO-like perspective, use `PerspectiveCamera` at 45-60° tilt. For a flatter Orna look, reduce FOV and increase camera distance.
+
+### 5.4 Player-Centered Orbit (Manual Spherical Math)
+
+`OrbitControls` from Three.js requires DOM events (`mousedown`, `mousemove`, `wheel`) and does **not** work in React Native. We implement orbit manually via gesture handlers:
+
+```ts
+// On pan gesture → rotate camera heading (theta) around player
+// On pinch gesture → adjust radius (zoom level)
+// Player marker stays at screen center at all times
+
+const spherical = new THREE.Spherical();
+spherical.setFromVector3(camera.position.clone().sub(playerPos));
+
+// Pan horizontal → change heading/bearing
+spherical.theta += gestureDelta.x * HEADING_SENSITIVITY;
+
+// Pan vertical → change tilt (constrained 20°–70° from vertical)
+spherical.phi = clamp(
+  spherical.phi + gestureDelta.y * TILT_SENSITIVITY,
+  Math.PI * 20/180,   // 20° min — almost overhead
+  Math.PI * 70/180    // 70° max — near horizon
+);
+
+// Pinch → change zoom (radius)
+spherical.radius *= (1 / pinchScale);
+spherical.radius = clamp(spherical.radius, MIN_ZOOM_RADIUS, MAX_ZOOM_RADIUS);
+
+camera.position.copy(playerPos).add(new THREE.Vector3().setFromSpherical(spherical));
+camera.lookAt(playerPos);
+```
+
+**Gesture → Camera Transform Pipeline:**
+```mermaid
+flowchart TD
+    subgraph "Gesture Input via RNGH"
+        PAN["Pan Gesture<br/>(dx, dy)"]
+        PINCH["Pinch Gesture<br/>(scale factor)"]
+    end
+    subgraph "Spherical Orbit Math"
+        PAN --> THETA["theta += dx · HEADING_SENSITIVITY<br/>= bearing / heading change"]
+        PAN --> PHI["phi = clamp(phi + dy · TILT_SENS,<br/>20°, 70°)<br/>= tilt from vertical"]
+        PINCH --> RADIUS["radius *= 1 / scale<br/>= zoom level change"]
+    end
+    subgraph "Camera Update"
+        THETA & PHI & RADIUS --> SPH["THREE.Spherical<br/>(radius, phi, theta)"]
+        SPH --> POS["camera.position =<br/>playerTarget + spherical→Vector3"]
+        POS --> LOOK["camera.lookAt(playerTarget)"]
+    end
+    LOOK --> NEXT["Next frame render"]
+```
+
+### 5.5 Entity Spawning
+
+Game entities (enemies, buildings, resources) are Three.js `Sprite` objects positioned on the map plane at their GPS-derived world coordinates. Each sprite uses an emoji or pre-rendered icon texture.
+
+```
+GPS (lat, lng) → world position (x, z on the plane) → Sprite.position.set(x, 0, z)
+```
+
+### 5.6 S2 Spatial Indexing (Research Complete — Temporarily Deferred)
+
+> **Status**: Research completed June 3, 2026. Adoption deferred to a future iteration after the core rendering engine is stable.
+
+#### What is S2?
+
+[S2 Geometry](https://s2geometry.io/) is Google's open-source library for spatial indexing on the sphere. It partitions the Earth into a hierarchy of cells using a **Hilbert space-filling curve**, enabling constant-time spatial queries without latitude/longitude distortion. Pokémon GO and Ingress use S2 cells as their core spatial primitive.
+
+#### S2 Cell Hierarchy
+
+| S2 Level | Area | Approx Side | Pokémon GO Usage |
+|----------|------|-------------|-------------------|
+| 6 | 20,755 km² | ~144 km | Geoblocking regions |
+| 10 | 81 km² | ~9 km | Pokémon caught location |
+| 13 | 5.07 km² | ~2.25 km | EX Raid triggers, biomes |
+| 14 | 0.32 km² | ~566 m | Gym placement / creation |
+| **16** | **0.019 km²** | **~138 m** | **🔑 Map object rendering** |
+| 17 | 4,948 m² | ~70 m | PokéStop placement |
+| **20** | **77 m²** | **~8.8 m** | **🔑 Spawn placement** |
+
+#### Why S2 Matters for This Engine
+
+1. **Spawn placement at Level 20** (77 m² cells) would give ~500× more granularity than our current 200m grid (40,000 m²). Pokémon GO places spawns at the center of each L20 cell.
+2. **Map object organization at Level 16** (~138m) roughly corresponds to one OSM zoom-18 tile (~153m), making it a natural bridge between our tile system and entity system.
+3. **Spatial queries become O(1)**: Finding all spawns within 300m is a native S2 region coverer operation — no haversine scan needed.
+4. **Hilbert curve ordering** means nearby cells have numerically close 64-bit IDs, enabling cache-friendly iteration and database indexing.
+5. **Deterministic seeding**: S2 cell IDs provide inherent deterministic seeds (no need for our custom `gridKey` hash).
+
+#### Current vs. Future S2-Based System
+
+| Aspect | Current (Flat Grid) | Future (S2-Based) |
+|--------|---------------------|--------------------|
+| Spawn cell size | 200m × 200m (40,000 m²) | ~8.8m × 8.8m (77 m²) |
+| Grid system | Flat lat/lng offset | Sphere-aware Hilbert curve |
+| Cell ID | String hash (`gridKey`) | 64-bit integer (`S2CellId`) |
+| Neighbor lookup | Manual Δlat/Δlng math | Native `.next()` / `.prev()` |
+| Spatial query | Haversine distance scan | S2 region coverer |
+| LOD | Manual (our code) | Built-in parent/child hierarchy |
+
+#### Deferral Rationale
+
+S2 integration touches every spatial component (`worldStore`, `spawnDirector`, `TilePlane`, `TileFetcher`). Implementing it now would delay the core rendering engine. The current flat-grid system works correctly for Phase 1–4. S2 adoption is planned as a **post-Phase-4 enhancement** with a clear migration path.
+
+#### Migration Path (Future)
+
+1. Install `s2-geometry` (~50KB pure JS port)
+2. Add `s2CellId` field to `WorldSpawn` and `WorldPosition` types
+3. Replace `gridKey()` with `S2CellId.fromLatLng(lat, lng, level=20).id()`
+4. Replace `getGridCellsInRadius()` with `S2RegionCoverer.getCovering(center, radius)`
+5. Remove `latPerMeter`/`lngPerMeter` flat-earth approximations
+
+#### Key Diagrams
+
+**S2 Cell Hierarchy — Hilbert Curve Subdivision:**
+```mermaid
+flowchart TD
+    SPHERE["Unit Sphere S²"] --> CUBE["Project to 6 cube faces"]
+    CUBE --> FACE0["Face 0"] & FACE1["Face 1"] & FACE2["Face 2"] & FACE3["Face 3"] & FACE4["Face 4"] & FACE5["Face 5"]
+    FACE0 --> L0["Level 0: 1 cell per face<br/>(6 cells total)"]
+    L0 --> L1["Level 1: 4× subdivision<br/>(24 cells total)"]
+    L1 --> L2["Level 2: 4× subdivision<br/>(96 cells total)"]
+    L2 --> LDOTS["..."]
+    LDOTS --> L16["Level 16: ~138m cells<br/>Map object rendering"]
+    LDOTS --> L20["Level 20: ~8.8m cells<br/>Spawn placement"]
+    LDOTS --> L30["Level 30: ~1cm cells<br/>Leaf level"]
+```
+
+**Pokémon GO's S2 Usage by Level:**
+```mermaid
+flowchart LR
+    subgraph "Large Scale"
+        L6["Level 6<br/>20,755 km²<br/>Geoblocking"]
+        L10["Level 10<br/>81 km²<br/>Catch location"]
+    end
+    subgraph "Medium Scale (Our Focus)"
+        L13["Level 13<br/>5 km²<br/>EX Raid / Biome"]
+        L14["Level 14<br/>0.32 km²<br/>Gym placement"]
+        L16["⭐ Level 16 ⭐<br/>0.019 km² ≈ 138m<br/>Map object rendering"]
+    end
+    subgraph "Fine Scale (Our Focus)"
+        L17["Level 17<br/>4,948 m² ≈ 70m<br/>PokéStop placement"]
+        L20["⭐ Level 20 ⭐<br/>77 m² ≈ 8.8m<br/>Spawn placement"]
+    end
+    L6 --> L10 --> L13 --> L14 --> L16 --> L17 --> L20
+```
+
+---
+
+## 6. Implementation Plan
+
+### Phase 0 — Dependency Setup
+
+| Step | Task |
+|---|---|
+| 0.1 | `npx expo install expo-gl@~56.0.5` |
+| 0.2 | `npm install three@~0.170.0` |
+| 0.3 | Verify `expo-file-system` already available |
+
+### Phase 1 — Foundation (est. 2-3 days)
+
+| Step | Task | Dependencies |
+|---|---|---|
+| 1.1 | Create `ExpoWebGLBridge` — custom ~50-line `WebGLRenderer` adapter on `expo-gl` context | 0.1, 0.2 |
+| 1.2 | Create `useGameMap` hook — GLView `onContextCreate`, init Scene/Renderer/Camera, animation loop | 1.1 |
+| 1.3 | Create `GameMapGL` component — `<GLView>` wrapper | 1.2 |
+| 1.4 | Render a textured plane with a single hardcoded OSM tile (verify `file://` URI loading) | 1.3 |
+| 1.5 | Position PerspectiveCamera at 45° tilt (Google Maps style), verify perspective | 1.4 |
+| 1.6 | Integrate GPS position → place player marker sprite on plane | 1.5 |
+| 1.7 | Wire up pan gesture → heading orbit (theta), pinch gesture → zoom (radius) | 1.6 |
+
+### Phase 2 — Tile System (est. 2 days)
+
+| Step | Task |
+|---|---|
+| 2.1 | Build `TileFetcher` — GPS→tile coords, download OSM tiles within radius, cache to filesystem |
+| 2.2 | Build `TilePlane` — dynamic PlaneGeometry with per-tile MeshBasicMaterial textures |
+| 2.3 | Implement tile LOD — 3×3 grid: zoom 18 center, zoom 17 adjacent, zoom 16 edge |
+| 2.4 | Handle tile loading states (placeholder gray material per segment) |
+
+### Phase 3 — Visual Polish (est. 2 days) ✅ COMPLETE
+
+| Step | Task | Status |
+|---|---|---|
+| 3.1 | Add pixelation via `EffectComposer` + `RenderPixelatedPass` (r182+ built-in) | ✅ |
+| 3.2 | Add virtual radius ring (`RingGeometry`, 500m world radius) | ✅ |
+| 3.3 | Port spawn markers from MapLibre `MarkerView` → Three.js `Sprite` system with procedural `DataTexture` circles | ✅ |
+| 3.4 | Handle spawn press → `Raycaster` screen-coordinate hit testing with parent-chain walk | ✅ |
+| 3.5 | Wire pan/pinch gestures → `orbitCamera()` via `Gesture.Pan()` + `Gesture.Pinch()` + `runOnJS` | ✅ |
+
+### Phase 4 — Cleanup (est. 1 day) ✅ COMPLETE
+
+| Step | Task | Status |
+|---|---|---|
+| 4.1 | Remove `@maplibre/maplibre-react-native` dependency | ✅ |
+| 4.2 | Remove MapLibre plugin from `app.json` | ✅ |
+| 4.3 | Verify all existing functionality (HUD, joystick, spawn interaction) | ✅ |
+
+---
+
+## 7. Risks & Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Three.js + emulator performance | Test on physical device early; use `Stats.js` for FPS monitoring |
+| OSM tile download latency | Aggressive caching; pre-fetch tiles on app launch; limit concurrent downloads |
+| Gesture conflict (GLView vs RN views) | GLView is full-screen behind RN views; RN views handle gestures via absolute positioning |
+| Platform-specific GL bugs | Test on both iOS simulator + physical Android device during Phase 1 |
+| ~~expo-three maintenance~~ | **Resolved**: Using direct `expo-gl` + `three` bridge (~50 lines), no external dependency risk |
+| retroPass/pixelationPass on mobile GL | Test TSL post-processing early on physical device; fall back to `RenderPixelatedPass` (traditional `EffectComposer`) if needed |
+| OrbitControls unavailable (no DOM) | Implemented manually via `react-native-gesture-handler` + spherical math — fully in our control |
+
+---
+
+## 8. Key Dependencies
+
+```json
+{
+  "expo-gl": "~56.0.5",
+  "three": "~0.184.0",
+  "expo-file-system": "~55.0.22",
+  "expo-location": "~55.1.10"
+}
+```
+
+> **Removed**: `expo-three` — replaced by custom `ExpoWebGLRenderer` bridge (~50 lines).
+> **Removed**: `@maplibre/maplibre-react-native` — replaced by custom OpenGL map engine.
+> **Updated**: `three` upgraded to `~0.184.0` (r184) for `RenderPixelatedPass` (r182+) and `EffectComposer` support.
+
+Existing dependencies (unchanged): `react-native-gesture-handler`, `react-native-reanimated`, `zustand`
+
+---
+
+## 9. References
+
+- [expo-gl documentation](https://docs.expo.dev/versions/latest/sdk/gl-view/)
+- [Three.js documentation](https://threejs.org/docs/)
+- [Three.js TSL — retroPass / pixelationPass](https://threejs.org/docs/#api/en/postprocessing/RetroPass)
+- [Google Maps Vector Map — Camera Model](https://developers.google.com/maps/documentation/javascript/vector-map) — tilt, heading, target model
+- [OSM Slippy Map Tilenames](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) — tile coordinate math
+- [OSM Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)
+- [S2 Geometry Library](https://s2geometry.io/) — spatial indexing on the sphere (Hilbert curve, cell hierarchy)
+- [S2 Cell Statistics](https://s2geometry.io/resources/s2cell_statistics) — cell sizes per level
+- [Pokémon GO S2 Cells Guide](https://pokemongohub.net/post/guide/s2-cells-pokemon-go/) — how Pokémon GO uses S2 levels 10–20
+- [s2-geometry (npm)](https://www.npmjs.com/package/s2-geometry) — lightweight pure-JS S2 port (~50KB)
+- [Orna Research](./Orna_Research.md) — spawn system, grid cells, world model
+- Current implementation: `src/screens/WorldMap/WorldMapScreen.tsx`, `src/stores/worldStore.ts`, `src/services/locationService.ts`

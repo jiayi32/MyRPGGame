@@ -11,6 +11,7 @@ import {
   stopLocationTracking,
   requestLocationPermission,
   checkLocationPermission,
+  getCurrentPosition,
   clampVirtualPosition,
   type LocationUpdate,
 } from '@/services/locationService';
@@ -92,9 +93,22 @@ export const useWorldStore = create<WorldStoreState>()((set, get) => ({
     const permStatus = await checkLocationPermission();
     set({ gpsPermissionGranted: permStatus === 'granted' });
 
-    if (permStatus === 'granted') {
-      await get().startTracking();
+    if (permStatus !== 'granted') return;
+
+    // Seed initial position directly — bypasses the listener chain so
+    // the store gets a position even if startLocationTracking's internal
+    // listener callback silently fails on emulators.
+    try {
+      const initial = await getCurrentPosition();
+      if (initial) {
+        get().onLocationUpdate(initial);
+      }
+    } catch (err) {
+      console.warn('[worldStore] Could not seed initial position:', err);
     }
+
+    // Start continuous tracking for subsequent updates
+    await get().startTracking();
   },
 
   // ── Location Update ──
@@ -205,7 +219,11 @@ export const useWorldStore = create<WorldStoreState>()((set, get) => ({
 
   // ── Teardown ──
   teardown: async () => {
-    await get().stopTracking();
+    try {
+      await get().stopTracking();
+    } catch (_err) {
+      // Native module may already be destroyed during bundle reload.
+    }
     set({
       realPosition: null,
       virtualPosition: null,

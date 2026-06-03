@@ -1,8 +1,11 @@
 // ─── World Map Screen ─────────────────────────────────────────────
 // Primary game screen showing the GPS world map with spawn markers,
 // joystick overlay for virtual movement, and action controls.
+//
+// Now renders via custom expo-gl + Three.js engine (GameMapGL)
+// instead of MapLibre. All HUD overlays remain React Native Views.
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,11 +14,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import MapView, { Marker, Circle, type Region } from 'react-native-maps';
+import * as THREE from 'three';
+
+import { GameMapGL } from '@/components/organisms/GameMapGL';
+import type { GameMapRefs } from '@/hooks/useGameMap';
+import { TilePlane } from '@/domain/renderer/TilePlane';
 import { useWorldStore } from '@/stores/worldStore';
 import { JoystickOverlay } from '@/components/molecules/JoystickOverlay';
-import type { WorldSpawn } from '@/domain/world/types';
-import { VIRTUAL_MOVEMENT_RADIUS_M, SPAWN_VISIBLE_RADIUS_M } from '@/domain/world/types';
+import type { WorldSpawn, WorldPosition } from '@/domain/world/types';
 
 // ─── Spawn Marker Colors ───────────────────────────────────────────
 
@@ -28,17 +34,6 @@ const SPAWN_COLORS: Record<WorldSpawn['type'], string> = {
   vendor: '#ffdd44',
   anomaly: '#cc44ff',
   settlement: '#44ddff',
-};
-
-const SPAWN_LABELS: Record<WorldSpawn['type'], string> = {
-  patrol: '⚔️',
-  elite: '💀',
-  boss: '👑',
-  data_vault: '🔒',
-  resource_node: '📦',
-  vendor: '💰',
-  anomaly: '🌀',
-  settlement: '🏠',
 };
 
 // ─── Component ─────────────────────────────────────────────────────
@@ -66,200 +61,351 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
     beginEncounter,
   } = useWorldStore();
 
-  // Bootstrap GPS on mount
+  // ── Three.js scene refs (populated by GameMapGL.onReady) ──
+  const mapRefs = useRef<GameMapRefs | null>(null);
+  const tilePlaneRef = useRef<TilePlane | null>(null);
+  /** Map spawn.id → THREE.Sprite for lifecycle management. */
+  const spawnSpriteMap = useRef<Map<string, THREE.Sprite>>(new Map());
+  /** Player marker sprite (ring + dot). */
+  const playerMarkerRef = useRef<THREE.Group | null>(null);
+
+  // Bootstrap GPS on mount; teardown on unmount/bundle-reload to
+  // prevent native expo-location crash when the JS runtime restarts.
   useEffect(() => {
     bootstrap();
+    return () => {
+      useWorldStore.getState().teardown();
+    };
   }, [bootstrap]);
 
-  // Handle spawn tap
+  // ── Handle spawn tap ──────────────────────────────────────────
   const handleSpawnPress = useCallback(
     (spawn: WorldSpawn) => {
       if (spawn.type === 'resource_node' || spawn.type === 'vendor') {
-        // Non-combat interactions — handled later
-        Alert.alert(spawn.label, `Tier ${spawn.tier} ${spawn.type.replace('_', ' ')}. Interaction coming soon.`);
+        Alert.alert(
+          spawn.label,
+          `Tier ${spawn.tier} ${spawn.type.replace('_', ' ')}. Interaction coming soon.`,
+        );
         return;
       }
-
       beginEncounter(spawn.id);
       onSpawnPress?.(spawn);
     },
     [beginEncounter, onSpawnPress],
   );
 
-  // No GPS permission yet
-  if (!gpsPermissionGranted) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.title}>Grid Link Required</Text>
-        <Text style={styles.subtitle}>
-          This game uses your location to generate the world around you.
-        </Text>
-        <TouchableOpacity
-          style={styles.permissionButton}
-          onPress={async () => {
-            await requestPermission();
-            await startTracking();
-          }}
-        >
-          <Text style={styles.permissionButtonText}>Enable Location</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Loading initial position
   const position = virtualPosition ?? realPosition;
-  if (!position) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#00ffff" />
-        <Text style={styles.loadingText}>Calibrating Grid Position...</Text>
-      </View>
-    );
-  }
+  const showPermissionPrompt = !gpsPermissionGranted;
+  const showLoading = gpsPermissionGranted && !position;
+  const showMap = gpsPermissionGranted && !!position;
 
-  const region: Region = {
-    latitude: position.lat,
-    longitude: position.lng,
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
-  };
+  // ── GameMapGL onReady: set up scene entities ───────────────────
+  const handleMapReady = useCallback(
+    (refs: GameMapRefs) => {
+      mapRefs.current = refs;
+      const { scene } = refs;
 
+      // Create tile plane and add to scene
+      const tilePlane = new TilePlane();
+      tilePlaneRef.current = tilePlane;
+      scene.add(tilePlane.group);
+
+      // Create player marker (cyan ring + dot)
+      const playerGroup = new THREE.Group();
+      playerGroup.name = 'PlayerMarker';
+
+      // Outer ring
+      const ringGeo = new THREE.RingGeometry(2, 2.5, 32);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.6,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2; // Lay flat on XZ plane
+      playerGroup.add(ring);
+
+      // Inner dot
+      const dotGeo = new THREE.CircleGeometry(0.8, 16);
+      const dotMat = new THREE.MeshBasicMaterial({
+        color: 0x00ffff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+      });
+      const dot = new THREE.Mesh(dotGeo, dotMat);
+      dot.rotation.x = -Math.PI / 2;
+      dot.position.y = 0.01; // Slightly above ring to avoid z-fighting
+      playerGroup.add(dot);
+
+      playerMarkerRef.current = playerGroup;
+      scene.add(playerGroup);
+
+      // Create radius ring around real GPS anchor
+      if (realPosition) {
+        const radiusRingGeo = new THREE.RingGeometry(50, 50.5, 64);
+        const radiusRingMat = new THREE.MeshBasicMaterial({
+          color: 0x00ffff,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.08,
+        });
+        const radiusRing = new THREE.Mesh(radiusRingGeo, radiusRingMat);
+        radiusRing.rotation.x = -Math.PI / 2;
+        radiusRing.name = 'VirtualRadiusRing';
+        scene.add(radiusRing);
+      }
+    },
+    [realPosition],
+  );
+
+  // ── Sync position → TilePlane ──────────────────────────────────
+  useEffect(() => {
+    if (!position || !tilePlaneRef.current) return;
+    tilePlaneRef.current.updateForPosition(position);
+  }, [position]);
+
+  // ── Sync visibleSpawns → Three.js Sprites ─────────────────────
+  useEffect(() => {
+    const refs = mapRefs.current;
+    if (!refs) return;
+
+    const { scene } = refs;
+    const currentMap = spawnSpriteMap.current;
+    const currentIds = new Set(visibleSpawns.map((s) => s.id));
+
+    // Remove sprites for spawns that disappeared
+    for (const [id, sprite] of currentMap) {
+      if (!currentIds.has(id)) {
+        scene.remove(sprite);
+        if (sprite.material instanceof THREE.Material) {
+          sprite.material.dispose();
+        }
+        currentMap.delete(id);
+      }
+    }
+
+    // Add sprites for new spawns
+    for (const spawn of visibleSpawns) {
+      if (currentMap.has(spawn.id)) continue;
+
+      // Create a simple colored circle sprite
+      const canvas = { width: 64, height: 64 } as HTMLCanvasElement;
+      // For React Native, create a DataTexture with the spawn color
+      const colorHex = SPAWN_COLORS[spawn.type] ?? '#888888';
+      const color = new THREE.Color(colorHex);
+      const size = 64;
+      const data = new Uint8Array(size * size * 4);
+      const cx = size / 2;
+      const cy = size / 2;
+      const radius = size / 2 - 4;
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const dx = x - cx;
+          const dy = y - cy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist <= radius && dist >= radius - 4) {
+            // Ring
+            data[idx] = Math.round(color.r * 255);
+            data[idx + 1] = Math.round(color.g * 255);
+            data[idx + 2] = Math.round(color.b * 255);
+            data[idx + 3] = 255;
+          } else if (dist < radius - 4) {
+            // Filled center (semi-transparent)
+            data[idx] = Math.round(color.r * 255);
+            data[idx + 1] = Math.round(color.g * 255);
+            data[idx + 2] = Math.round(color.b * 255);
+            data[idx + 3] = 80;
+          } else {
+            // Outside — transparent
+            data[idx + 3] = 0;
+          }
+        }
+      }
+
+      const texture = new THREE.DataTexture(
+        data,
+        size,
+        size,
+        THREE.RGBAFormat,
+      );
+      texture.needsUpdate = true;
+      texture.minFilter = THREE.NearestFilter;
+      texture.magFilter = THREE.NearestFilter;
+
+      const spriteMat = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+      });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(6, 6, 1);
+      sprite.name = spawn.id;
+      sprite.userData = { spawn };
+
+      // Position the sprite in world space
+      // World coords: +X = East, +Z = South (Three.js default)
+      const origin: WorldPosition = position ?? { lat: 0, lng: 0 };
+      const { x, z } = TilePlane.gpsToWorld(spawn.position, origin);
+      sprite.position.set(x, 0.05, z); // Slightly above plane
+
+      scene.add(sprite);
+      currentMap.set(spawn.id, sprite);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      for (const [, sprite] of currentMap) {
+        scene.remove(sprite);
+        if (sprite.material instanceof THREE.Material) {
+          sprite.material.dispose();
+        }
+      }
+      currentMap.clear();
+    };
+  }, [visibleSpawns, position]);
+
+  // ── Spawn tap via Raycaster (passed to GameMapGL) ──────────────
+  const handleEntityTap = useCallback(
+    (intersects: THREE.Intersection[]) => {
+      for (const intersect of intersects) {
+        // Walk up the parent chain to find a sprite with userData.spawn
+        let obj: THREE.Object3D | null = intersect.object;
+        while (obj) {
+          const spawn = (obj.userData as Record<string, unknown>)?.spawn as
+            | WorldSpawn
+            | undefined;
+          if (spawn) {
+            handleSpawnPress(spawn);
+            return;
+          }
+          obj = obj.parent;
+        }
+      }
+    },
+    [handleSpawnPress],
+  );
+
+  // ── Cleanup scene entities on unmount ──────────────────────────
+  useEffect(() => {
+    return () => {
+      if (tilePlaneRef.current) {
+        tilePlaneRef.current.dispose();
+        tilePlaneRef.current = null;
+      }
+      spawnSpriteMap.current.clear();
+      playerMarkerRef.current = null;
+    };
+  }, []);
+
+  // ── Single stable render tree ──────────────────────────────────
+  //    GameMapGL renders the 3D map via expo-gl + Three.js.
+  //    React Native HUD views sit on top via absolute positioning.
   return (
     <View style={styles.container}>
-      {/* ── Map ── */}
-      <MapView
-        style={styles.map}
-        region={region}
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        customMapStyle={DARK_MAP_STYLE}
-      >
-        {/* Player position */}
-        <Marker
-          coordinate={{ latitude: position.lat, longitude: position.lng }}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          <View style={styles.playerMarker}>
-            <View style={styles.playerDot} />
-          </View>
-        </Marker>
+      {/* ── 3D Map (always mounted; internally handles GL context) ── */}
+      {showMap && (
+        <GameMapGL
+          sceneRef={mapRefs}
+          initialTilt={45}
+          initialHeading={0}
+          pixelSize={0}
+          onEntityTap={handleEntityTap}
+          onReady={handleMapReady}
+        />
+      )}
 
-        {/* Virtual movement radius (real GPS anchor) */}
-        {realPosition && (
-          <Circle
-            center={{ latitude: realPosition.lat, longitude: realPosition.lng }}
-            radius={VIRTUAL_MOVEMENT_RADIUS_M}
-            fillColor="rgba(0, 255, 255, 0.03)"
-            strokeColor="rgba(0, 255, 255, 0.15)"
-            strokeWidth={1}
-          />
-        )}
-
-        {/* Spawn markers */}
-        {visibleSpawns.map((spawn) => (
-          <Marker
-            key={spawn.id}
-            coordinate={{ latitude: spawn.position.lat, longitude: spawn.position.lng }}
-            onPress={() => handleSpawnPress(spawn)}
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View
-              style={[
-                styles.spawnMarker,
-                { borderColor: SPAWN_COLORS[spawn.type] ?? '#888' },
-              ]}
+      {/* ── Permission prompt overlay ── */}
+      {showPermissionPrompt && (
+        <View style={styles.overlay}>
+          <View style={styles.centeredContent}>
+            <Text style={styles.title}>Grid Link Required</Text>
+            <Text style={styles.subtitle}>
+              This game uses your location to generate the world around you.
+            </Text>
+            <TouchableOpacity
+              style={styles.permissionButton}
+              onPress={async () => {
+                await requestPermission();
+                await startTracking();
+              }}
             >
-              <Text style={styles.spawnIcon}>
-                {SPAWN_LABELS[spawn.type] ?? '?'}
-              </Text>
+              <Text style={styles.permissionButtonText}>Enable Location</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── Loading overlay ── */}
+      {showLoading && (
+        <View style={styles.overlay}>
+          <View style={styles.centeredContent}>
+            <ActivityIndicator size="large" color="#00ffff" />
+            <Text style={styles.loadingText}>Calibrating Grid Position...</Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── HUD + Joystick + BottomBar (only when map is visible) ── */}
+      {showMap && (
+        <>
+          <View style={styles.topBar}>
+            <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
+              <Text style={styles.menuIcon}>☰</Text>
+            </TouchableOpacity>
+            <View style={styles.playerInfo}>
+              <Text style={styles.playerLevel}>Lv.{playerLevel}</Text>
+              <Text style={styles.playerTier}>T{playerTier}</Text>
             </View>
-          </Marker>
-        ))}
-      </MapView>
+            <View style={styles.statusIndicators}>
+              <View
+                style={[
+                  styles.gpsDot,
+                  { backgroundColor: gpsTracking ? '#44ff44' : '#ff4444' },
+                ]}
+              />
+              <Text style={styles.gpsText}>{gpsTracking ? 'LIVE' : '---'}</Text>
+            </View>
+          </View>
 
-      {/* ── HUD Top Bar ── */}
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.menuButton} onPress={onMenuPress}>
-          <Text style={styles.menuIcon}>☰</Text>
-        </TouchableOpacity>
-        <View style={styles.playerInfo}>
-          <Text style={styles.playerLevel}>Lv.{playerLevel}</Text>
-          <Text style={styles.playerTier}>T{playerTier}</Text>
-        </View>
-        <View style={styles.statusIndicators}>
-          <View
-            style={[
-              styles.gpsDot,
-              { backgroundColor: gpsTracking ? '#44ff44' : '#ff4444' },
-            ]}
-          />
-          <Text style={styles.gpsText}>{gpsTracking ? 'LIVE' : '---'}</Text>
-        </View>
-      </View>
+          <JoystickOverlay />
 
-      {/* ── Joystick Overlay ── */}
-      <JoystickOverlay />
-
-      {/* ── Bottom Action Bar ── */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionIcon}>🎒</Text>
-          <Text style={styles.actionLabel}>Inventory</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionIcon}>⚙️</Text>
-          <Text style={styles.actionLabel}>Character</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionIcon}>🗺️</Text>
-          <Text style={styles.actionLabel}>Quests</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.bottomBar}>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionIcon}>🎒</Text>
+              <Text style={styles.actionLabel}>Inventory</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionIcon}>⚙️</Text>
+              <Text style={styles.actionLabel}>Character</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionIcon}>🗺️</Text>
+              <Text style={styles.actionLabel}>Quests</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 };
-
-// ─── Dark Cyberpunk Map Style ─────────────────────────────────────
-
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#4a6fa5' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  {
-    featureType: 'road',
-    elementType: 'geometry',
-    stylers: [{ color: '#16213e' }],
-  },
-  {
-    featureType: 'road',
-    elementType: 'geometry.stroke',
-    stylers: [{ color: '#0f3460' }],
-  },
-  {
-    featureType: 'water',
-    elementType: 'geometry',
-    stylers: [{ color: '#0a1628' }],
-  },
-  {
-    featureType: 'poi',
-    elementType: 'geometry',
-    stylers: [{ color: '#1a2744' }],
-  },
-];
 
 // ─── Styles ────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a1a' },
-  map: { flex: 1 },
-  centered: {
-    flex: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: '#0a0a1a',
+    zIndex: 10,
+  },
+  centeredContent: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -296,36 +442,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontFamily: 'JetBrainsMono',
   },
-
-  // Player marker
-  playerMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0, 255, 255, 0.3)',
-    borderWidth: 2,
-    borderColor: '#00ffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#00ffff',
-  },
-
-  // Spawn markers
-  spawnMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  spawnIcon: { fontSize: 18 },
 
   // Top bar
   topBar: {

@@ -23,6 +23,7 @@ import { SignInScreen } from '@/screens/SignIn';
 import { DevToolsScreen } from '@/screens/DevTools';
 // Phase D: New sci-fi screens
 import { WorldMapScreen } from '@/screens/WorldMap/WorldMapScreen';
+import { CharacterScreen } from '@/screens/Character/CharacterScreen';
 import { usePlayerStore, useRunStore } from '@/stores';
 import { useWorldStore } from '@/stores/worldStore';
 import { useCharacterStore } from '@/stores/characterStore';
@@ -44,7 +45,7 @@ export type HomeStackParamList = {
   RiskContractSelect: { classId: string };
   Placeholder: undefined;
   // Phase D: Sci-fi world screens
-  WorldMap: undefined;
+  WorldMapMain: undefined;
   BattleV2: undefined;
 };
 
@@ -86,9 +87,9 @@ function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }
 /** Phase D: World Map Stack — primary game flow with GPS map and combat. */
 function WorldMapStackNavigator() {
   return (
-    <HomeStack.Navigator initialRouteName="WorldMap">
+    <HomeStack.Navigator initialRouteName="WorldMapMain">
       <HomeStack.Screen
-        name="WorldMap"
+        name="WorldMapMain"
         component={WorldMapScreen as React.ComponentType<any>}
         options={{ headerShown: false }}
       />
@@ -232,7 +233,7 @@ function MainTabs() {
       />
       <Tab.Screen
         name="Character"
-        component={PlaceholderScreen}
+        component={CharacterScreen}
         options={{ tabBarLabel: 'Character' }}
       />
       <Tab.Screen

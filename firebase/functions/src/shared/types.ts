@@ -262,6 +262,26 @@ export interface BuyGearResponse {
   player: Pick<PlayerDoc, 'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'sigilShards' | 'lineageRanks' | 'classRanks' | 'ownedClassIds' | 'currentRunId'>;
 }
 
+// ── Phase D: World Map Encounters ─────────────────────────────────
+
+export interface SubmitEncounterPayload {
+  spawnId: string;
+  spawnType?: string;
+  tier?: number;
+  outcome?: string;
+  xpGained?: number;
+  creditsGained?: number;
+  lootIds?: string[];
+  hpRemaining?: number;
+  elapsedSeconds?: number;
+}
+
+export interface SubmitEncounterResponse {
+  committed: boolean;
+  levelUps: number;
+  newUnlocks: string[];
+}
+
 export type XpScrollKind = keyof XpScrollPouch;
 
 export interface UpgradeClassPayload {

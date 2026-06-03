@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,11 +17,12 @@ const SLOT_ORDER: readonly GearSlot[] = ['weapon', 'armor', 'accessory'];
 export function EquipmentScreen() {
   const playerStatus = usePlayerStore((state) => state.status);
   const goldBank = usePlayerStore((state) => state.goldBank);
-  const { bySlot, equippedBySlot, instances, loading, error, equip, unequip, temper } =
+  const { bySlot, equippedBySlot, instances, loading, error, equip, unequip, temper, dismantle } =
     useGearInventory();
   const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
   const [temperBusyInstanceId, setTemperBusyInstanceId] = useState<string | null>(null);
   const [temperFeedback, setTemperFeedback] = useState<string | null>(null);
+  const [dismantleBusyId, setDismantleBusyId] = useState<string | null>(null);
 
   const handleToggleEquip = async (instanceId: string): Promise<void> => {
     const inst = instances.find((i) => i.instanceId === instanceId);
@@ -58,6 +60,36 @@ export function EquipmentScreen() {
       .finally(() => {
         setTemperBusyInstanceId(null);
       });
+  };
+
+  const handleDismantle = (instanceId: string) => {
+    const inst = instances.find((i) => i.instanceId === instanceId);
+    const name = inst?.resolved?.name ?? instanceId;
+    Alert.alert(
+      'Dismantle Gear',
+      `Break down "${name}" for scrap and components? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Dismantle',
+          style: 'destructive',
+          onPress: () => {
+            setDismantleBusyId(instanceId);
+            dismantle(instanceId)
+              .then((yield_) => {
+                Alert.alert(
+                  'Dismantled!',
+                  `+${yield_.scrap} scrap${yield_.quantumCores > 0 ? `, +${yield_.quantumCores} quantum cores` : ''}${yield_.credits > 0 ? `, +${yield_.credits} credits` : ''}`,
+                );
+              })
+              .catch((err) => {
+                Alert.alert('Error', err instanceof Error ? err.message : 'Dismantle failed');
+              })
+              .finally(() => setDismantleBusyId(null));
+          },
+        },
+      ],
+    );
   };
 
   const isLoading = playerStatus !== 'ready' || loading;
@@ -103,6 +135,7 @@ export function EquipmentScreen() {
               equipped={equippedBySlot[slot]}
               onToggleEquip={handleToggleEquip}
               onTemper={handleTemper}
+              onDismantle={handleDismantle}
               busyInstanceId={busyInstanceId}
               temperBusyInstanceId={temperBusyInstanceId}
             />

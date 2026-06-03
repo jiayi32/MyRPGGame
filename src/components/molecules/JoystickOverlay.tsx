@@ -13,6 +13,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  runOnJS,
 } from 'react-native-reanimated';
 import { useWorldStore } from '@/stores/worldStore';
 
@@ -42,7 +43,7 @@ export const JoystickOverlay: React.FC = () => {
       const dyMeters = (dy - lastDy.current) * METERS_PER_PIXEL;
 
       if (Math.abs(dxMeters) > 0.5 || Math.abs(dyMeters) > 0.5) {
-        moveVirtual(dxMeters, dyMeters);
+        runOnJS(moveVirtual)(dxMeters, dyMeters);
       }
 
       lastDx.current = dx;
