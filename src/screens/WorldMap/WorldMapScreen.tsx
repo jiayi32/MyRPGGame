@@ -22,6 +22,7 @@ import { TilePlane } from '@/domain/renderer/TilePlane';
 import { useWorldStore } from '@/stores/worldStore';
 import { JoystickOverlay } from '@/components/molecules/JoystickOverlay';
 import type { WorldSpawn, WorldPosition } from '@/domain/world/types';
+import { gpsToTileCoord, tileCacheKey, preloadTiles } from '@/services/tileFetcher';
 
 // ─── Spawn Marker Colors ───────────────────────────────────────────
 
@@ -69,6 +70,14 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
   /** Player marker sprite (ring + dot). */
   const playerMarkerRef = useRef<THREE.Group | null>(null);
 
+  // ── Tile update debounce state ────────────────────────────────
+  /** Last tile key that triggered a full grid refresh. */
+  const lastTileKeyRef = useRef<string | null>(null);
+  /** Timestamp of the last grid refresh (for 300ms throttle). */
+  const lastTileRefreshRef = useRef<number>(0);
+  /** Minimum interval between tile grid refreshes (ms). */
+  const TILE_REFRESH_THROTTLE_MS = 300;
+
   // Bootstrap GPS on mount; teardown on unmount/bundle-reload to
   // prevent native expo-location crash when the JS runtime restarts.
   useEffect(() => {
@@ -99,6 +108,11 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
   const showLoading = gpsPermissionGranted && !position;
   const showMap = gpsPermissionGranted && !!position;
 
+  // Track latest position in a ref so handleMapReady can seed tiles
+  // even if the position effect already fired before the map was ready.
+  const positionRef = useRef(position);
+  positionRef.current = position;
+
   // ── GameMapGL onReady: set up scene entities ───────────────────
   const handleMapReady = useCallback(
     (refs: GameMapRefs) => {
@@ -109,6 +123,15 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
       const tilePlane = new TilePlane();
       tilePlaneRef.current = tilePlane;
       scene.add(tilePlane.group);
+
+      // Immediately seed tiles if GPS position is already available
+      const initialPos = positionRef.current;
+      if (initialPos) {
+        tilePlane.updateForPosition(initialPos).then(() => {
+          // After visible tiles load, pre-warm 7×7 surround (49 tiles) in background
+          preloadTiles(initialPos, true).catch(() => {});
+        });
+      }
 
       // Create player marker (cyan ring + dot)
       const playerGroup = new THREE.Group();
@@ -160,9 +183,23 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
     [realPosition],
   );
 
-  // ── Sync position → TilePlane ──────────────────────────────────
+  // ── Sync position → TilePlane (debounced to tile boundary + 300ms throttle) ──
   useEffect(() => {
     if (!position || !tilePlaneRef.current) return;
+
+    const centerTile = gpsToTileCoord(position, 18);
+    const newKey = tileCacheKey(centerTile);
+    const now = Date.now();
+
+    // Skip if still on the same tile
+    if (lastTileKeyRef.current === newKey) return;
+
+    // Skip if throttle window hasn't elapsed
+    if (now - lastTileRefreshRef.current < TILE_REFRESH_THROTTLE_MS) return;
+
+    lastTileKeyRef.current = newKey;
+    lastTileRefreshRef.current = now;
+
     tilePlaneRef.current.updateForPosition(position);
   }, [position]);
 
@@ -244,7 +281,7 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(6, 6, 1);
+      sprite.scale.set(3, 3, 1);
       sprite.name = spawn.id;
       sprite.userData = { spawn };
 
@@ -375,6 +412,13 @@ export const WorldMapScreen: React.FC<WorldMapScreenProps> = ({
 
           <JoystickOverlay />
 
+          {/* OSM Attribution — required by OSM Tile Usage Policy §2 */}
+          <View style={styles.attributionContainer} pointerEvents="none">
+            <Text style={styles.attributionText}>
+              © OpenStreetMap contributors
+            </Text>
+          </View>
+
           <View style={styles.bottomBar}>
             <TouchableOpacity style={styles.actionButton}>
               <Text style={styles.actionIcon}>🎒</Text>
@@ -495,6 +539,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   gpsText: { color: '#667788', fontSize: 11, fontFamily: 'JetBrainsMono' },
+
+  // OSM attribution (required by OSM Tile Usage Policy §2)
+  attributionContainer: {
+    position: 'absolute',
+    bottom: 90,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  attributionText: {
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: 9,
+    fontFamily: 'JetBrainsMono',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
 
   // Bottom bar
   bottomBar: {

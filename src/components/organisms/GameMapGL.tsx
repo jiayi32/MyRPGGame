@@ -85,7 +85,8 @@ export const GameMapGL: React.FC<GameMapGLProps> = ({
   const tap = useMemo(() => Gesture.Tap().onEnd(tapW), []);
 
   const composed = useMemo(
-    () => Gesture.Simultaneous(pan, pinch, tap), [pan, pinch, tap],
+    () => Gesture.Simultaneous(pan, pinch, tap),
+    [pan, pinch, tap],
   );
 
   return (

@@ -20,7 +20,7 @@ import { useWorldStore } from '@/stores/worldStore';
 const JOYSTICK_SIZE = 140;
 const KNOB_SIZE = 56;
 const MAX_DRAG = 50; // pixels — maps to max movement speed
-const METERS_PER_PIXEL = 5; // scaling factor: px drag → meters moved
+const METERS_PER_PIXEL = 1; // scaling factor: px drag → meters moved
 
 export const JoystickOverlay: React.FC = () => {
   const moveVirtual = useWorldStore((s) => s.moveVirtual);

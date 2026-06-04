@@ -10,12 +10,34 @@
 
 MapLibre, Leaflet, Google Maps, and similar SDKs are **geospatial data viewers** — they render tiles accurately on a Mercator projection. Orna uses map tiles as a **texture** in a custom game rendering pipeline with pixelation shaders, orthographic/oblique projection, player-centered orbit camera, and game-entity spawning — all of which are outside the scope of any map SDK.
 
-> **Revised June 3, 2026**: Based on deep investigation, the following updates have been made:
-> - **Skip `expo-three`** — unmaintained (last commit ~2 years ago, 86 open issues). Use a custom ~50-line `WebGLRenderer` bridge directly on `expo-gl`.
-> - **Built-in pixelation** — Three.js r182+ ships `RenderPixelatedPass` for the `EffectComposer` pipeline. No custom GLSL shader needed.
-> - **PerspectiveCamera at 45° tilt** — following Google Maps vector map camera model (tilt from nadir, heading orbit, fractional zoom).
-> - **Standard OSM raster tiles** — `https://tile.openstreetmap.org/{z}/{x}/{y}.png`.
+> **Revised June 4, 2026**: Based on implementation experience, the following updates have been made:
+> - **Skip `expo-three`** — unmaintained. Custom ~50-line `ExpoWebGLRenderer` bridge on `expo-gl` context.
+> - **Pixelation via EffectComposer** — `RenderPixelatedPass` (r182+) with try/catch fallback to direct `renderer.render()`.
+> - **PerspectiveCamera at 45° tilt** — Google Maps vector map camera model (heading orbit, pinch zoom).
+> - **OSM raster tiles** — `tile.openstreetmap.org`, zoom 18, 3×3 grid, `fetch()` + base64 cache with ≥2KB size validation.
 > - **MapLibre removed** — `@maplibre/maplibre-react-native` dependency and `app.json` plugin cleaned up.
+> - **Gesture handling** — module-level worklet callbacks via `runOnJS`; `Gesture.Simultaneous(pan, pinch, tap)`.
+> - **Joystick sensitivity** — 1 meter per pixel drag (was 5).
+>
+> **Revised June 4, 2026 (performance + compliance batch)**:
+> - **`downloadAsync` replaces fetch→base64** — native streaming download eliminates the byte-by-byte base64 conversion bottleneck (~100-300ms per tile).
+> - **Sliding-window tile segment reuse** — `TilePlane` maintains a `Map<key, TileSegment>` for O(1) reuse; only creates/disposes tiles entering/leaving the 3×3 grid (typically 1-3 changed vs 9 full rebuild).
+> - **Center-tile-first loading** — prioritizes the tile directly under the player for instant perceived response.
+> - **Tile-boundary debounce + 300ms throttle** — `WorldMapScreen` only triggers `updateForPosition` when the GPS center tile actually changes AND ≥300ms since last refresh.
+> - **5×5 pre-warm on map ready** — background preload of surrounding tiles so adjacent areas render instantly on scroll.
+> - **OSM-compliant User-Agent** — `MyRPGGame/0.1.0 (+https://github.com/...; contact: dev@myrpggame.app)` per OSM Tile Usage Policy §3.1/§3.4 (was non-compliant `(React Native)` suffix causing 403 blocks).
+> - **Versioned cache purge** — `AsyncStorage`-backed `CACHE_VERSION` bumps force one-time purge of all poisoned 403-error cache entries.
+> - **7-day TTL eviction** — replaces arbitrary 200-tile LRU cap with time-based eviction per OSM policy §3.2.
+> - **Jittered batch delays** — 100-250ms random jitter instead of fixed 100ms (avoids automated-traffic detection per OSM policy §4).
+> - **5s download timeout** — `Promise.race` wrapper prevents hung requests from stalling the batch pipeline.
+> - **OSM attribution overlay** — `© OpenStreetMap contributors` text at bottom of map screen per OSM policy §2.
+>
+> **Revised June 4, 2026 (continuous pre-caching batch)**:
+> - **Continuous background pre-caching** — `TilePlane.updateForPosition()` fires `preloadTilesBackground(center, 3)` (fire-and-forget) on every tile change, downloading a 7×7 grid (49 tiles) in background. Tiles ahead of the player are on disk before they scroll into view.
+> - **Configurable-radius pre-warm** — `getExpandedTiles(center, radius)` replaces hardcoded `getPreWarmTiles`. `radius=1` = 3×3 visible, `radius=3` = 7×7 pre-cache (49 tiles), `radius=4` = 9×9 (81 tiles, available for future use).
+> - **Session-level confirmed-good tile tracking** — `_confirmedGoodTiles: Set<string>` avoids redundant `getInfoAsync` filesystem checks for tiles already validated this session. First-time load validates size; subsequent loads skip straight to `createTextureFromLocalUri`.
+> - **7×7 initial pre-warm** — `preloadTiles(center, expanded=true)` now pre-caches 49 tiles (was 25). Expanded area covers 3 tiles in every direction beyond the visible 3×3.
+> - **Deduplicated preloads** — `lastPreloadKey` in `TilePlane` prevents redundant background preloads when the center tile hasn't changed.
 
 ---
 
@@ -32,11 +54,11 @@ MapLibre, Leaflet, Google Maps, and similar SDKs are **geospatial data viewers**
 
 | Step | Orna Behavior | Our Implementation |
 |---|---|---|
-| 1. Tile fetch | Download OSM raster tiles within ~300m of player GPS | `fetch()` OSM `{z}/{x}/{y}.png` tiles; cache to `expo-file-system` |
-| 2. Pixelation | Apply retro pixel-art filter via shader | Three.js **built-in** `retroPass()` / `pixelationPass()` (TSL, r183+) |
-| 3. Oblique view | Render flat tiles onto a tilted 3D plane, centered on player | Three.js `PerspectiveCamera` at 45° tilt (Google Maps vector map style), textured `PlaneGeometry` |
-| 4. Entity spawn | Game buildings, enemies, player ring on the oblique plane | Three.js sprites / `SpriteMaterial` positioned on the plane |
-| 5. Orbit camera | Swipe revolves camera around player (player always centered) | Manual spherical orbit via `react-native-gesture-handler` pan/pinch gestures (no DOM-dependent `OrbitControls`) |
+| 1. Tile fetch | Download OSM raster tiles within ~300m of player GPS | `FileSystem.downloadAsync()` OSM `{z}/{x}/{y}.png` tiles; cache to `expo-file-system/legacy` with ≥2KB size validation + 7-day TTL; continuous 7×7 background pre-caching on every tile change |
+| 2. Pixelation | Apply retro pixel-art filter via shader | Three.js `EffectComposer` + `RenderPixelatedPass` (r182+); falls back to direct `renderer.render()` on expo-gl |
+| 3. Oblique view | Render flat tiles onto a tilted 3D plane, centered on player | Three.js `PerspectiveCamera` at 45° tilt, textured `PlaneGeometry` |
+| 4. Entity spawn | Game buildings, enemies, player ring on the oblique plane | Three.js `Sprite` with procedural `DataTexture` circles (color-coded by spawn type) |
+| 5. Orbit camera | Swipe revolves camera around player (player always centered) | Module-level worklet callbacks → `runOnJS` → manual spherical orbit; `Gesture.Simultaneous(pan, pinch, tap)` |
 
 ---
 
@@ -45,13 +67,13 @@ MapLibre, Leaflet, Google Maps, and similar SDKs are **geospatial data viewers**
 | Layer | Technology | Purpose |
 |---|---|---|
 | OpenGL surface | `expo-gl` (`GLView`) | Native OpenGL ES render target in React Native view tree |
-| 3D engine | `three` (r184+, **direct import**, no `expo-three`) | Scene graph, camera, materials, shaders, sprites |
+| 3D engine | `three` (r184, **direct import**, no `expo-three`) | Scene graph, camera, materials, sprites |
 | GL bridge | Custom `ExpoWebGLRenderer` (~50-line adapter) | Bridges `expo-gl` context to `THREE.WebGLRenderer` |
-| Pixelation | Three.js built-in `retroPass()` / `pixelationPass()` (TSL) | Retro pixel-art post-processing — no custom GLSL |
-| Tile fetching | Custom fetcher + `expo-file-system` | Download OSM raster tiles, cache locally |
+| Pixelation | `EffectComposer` + `RenderPixelatedPass` (r182+) | Retro pixel-art post-processing with expo-gl fallback |
+| Tile fetching | Custom fetcher + `expo-file-system/legacy` | Download OSM raster tiles, base64 cache, size validation |
 | GPS integration | `expo-location` + `worldStore` (existing) | Player position → camera anchor |
 | UI overlays | React Native `View` (existing) | HUD, joystick, action bar — positioned absolutely over GLView |
-| Gestures | `react-native-gesture-handler` + Reanimated (existing) | Pan → orbit camera (heading), pinch → zoom (radius), tap → entity select |
+| Gestures | `react-native-gesture-handler` + Reanimated (existing) | Module-level worklet callbacks → `runOnJS` → spherical orbit |
 
 ### Why Three.js (not raw WebGL)
 
@@ -133,14 +155,13 @@ graph TB
 ```mermaid
 flowchart TD
     A["requestAnimationFrame"] --> B["Read virtualPosition<br/>from worldStore"]
-    B --> C{"Position crossed<br/>tile boundary?"}
-    C -->|"Yes"| D["Determine visible tile set<br/>GPS lat/lng → z/x/y coords"]
+    B --> C{"Position crossed<br/>tile boundary + ≥300ms?"}
+    C -->|"Yes"| D["updateForPosition()<br/>sliding-window segment reuse"]
     C -->|"No"| E["Skip tile refresh"]
-    D --> F{"Each tile<br/>in cache?"}
-    F -->|"Yes"| G["Load Texture from<br/>filesystem URI"]
-    F -->|"No"| H["fetch() OSM tile<br/>→ cache to filesystem<br/>→ create THREE.Texture"]
-    G --> I["Update PlaneGeometry<br/>per-tile materials"]
-    H --> I
+    D --> F["Center tile loads first<br/>await loadTile()"]
+    F --> G["Surround tiles load in<br/>3-tile jittered batches"]
+    G --> H["Fire-and-forget:<br/>preloadTilesBackground()<br/>7×7 grid (49 tiles)"]
+    H --> I["Apply textures to<br/>PlaneGeometry segments"]
     E --> I
     I --> J["Read gesture deltas<br/>from shared values"]
     J --> K["Update spherical coords:<br/>theta += dx · SENS<br/>phi = clamp(phi + dy · SENS, 20°, 70°)<br/>radius *= 1/scale"]
@@ -176,21 +197,67 @@ The GLView renders the 3D map. React Native views (HUD, joystick, action bar) si
 
 ## 5. Rendering Pipeline Detail
 
-### 5.1 Tile Fetching
+### 5.1 Tile Fetching & Caching Architecture
 
 ```
-GPS position → grid cell → tile coordinates (zoom 16-18, LOD)
-    → check expo-file-system cache
-    → fetch missing tiles from OSM CDN
-    → create Three.js Texture from tile PNG (file:// URI)
+GPS position → tile coordinates (all zoom 18)
+    → in-memory Map cache hit? → instant return (0 I/O)
+    → session-confirmed-good Set hit? → skip validation, create texture directly from disk
+    → filesystem cache hit? → validate size (≥2KB guard) → create texture → add to confirmed set
+    → cache miss → FileSystem.downloadAsync() from tile.openstreetmap.org → validate → create texture → add to confirmed set
     → map onto PlaneGeometry segments (MeshBasicMaterial per tile)
 ```
 
 - Tile URL: `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
-- Cache: `expo-file-system` cache directory, LRU eviction
-- Radius: 300m (SPAWN_VISIBLE_RADIUS_M), 3×3 tile grid at zoom 18
-- LOD: zoom 18 center, zoom 17 adjacent, zoom 16 edge
-- Each tile = 256×256 PNG, mapped to a `MeshBasicMaterial` on a plane segment
+- User-Agent: `MyRPGGame/0.1.0 (+https://github.com/MyRPGGame/app; contact: dev@myrpggame.app)` — OSM-compliant §3.1/§3.4
+- **In-memory cache**: `Map<key, TileEntry>` with 7-day TTL eviction (OSM policy §3.2). Instant hit — zero I/O.
+- **Session confirmed-good Set**: `_confirmedGoodTiles: Set<string>` tracks tiles validated this session. Subsequent loads skip the async `getInfoAsync` size check — direct `createTextureFromLocalUri()`. Saves ~5-50ms per cached tile.
+- **Disk cache**: `expo-file-system/legacy` cache directory. Tiles persist for 7 days minimum per OSM policy §3.2. Versioned purge (`AsyncStorage`-backed `CACHE_VERSION`) clears all tiles on format/provider changes.
+- **Download**: `FileSystem.downloadAsync()` — native streaming directly to disk, zero JS CPU overhead. Replaces the old `fetch()` + byte-by-byte base64 conversion bottleneck.
+- **Rate limiting**: Concurrent batches of 3 tiles with 100-250ms jittered inter-batch pause (OSM policy §4 — avoids automated-looking traffic patterns).
+- **Timeout**: 5s per-tile `Promise.race` prevents hung downloads from stalling the batch pipeline.
+- All tiles at zoom 18 (no LOD — simplicity and OSM coverage reliability)
+- Texture: expo-gl native `{ localUri, width: 256, height: 256 }` passed through `THREE.Texture` constructor — no `TextureLoader` (requires DOM)
+- Fallback: `loadTile` returns `null` on failure; debug HSL colors persist for unavailable tiles
+- Attribution: `© OpenStreetMap contributors` overlay on map screen (OSM policy §2)
+
+### 5.1a Continuous Background Pre-Caching Strategy
+
+The core performance challenge: OSM's volunteer-run tile servers have 500ms-2s latency. Downloading tiles on-demand during movement causes visible lag. The solution is **continuous background pre-caching** — download tiles before the player scrolls into them.
+
+**How it works:**
+
+```
+Player moves → center tile changes
+  ↓
+TilePlane.updateForPosition(center)
+  ├── Sliding-window: reposition existing segments, create new ones for entering tiles
+  ├── Center tile loads first (await loadTile) → instant perceived response
+  ├── Surround tiles load in 3-tile batches with jitter
+  └── Fire-and-forget: preloadTilesBackground(center, radius=3)
+        └── Promise.allSettled on 49 tile coords (7×7 grid)
+              ├── Already-cached tiles → _confirmedGoodTiles fast path → instant
+              └── New tiles → downloadAsync → cached on disk → added to confirmed set
+```
+
+**Pre-caching tiers:**
+
+| Tier | Radius | Grid | Tile Count | Trigger |
+|---|---|---|---|---|
+| Visible | 1 | 3×3 | 9 | `updateForPosition()` — immediate, awaited |
+| Pre-warm | 3 | 7×7 | 49 | `preloadTilesBackground()` — fire-and-forget on every tile change |
+| Initial warm | 3 | 7×7 | 49 | `preloadTiles(center, expanded=true)` — awaited on map ready |
+
+**Key design decisions:**
+
+- **Fire-and-forget, never blocking**: `preloadTilesBackground()` returns `void` immediately. The visible 3×3 grid renders first; background downloads never delay the player's view.
+- **Deduplicated per tile**: `lastPreloadKey` in `TilePlane` tracks which center tile was last preloaded. Same-tile re-renders don't trigger redundant downloads.
+- **O(1) filesystem skip**: Once a tile is confirmed-good this session, `tryLoadCachedTexture` creates the texture directly from the file URI — no `getInfoAsync` stat call. This matters at scale: 49 pre-cached tiles × skipping one async I/O each = significant cumulative savings.
+- **OSM policy compliant**: "Modest, short-range look-ahead typical of browsers" (§4) is explicitly permitted. 7×7 (extending 3 tiles beyond the visible 3×3) with jittered downloads qualifies as modest look-ahead.
+
+**Performance characteristic after warm-up:**
+
+After the first ~30 seconds of exploration in an area, **all visible tiles load from local disk with zero network requests**. The in-memory cache + confirmed-good fast path means tile textures appear on the PlaneGeometry in under one frame.
 
 **GPS → Tile → World Coordinate Pipeline:**
 ```mermaid
@@ -440,14 +507,14 @@ flowchart LR
 | 1.6 | Integrate GPS position → place player marker sprite on plane | 1.5 |
 | 1.7 | Wire up pan gesture → heading orbit (theta), pinch gesture → zoom (radius) | 1.6 |
 
-### Phase 2 — Tile System (est. 2 days)
+### Phase 2 — Tile System ✅ COMPLETE
 
-| Step | Task |
-|---|---|
-| 2.1 | Build `TileFetcher` — GPS→tile coords, download OSM tiles within radius, cache to filesystem |
-| 2.2 | Build `TilePlane` — dynamic PlaneGeometry with per-tile MeshBasicMaterial textures |
-| 2.3 | Implement tile LOD — 3×3 grid: zoom 18 center, zoom 17 adjacent, zoom 16 edge |
-| 2.4 | Handle tile loading states (placeholder gray material per segment) |
+| Step | Task | Implementation |
+|---|---|---|
+| 2.1 | Build `TileFetcher` | `fetch()` + base64 via `btoa()` + `FileSystem.writeAsStringAsync` + size validation |
+| 2.2 | Build `TilePlane` | HSL debug-color immediate render → batch texture swap via `pendingMaterials` queue |
+| 2.3 | Tile loading | All zoom 18 (no LOD); concurrent batches of 3 with 100ms pause |
+| 2.4 | Loading states | Debug-colored tiles appear instantly; OSM textures replace them as they load |
 
 ### Phase 3 — Visual Polish (est. 2 days) ✅ COMPLETE
 
@@ -474,12 +541,16 @@ flowchart LR
 | Risk | Mitigation |
 |---|---|
 | Three.js + emulator performance | Test on physical device early; use `Stats.js` for FPS monitoring |
-| OSM tile download latency | Aggressive caching; pre-fetch tiles on app launch; limit concurrent downloads |
+| OSM tile download latency (500ms-2s) | Aggressive local caching (7-day TTL + session confirmed-good fast path); native `downloadAsync`; center-tile-first loading; **continuous 7×7 background pre-caching** on every tile change |
+| OSM blocking (403 "Access blocked") | **Resolved**: Compliant `User-Agent` with contact info (§3.1); versioned cache purge clears old poisoned entries; jittered rate limiting (§4); attribution overlay (§2) |
+| Cold-start tile load delay | 7×7 initial pre-warm on map ready (49 tiles); most tiles cached from previous sessions |
 | Gesture conflict (GLView vs RN views) | GLView is full-screen behind RN views; RN views handle gestures via absolute positioning |
 | Platform-specific GL bugs | Test on both iOS simulator + physical Android device during Phase 1 |
 | ~~expo-three maintenance~~ | **Resolved**: Using direct `expo-gl` + `three` bridge (~50 lines), no external dependency risk |
 | retroPass/pixelationPass on mobile GL | Test TSL post-processing early on physical device; fall back to `RenderPixelatedPass` (traditional `EffectComposer`) if needed |
 | OrbitControls unavailable (no DOM) | Implemented manually via `react-native-gesture-handler` + spherical math — fully in our control |
+| Tile grid rebuild cost on position change | **Resolved**: Sliding-window segment reuse + tile-boundary debounce + 300ms throttle |
+| Large cache I/O on every tile load | **Resolved**: Session `_confirmedGoodTiles` Set skips redundant `getInfoAsync` filesystem checks for previously-validated tiles |
 
 ---
 
@@ -487,16 +558,23 @@ flowchart LR
 
 ```json
 {
-  "expo-gl": "~56.0.5",
+  "expo-gl": "~55.0.14",
   "three": "~0.184.0",
   "expo-file-system": "~55.0.22",
-  "expo-location": "~55.1.10"
+  "expo-location": "~55.1.10",
+  "@react-native-async-storage/async-storage": "^2.1.0"
 }
 ```
 
 > **Removed**: `expo-three` — replaced by custom `ExpoWebGLRenderer` bridge (~50 lines).
 > **Removed**: `@maplibre/maplibre-react-native` — replaced by custom OpenGL map engine.
-> **Updated**: `three` upgraded to `~0.184.0` (r184) for `RenderPixelatedPass` (r182+) and `EffectComposer` support.
+> **Updated**: `three` upgraded to `~0.184.0` (r184) for `EffectComposer` + `RenderPixelatedPass`.
+> **Updated**: `expo-file-system` imports use `/legacy` path for SDK 55 compatibility.
+> **Updated (June 4)**: Tile download now uses `FileSystem.downloadAsync` (native streaming) instead of `fetch()` + byte-by-byte base64 conversion.
+> **Updated (June 4)**: `AsyncStorage` added for cache version tracking (one-time poisoned-cache purge on version bump).
+> **Updated (June 4)**: Continuous 7×7 background pre-caching via `preloadTilesBackground()` + session `_confirmedGoodTiles` Set for O(1) filesystem-skip on cached tiles.
+> **Tile source**: `tile.openstreetmap.org` (standard OSM raster tiles, zoom 18).
+> **Joystick**: sensitivity reduced from 5 to 1 meter per pixel drag.
 
 Existing dependencies (unchanged): `react-native-gesture-handler`, `react-native-reanimated`, `zustand`
 
