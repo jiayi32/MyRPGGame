@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { ClassId, RiskContractId, SkillId } from '@/content';
+import type { ClassId, RiskContractId, SkillId, ConsumableId } from '@/content';
 import { CLASS_BY_ID } from '@/content';
 import {
   createRunMapGraph,
@@ -14,13 +14,11 @@ import {
 import { findSameLineageEvolutionTarget } from '@/domain/run/progression';
 import { isCheckpointStage } from '@/domain/run/checkpoint';
 import {
-  bankCheckpoint as bankCheckpointApi,
-  endRun as endRunApi,
-  formatCallableError,
-  getRunSnapshot,
-  startRun as startRunApi,
-  submitStageOutcome as submitStageOutcomeApi,
-} from '@/services/runApi';
+  startRunLocal,
+  submitStageOutcomeLocal,
+  endRunLocal,
+} from '@/domain/run/localRunEngine';
+import { savePlayerProfile } from '@/services/playerSync';
 import {
   EMPTY_REWARD_BUNDLE,
   type EndRunResponse,
@@ -31,6 +29,48 @@ import {
   type SubmitStageOutcomeResponse,
 } from '@/features/run/types';
 import { usePlayerStore } from './playerStore';
+
+const formatError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+// ─── Snapshot Builder ────────────────────────────────────────────
+
+const buildSnapshot = (state: RunStoreState): RunSnapshot => ({
+  id: state.runId!,
+  seed: state.seed!,
+  stage: state.stage!,
+  activeClassId: state.activeClassId!,
+  activeLineageId: CLASS_BY_ID.get(state.activeClassId!)?.lineageId ?? '',
+  evolutionTargetClassId: null,
+  selectedRiskContractIds: state.selectedRiskContractIds,
+  runPassiveIds: state.runPassiveIds,
+  draftedSkillIds: state.draftedSkillIds,
+  augmentIds: state.augmentIds,
+  bankedRewards: cloneReward(state.bankedRewards),
+  vaultedRewards: cloneReward(state.vaultedRewards),
+  riskMeter: state.riskMeter,
+  totalRewards: cloneReward(state.totalRewards),
+  vaultStreak: state.vaultStreak,
+  result: state.runResult ?? 'ongoing',
+  currentMapGraph: state.mapGraph,
+  mapPathByStage: state.mapPathByStage,
+  augmentsPicked: usePlayerStore.getState().augmentsPicked,
+});
+
+const syncPlayerToFirebase = () => {
+  const p = usePlayerStore.getState();
+  savePlayerProfile({
+    goldBank: p.goldBank,
+    ascensionCells: p.ascensionCells,
+    sigilShards: p.sigilShards,
+    lineageRanks: { ...p.lineageRanks },
+    classRanks: { ...p.classRanks },
+    ownedClassIds: [...p.ownedClassIds],
+    unlockedPassiveIds: [...p.unlockedPassiveIds],
+    augmentsPicked: p.augmentsPicked,
+    runHistory: [...p.runHistory],
+  });
+};
 
 export type RunStoreStatus =
   | 'idle'
@@ -61,14 +101,24 @@ interface RunStoreState {
   mapPathByStage: Record<number, string>;
   activeClassId: ClassId | null;
   selectedRiskContractIds: RiskContractId[];
+  selectedThreatLevel: number;
   runPassiveIds: string[];
   draftedSkillIds: SkillId[];
   augmentIds: string[];
   pendingInnDecisionId: string | null;
+  /** Stims (consumable combat items) carried during this run. Max 3. */
+  carriedStims: ConsumableId[];
   runResult: RunFinalResult | null;
+  /** Risk Meter (0-100). Fills as you press on. Cash out at checkpoints to bank rewards. */
+  riskMeter: number;
+  /** Total rewards accumulated this run before risk deduction. */
+  totalRewards: RewardBundle;
+  /** @deprecated Replaced by riskMeter system. */
   vaultStreak: number;
   awaitingVaultDecision: boolean;
+  /** @deprecated Replaced by totalRewards + riskMeter. */
   bankedRewards: RewardBundle;
+  /** @deprecated Replaced by riskMeter. */
   vaultedRewards: RewardBundle;
   lastSubmittedResult: StageOutcomeResult | null;
   getAvailableNodeIdsForCurrentStage: () => readonly string[];
@@ -80,12 +130,20 @@ interface RunStoreState {
   selectAugment: (augmentId: string) => void;
   selectInnDecision: (decisionId: string) => void;
   clearInnDecision: () => void;
+  /** Add a stim to carried inventory. No-op if already at max capacity (3). */
+  addStim: (stimId: ConsumableId) => void;
+  /** Remove a stim from carried inventory (after use or discard). */
+  removeStim: (stimId: ConsumableId) => void;
   bootstrap: () => Promise<void>;
   startRun: (
     activeClassId: ClassId,
     options?: { selectedRiskContractIds?: RiskContractId[] }
   ) => Promise<void>;
   submitStageOutcome: (input: SubmitOutcomeInput) => Promise<SubmitStageOutcomeResponse>;
+  /** Advance the risk meter after a stage win and accumulate rewards. */
+  advanceRisk: (stageRewards: RewardBundle, isBossStage: boolean) => void;
+  /** Cash out at a checkpoint: keep 100% of totalRewards, reset risk to 0. */
+  cashOut: () => void;
   vaultAtStage: () => Promise<void>;
   pressOn: () => void;
   endRun: (finalResult: StageOutcomeResult) => Promise<EndRunResponse>;
@@ -266,10 +324,12 @@ const applySnapshot = (
     activeClassId: snapshot.activeClassId as ClassId,
     selectedRiskContractIds: [...snapshot.selectedRiskContractIds] as RiskContractId[],
     runPassiveIds: [...snapshot.runPassiveIds],
-    draftedSkillIds: [],
+    draftedSkillIds: [...(snapshot.draftedSkillIds ?? [])],
     augmentIds: [...(snapshot.augmentIds ?? [])],
     pendingInnDecisionId: snapshot.pendingInnDecisionId,
     runResult: snapshot.result,
+    riskMeter: snapshot.riskMeter ?? 0,
+    totalRewards: cloneReward(snapshot.totalRewards ?? EMPTY_REWARD_BUNDLE),
     vaultStreak: snapshot.vaultStreak,
     bankedRewards: cloneReward(snapshot.bankedRewards),
     vaultedRewards: cloneReward(snapshot.vaultedRewards),
@@ -288,11 +348,15 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
   mapPathByStage: {},
   activeClassId: null,
   selectedRiskContractIds: [],
+  selectedThreatLevel: 0,
   runPassiveIds: [],
   draftedSkillIds: [],
   augmentIds: [],
   pendingInnDecisionId: null,
+  carriedStims: [],
   runResult: null,
+  riskMeter: 0,
+  totalRewards: cloneReward(EMPTY_REWARD_BUNDLE),
   vaultStreak: 0,
   awaitingVaultDecision: false,
   bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
@@ -393,6 +457,21 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
     set({ pendingInnDecisionId: null });
   },
 
+  addStim: (stimId) => {
+    const { carriedStims } = get();
+    if (carriedStims.length >= 3) return; // Max 3 stims
+    set({ carriedStims: [...carriedStims, stimId] });
+  },
+
+  removeStim: (stimId) => {
+    const { carriedStims } = get();
+    const idx = carriedStims.indexOf(stimId);
+    if (idx === -1) return;
+    const updated = [...carriedStims];
+    updated.splice(idx, 1);
+    set({ carriedStims: updated });
+  },
+
   bootstrap: async () => {
     if (get().status !== 'idle' && get().status !== 'error') {
       return;
@@ -424,7 +503,7 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
 
       set({ status: 'ready', error: null, mapGraph: null, mapPathByStage: {} });
     } catch (error) {
-      set({ status: 'error', error: formatCallableError(error) });
+      set({ status: 'error', error: formatError(error) });
       throw error;
     }
   },
@@ -451,19 +530,18 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       mapPathByStage: {},
     });
     try {
-      const response = await startRunApi({
+      const { runId, seed, snapshot } = startRunLocal({
         activeClassId,
         activeLineageId,
-        evolutionTargetClassId,
         selectedRiskContractIds: options?.selectedRiskContractIds ?? [],
       });
-      const snapshot = await getRunSnapshot(response.runId);
+
       applySnapshot(set, snapshot);
       await clearStoredRunMapPath(snapshot.id);
       await hydrateRunMapForSnapshot(set, snapshot);
       set({ awaitingVaultDecision: false });
     } catch (error) {
-      set({ status: 'error', error: formatCallableError(error) });
+      set({ status: 'error', error: formatError(error) });
       throw error;
     }
   },
@@ -480,8 +558,9 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
 
     set({ status: 'submitting_outcome', error: null });
     try {
-      const response = await submitStageOutcomeApi({
-        runId,
+      const current = get();
+      const snapshot = buildSnapshot(current);
+      const { snapshot: updated, output } = submitStageOutcomeLocal(snapshot, {
         stageIndex: input.stageIndex,
         result: input.result,
         rewards: cloneReward(input.rewards),
@@ -489,40 +568,79 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
         elapsedSeconds: input.elapsedSeconds,
       });
 
-      const snapshot = await getRunSnapshot(runId);
-      applySnapshot(set, snapshot);
-        await hydrateRunMapForSnapshot(set, snapshot);
-      set({ awaitingVaultDecision: input.result === 'won' && isCheckpointStage(input.stageIndex) });
+      applySnapshot(set, updated);
+      await hydrateRunMapForSnapshot(set, updated);
+      set({
+        awaitingVaultDecision: input.result === 'won' && output.isCheckpoint,
+        lastSubmittedResult: input.result,
+      });
 
-      set({ lastSubmittedResult: input.result });
-      return response;
+      // If run ended, settle and sync
+      if (output.runEnded && output.finalResult) {
+        const settlement = endRunLocal(updated, output.finalResult);
+        const playerStore = usePlayerStore.getState();
+        // Apply progression directly
+        playerStore.setState({
+          goldBank: playerStore.goldBank + settlement.totalGoldKept,
+          ascensionCells: playerStore.ascensionCells + settlement.totalCellsKept,
+          xpScrolls: {
+            minor: playerStore.xpScrolls.minor + settlement.xpGained.minor,
+            standard: playerStore.xpScrolls.standard + settlement.xpGained.standard,
+            grand: playerStore.xpScrolls.grand + settlement.xpGained.grand,
+          },
+        });
+        playerStore.addRunToHistory({
+          runId: current.runId!,
+          classId: current.activeClassId!,
+          className: CLASS_BY_ID.get(current.activeClassId!)?.name ?? 'Unknown',
+          result: output.finalResult === 'fled' ? 'fled' : output.finalResult === 'won' ? 'won' : 'lost',
+          stagesCompleted: current.stage ?? 0,
+          goldEarned: settlement.totalGoldKept,
+          completedAt: Date.now(),
+        });
+        syncPlayerToFirebase();
+      }
+
+      return {
+        isCheckpoint: output.isCheckpoint,
+        vaultStreak: current.vaultStreak,
+      };
     } catch (error) {
-      set({ status: 'error', error: formatCallableError(error) });
+      set({ status: 'error', error: formatError(error) });
       throw error;
     }
   },
 
   vaultAtStage: async () => {
-    const runId = get().runId;
-    if (runId === null) {
-      return;
-    }
-
-    set({ error: null });
-    try {
-      await bankCheckpointApi({ runId });
-      const snapshot = await getRunSnapshot(runId);
-      applySnapshot(set, snapshot);
-      await hydrateRunMapForSnapshot(set, snapshot);
-      set({ awaitingVaultDecision: false });
-    } catch (error) {
-      set({ error: formatCallableError(error) });
-      throw error;
-    }
+    // Local-first: cash out risk meter
+    get().cashOut();
   },
 
   pressOn: () => {
     set({ awaitingVaultDecision: false });
+  },
+
+  advanceRisk: (stageRewards, isBossStage) => {
+    const { riskMeter, totalRewards } = get();
+    const riskIncrease = isBossStage ? 10 : 5;
+    const newRisk = Math.min(100, riskMeter + riskIncrease);
+    set({
+      riskMeter: newRisk,
+      totalRewards: {
+        gold: totalRewards.gold + stageRewards.gold,
+        ascensionCells: totalRewards.ascensionCells + stageRewards.ascensionCells,
+        sigilShards: totalRewards.sigilShards + stageRewards.sigilShards,
+        xpScrollMinor: totalRewards.xpScrollMinor + stageRewards.xpScrollMinor,
+        xpScrollStandard: totalRewards.xpScrollStandard + stageRewards.xpScrollStandard,
+        xpScrollGrand: totalRewards.xpScrollGrand + stageRewards.xpScrollGrand,
+        gearIds: [...totalRewards.gearIds, ...stageRewards.gearIds],
+      },
+    });
+  },
+
+  cashOut: () => {
+    // Keep 100% of totalRewards, reset risk to 0
+    set({ riskMeter: 0, awaitingVaultDecision: false });
   },
 
   endRun: async (finalResult) => {
@@ -533,38 +651,54 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
 
     set({ status: 'ending_run', error: null });
     try {
-      const response = await endRunApi({ runId, finalResult });
+      const current = get();
+      const snapshot = buildSnapshot(current);
+      const settlement = endRunLocal(snapshot, finalResult);
 
-      // Apply the server-computed progression delta to the player store locally
-      // so the UI reflects new totals without a round-trip Firestore read.
-      usePlayerStore.getState().applyEndRunDelta(response.progression, null);
+      const playerStore = usePlayerStore.getState();
+      // Apply progression directly
+      playerStore.setState({
+        goldBank: playerStore.goldBank + settlement.totalGoldKept,
+        ascensionCells: playerStore.ascensionCells + settlement.totalCellsKept,
+        xpScrolls: {
+          minor: playerStore.xpScrolls.minor + settlement.xpGained.minor,
+          standard: playerStore.xpScrolls.standard + settlement.xpGained.standard,
+          grand: playerStore.xpScrolls.grand + settlement.xpGained.grand,
+        },
+      });
+
+      playerStore.addRunToHistory({
+        runId: current.runId!,
+        classId: current.activeClassId!,
+        className: CLASS_BY_ID.get(current.activeClassId!)?.name ?? 'Unknown',
+        result: finalResult === 'fled' ? 'fled' : finalResult === 'won' ? 'won' : 'lost',
+        stagesCompleted: current.stage ?? 0,
+        goldEarned: settlement.totalGoldKept,
+        completedAt: Date.now(),
+      });
+
+      syncPlayerToFirebase();
 
       set({
-        bankedRewards: cloneReward(response.bankedRewards),
+        bankedRewards: cloneReward(current.totalRewards),
         vaultedRewards: cloneReward(EMPTY_REWARD_BUNDLE),
         runResult: finalResult === 'won' ? 'won' : 'lost',
         awaitingVaultDecision: false,
+        riskMeter: 0,
       });
 
-      const snapshot = await getRunSnapshot(runId);
-      applySnapshot(set, snapshot);
-      return response;
+      return { bankedRewards: cloneReward(current.totalRewards), progression: settlement };
     } catch (error) {
-      set({ status: 'error', error: formatCallableError(error) });
+      set({ status: 'error', error: formatError(error) });
       throw error;
     }
   },
 
   refreshRunSnapshot: async () => {
-    const runId = get().runId;
-    if (runId === null) {
-      throw new Error('No active run to refresh.');
-    }
-
-    const snapshot = await getRunSnapshot(runId);
-    applySnapshot(set, snapshot);
-    await hydrateRunMapForSnapshot(set, snapshot);
-    return snapshot;
+    // Local-first: snapshot is always in-memory. Nothing to refresh.
+    const current = get();
+    if (!current.runId) throw new Error('No active run to refresh.');
+    return buildSnapshot(current);
   },
 
   resetRun: () => {
@@ -586,11 +720,15 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       mapPathByStage: {},
       activeClassId: null,
       selectedRiskContractIds: [],
+      selectedThreatLevel: 0,
       runPassiveIds: [],
       draftedSkillIds: [],
       augmentIds: [],
       pendingInnDecisionId: null,
+      carriedStims: [],
       runResult: null,
+      riskMeter: 0,
+      totalRewards: cloneReward(EMPTY_REWARD_BUNDLE),
       vaultStreak: 0,
       awaitingVaultDecision: false,
       bankedRewards: cloneReward(EMPTY_REWARD_BUNDLE),

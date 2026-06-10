@@ -10,7 +10,7 @@ import { ProfileScreen } from '@/screens/Profile';
 import { OnboardingNarrativeScreen } from '@/screens/OnboardingNarrative';
 import { ClassSelectScreen } from '@/screens/ClassSelect';
 import { BattleScreen } from '@/screens/Battle';
-import { BattleScreen as BattleScreenV2 } from '@/screens/Battle/BattleScreenV2';
+// import { BattleScreen as BattleScreenV2 } from '@/screens/Battle/BattleScreenV2'; // Disabled: WorldMap stack removed
 import { RunMapScreen } from '@/screens/RunMap';
 import { RewardResolutionScreen } from '@/screens/RewardResolution';
 import { PassiveDraftScreen } from '@/screens/PassiveDraft/PassiveDraftScreen';
@@ -18,15 +18,16 @@ import { SkillDraftScreen } from '@/screens/SkillDraft/SkillDraftScreen';
 import { AugmentDraftScreen } from '@/screens/AugmentDraft/AugmentDraftScreen';
 import { InnDecisionScreen } from '@/screens/InnDecision/InnDecisionScreen';
 import { RiskContractSelectScreen } from '@/screens/RiskContractSelect/RiskContractSelectScreen';
+import { EventRoomScreen } from '@/screens/EventRoom/EventRoomScreen';
 import { PlaceholderScreen } from '@/screens/Placeholder';
 import { SignInScreen } from '@/screens/SignIn';
 import { DevToolsScreen } from '@/screens/DevTools';
-// Phase D: New sci-fi screens
-import { WorldMapScreen } from '@/screens/WorldMap/WorldMapScreen';
+// Phase D: New sci-fi screens (disabled — GPS map temporarily removed to focus on dungeon loop)
+// import { WorldMapScreen } from '@/screens/WorldMap/WorldMapScreen';
 import { CharacterScreen } from '@/screens/Character/CharacterScreen';
 import { usePlayerStore, useRunStore } from '@/stores';
-import { useWorldStore } from '@/stores/worldStore';
-import { useCharacterStore } from '@/stores/characterStore';
+// import { useWorldStore } from '@/stores/worldStore';
+// import { useCharacterStore } from '@/stores/characterStore';
 import { Icon, type IconName } from '@/components/atoms/Icon';
 import { colors } from '@/design';
 
@@ -43,6 +44,7 @@ export type HomeStackParamList = {
   AugmentDraft: undefined;
   InnDecision: undefined;
   RiskContractSelect: { classId: string };
+  EventRoom: undefined;
   Placeholder: undefined;
   // Phase D: Sci-fi world screens
   WorldMapMain: undefined;
@@ -84,29 +86,29 @@ function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }
   return <Icon name={iconName} size={22} color={iconColor} />;
 }
 
-/** Phase D: World Map Stack — primary game flow with GPS map and combat. */
-function WorldMapStackNavigator() {
-  return (
-    <HomeStack.Navigator initialRouteName="WorldMapMain">
-      <HomeStack.Screen
-        name="WorldMapMain"
-        component={WorldMapScreen as React.ComponentType<any>}
-        options={{ headerShown: false }}
-      />
-      <HomeStack.Screen
-        name="BattleV2"
-        component={BattleScreenV2}
-        options={{
-          title: 'Encounter',
-          headerBackVisible: false,
-          gestureEnabled: false,
-          headerStyle: { backgroundColor: '#0a0a1a' },
-          headerTintColor: '#00ffff',
-        }}
-      />
-    </HomeStack.Navigator>
-  );
-}
+/** Phase D: World Map Stack — disabled (GPS map temporarily removed to focus on dungeon loop). */
+// function WorldMapStackNavigator() {
+//   return (
+//     <HomeStack.Navigator initialRouteName="WorldMapMain">
+//       <HomeStack.Screen
+//         name="WorldMapMain"
+//         component={WorldMapScreen as React.ComponentType<any>}
+//         options={{ headerShown: false }}
+//       />
+//       <HomeStack.Screen
+//         name="BattleV2"
+//         component={BattleScreenV2}
+//         options={{
+//           title: 'Encounter',
+//           headerBackVisible: false,
+//           gestureEnabled: false,
+//           headerStyle: { backgroundColor: '#0a0a1a' },
+//           headerTintColor: '#00ffff',
+//         }}
+//       />
+//     </HomeStack.Navigator>
+//   );
+// }
 
 /** Legacy Hub Stack — kept for existing roguelite flow compatibility. */
 function HomeStackNavigator() {
@@ -183,6 +185,15 @@ function HomeStackNavigator() {
           gestureEnabled: false,
         }}
       />
+      <HomeStack.Screen
+        name="EventRoom"
+        component={EventRoomScreen}
+        options={{
+          title: 'Event',
+          headerBackVisible: false,
+          gestureEnabled: false,
+        }}
+      />
       <HomeStack.Screen name="Placeholder" component={PlaceholderScreen} options={{ title: 'Diagnostics' }} />
     </HomeStack.Navigator>
   );
@@ -218,13 +229,13 @@ function MainTabs() {
         },
       })}
     >
-      {/* Phase D: World Map — primary tab */}
-      <Tab.Screen
+      {/* Phase D: World Map tab — disabled (GPS map temporarily removed to focus on dungeon loop) */}
+      {/* <Tab.Screen
         name="WorldMap"
         component={WorldMapStackNavigator}
         options={{ tabBarLabel: 'Grid' }}
-      />
-      {/* Legacy Hub — kept for existing roguelite flow */}
+      /> */}
+      {/* Hub — primary tab for roguelite dungeon loop */}
       <Tab.Screen
         name="HomeStack"
         component={HomeStackNavigator}

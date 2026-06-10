@@ -9,6 +9,7 @@ import {
   type Skill,
   type SkillId,
 } from '../../content/types';
+import type { SynergyTag } from '../../content/types/synergy';
 import { sortedTurnOrder } from './queue';
 import { makeBaseStats } from './stats';
 import {
@@ -21,6 +22,22 @@ import {
 } from './types';
 
 export const SYNTHETIC_BASIC_ATTACK_ID = '__synthetic.basic_attack' as SkillId;
+
+/** Map corporation (lineage) ID to its elemental affinity for type effectiveness. */
+const CORP_ELEMENT: Readonly<Record<string, SynergyTag>> = {
+  drakehorn_forge: 'thermal',
+  bull_cathedral: 'kinetic',
+  twin_mirror: 'void',
+  tide_shell: 'cryo',
+  sunfang_court: 'radiant',
+  thorn_ledger: 'void',
+  balance_reins: 'radiant',
+  black_nest: 'void',
+  arrow_creed: 'kinetic',
+  iron_covenant: 'kinetic',
+  star_circuit: 'digital',
+  dream_ocean: 'digital',
+};
 
 interface ArchetypeLoadout {
   readonly basicAttackSkillId: SkillId;
@@ -166,6 +183,7 @@ export const buildPlayerUnit = (
     isDead: false,
     isCompanion: opts.isCompanion ?? false,
     defendStance: 0,
+    element: CORP_ELEMENT[classData.lineageId],
   };
   if (isSpecified(classData.basicAttackSkillId)) {
     return { ...unit, basicAttackSkillId: classData.basicAttackSkillId };
@@ -228,6 +246,7 @@ export const buildEnemyUnit = (
     isDead: false,
     isCompanion: false,
     defendStance: 0,
+    element: archetype.element,
   };
 };
 
@@ -309,6 +328,7 @@ export const buildBattleState = (params: BattleInitParams): BattleState => {
     turnOrder,
     log: [{ tick: 0, type: 'battle_started', seed: params.seed }],
     result: 'ongoing',
+    traitState: {},
   };
 };
 

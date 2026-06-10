@@ -120,20 +120,31 @@ export type RunFinalResult = 'ongoing' | 'won' | 'lost';
 
 export interface RunSnapshot {
   id: string;
-  playerId: string;
+  playerId?: string;
   seed: number;
   stage: number;
-  turn: number;
+  turn?: number;
   vaultStreak: number;
   activeClassId: string;
   activeLineageId: string;
   evolutionTargetClassId: string | null;
   selectedRiskContractIds: string[];
   runPassiveIds: string[];
+  draftedSkillIds?: string[];
   augmentIds: string[];
-  pendingInnDecisionId: string | null;
+  pendingInnDecisionId?: string | null;
   bankedRewards: RewardBundle;
   vaultedRewards: RewardBundle;
+  /** Local: risk meter (0-100) for push-your-luck mechanic. */
+  riskMeter?: number;
+  /** Local: accumulated rewards before risk deduction. */
+  totalRewards?: RewardBundle;
+  /** Local: run map graph for current run. */
+  currentMapGraph?: any;
+  /** Local: chosen nodes per stage. */
+  mapPathByStage?: Record<number, string>;
+  /** Local: total augments picked by player (for tier unlocks). */
+  augmentsPicked?: number;
   result: RunFinalResult;
 }
 

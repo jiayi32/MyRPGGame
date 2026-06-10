@@ -1,4 +1,5 @@
 import type { RunPassiveId } from './ids';
+import type { SynergyTag } from './synergy';
 
 export interface RunPassiveDef {
   id: RunPassiveId;
@@ -6,6 +7,8 @@ export interface RunPassiveDef {
   description: string;
   effectLabel: string;
   draftStageInterval: number;
+  /** Explicit synergy tags — takes precedence over keyword auto-derivation. */
+  tags?: readonly SynergyTag[];
 }
 
 export interface InnDecisionDef {

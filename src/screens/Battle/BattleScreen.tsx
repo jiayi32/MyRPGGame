@@ -23,8 +23,8 @@ import { DamagePopupOverlay } from '@/components/molecules/DamagePopupOverlay';
 import { colors, spacing, radius, typography } from '@/design';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { HomeStackParamList } from '@/navigation/AppNavigator';
-import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, SKILL_BY_ID, AUGMENT_BY_ID, STAGE_CONDITION_BY_ID } from '@/content';
-import type { ClassId, SkillId } from '@/content/types';
+import { CLASS_BY_ID, RUN_PASSIVE_BY_ID, SKILL_BY_ID, AUGMENT_BY_ID, STAGE_CONDITION_BY_ID, STIM_BY_ID, getStimSkillId, MAX_CARRIED_STIMS } from '@/content';
+import type { ClassId, SkillId, ConsumableId } from '@/content/types';
 import { getSelectedNodeForStage, RUN_MAP_ROOM_LABELS } from '@/domain/run/map';
 import {
   canCast,
@@ -274,6 +274,8 @@ export function BattleScreen({ navigation }: Props) {
   const draftedSkillIds = useRunStore((state) => state.draftedSkillIds);
   const augmentIds = useRunStore((state) => state.augmentIds);
   const pendingInnDecisionId = useRunStore((state) => state.pendingInnDecisionId);
+  const carriedStims = useRunStore((state) => state.carriedStims);
+  const removeStim = useRunStore((state) => state.removeStim);
   const clearInnDecision = useRunStore((state) => state.clearInnDecision);
   const runStatus = useRunStore((state) => state.status);
   const runError = useRunStore((state) => state.error);
@@ -289,7 +291,7 @@ export function BattleScreen({ navigation }: Props) {
   const engineState = useCombatStore((state) => state.engine?.state ?? null);
   const preparedStageIndex = useCombatStore((state) => state.prepared?.stageIndex ?? null);
   const preparedRoomNodeId = useCombatStore((state) => state.prepared?.roomNodeId ?? null);
-  const activeSynergies = useCombatStore((state) => state.prepared?.activeSynergies ?? null);
+  const activeTraits = useCombatStore((state) => state.prepared?.activeTraits ?? null);
   const autoPlay = useCombatStore((state) => state.autoPlay);
   const setAutoPlay = useCombatStore((state) => state.setAutoPlay);
   const beginInteractive = useCombatStore((state) => state.beginInteractive);
@@ -532,6 +534,31 @@ export function BattleScreen({ navigation }: Props) {
     if (reason !== null) setLastReason(reason);
   };
 
+  const handleStim = (stimId: ConsumableId) => {
+    if (player === null || engineState === null) return;
+    setLastReason(null);
+    const itemSkillId = getStimSkillId(stimId);
+    if (itemSkillId === undefined) {
+      setLastReason('skill_not_owned');
+      return;
+    }
+    const stimDef = STIM_BY_ID.get(stimId);
+    // Self-targeting stims don't need a target; enemy-targeting stims use current target
+    const needsTarget = stimDef?.effect === 'stun_target' || stimDef?.effect === 'ct_delay' || stimDef?.effect === 'reveal_intent';
+    const action: Action = {
+      kind: 'use_item',
+      unitId: player.id,
+      itemSkillId,
+      targetId: needsTarget ? (targetId ?? undefined) : undefined,
+    };
+    const reason = stepCombat(action);
+    if (reason !== null) {
+      setLastReason(reason);
+    } else {
+      removeStim(stimId);
+    }
+  };
+
   const skillSlots = useMemo<readonly SkillId[]>(() => {
     if (player === null) return [];
     const basics: SkillId[] = [];
@@ -702,12 +729,13 @@ export function BattleScreen({ navigation }: Props) {
               })}
             </View>
           )}
-          {activeSynergies !== null && activeSynergies.length > 0 && (
-            <View style={styles.synergyChipsRow}>
-              {activeSynergies.map((syn) => (
-                <View key={syn.tag} style={styles.synergyChip}>
-                  <Text style={styles.synergyChipText} numberOfLines={1}>
-                    {syn.label} ({syn.count})
+          {activeTraits !== null && activeTraits.length > 0 && (
+            <View style={styles.traitChipsRow}>
+              {activeTraits.map((trait) => (
+                <View key={trait.tag} style={styles.traitChip}>
+                  <Text style={styles.traitChipIcon}>{trait.icon}</Text>
+                  <Text style={styles.traitChipText} numberOfLines={1}>
+                    {trait.name} T{trait.tier} ({trait.count})
                   </Text>
                 </View>
               ))}
@@ -817,6 +845,43 @@ export function BattleScreen({ navigation }: Props) {
         </View>
       )}
     </ScrollView>
+
+    {/* ── Stim Bar ── */}
+    {!battleEnded && player !== null && playerReady && carriedStims.length > 0 && (
+      <View style={styles.stimBar}>
+        <Text style={styles.stimBarTitle}>Stims ({carriedStims.length}/{MAX_CARRIED_STIMS})</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stimBarRow}>
+          {carriedStims.map((stimId) => {
+            const stimDef = STIM_BY_ID.get(stimId);
+            if (stimDef === undefined) return null;
+            return (
+              <TouchableOpacity
+                key={stimId}
+                style={styles.stimChip}
+                onPress={() => handleStim(stimId)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.stimChipIcon}>
+                  {stimDef.effect === 'heal' ? '💉' :
+                   stimDef.effect === 'damage_boost' ? '💪' :
+                   stimDef.effect === 'ct_reset' ? '⚡' :
+                   stimDef.effect === 'stun_target' ? '💥' :
+                   stimDef.effect === 'dodge_next' ? '🌀' :
+                   stimDef.effect === 'shield_grant' ? '🛡️' :
+                   stimDef.effect === 'cleanse_debuff' ? '🧪' :
+                   stimDef.effect === 'mp_restore' ? '🔋' :
+                   stimDef.effect === 'reveal_intent' ? '👁️' :
+                   stimDef.effect === 'ct_delay' ? '⏳' :
+                   stimDef.effect === 'crit_guarantee' ? '🎯' :
+                   stimDef.effect === 'cooldown_reset' ? '🔄' : '💊'}
+                </Text>
+                <Text style={styles.stimChipLabel} numberOfLines={1}>{stimDef.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    )}
 
     {!battleEnded && player !== null && engineState !== null && (
       <View style={styles.actionDock}>
@@ -1049,6 +1114,21 @@ const styles = StyleSheet.create({
   },
   synergyChipText: { fontSize: 10, fontWeight: '600', color: '#805407' },
 
+  traitChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  traitChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(0, 255, 255, 0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 255, 0.25)',
+  },
+  traitChipIcon: { fontSize: 11 },
+  traitChipText: { fontSize: 10, fontWeight: '700', color: '#00ffff' },
+
   augmentChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 2 },
   augmentChip: {
     borderRadius: 999,
@@ -1081,6 +1161,43 @@ const styles = StyleSheet.create({
   conditionBadgeText: { fontSize: 11, fontWeight: '700', color: '#bf360c' },
 
   enemiesSection: { gap: 8 },
+
+  // Stim bar (between enemies and action dock)
+  stimBar: {
+    position: 'absolute',
+    bottom: ACTION_DOCK_HEIGHT + 8,
+    left: 12,
+    right: 12,
+    backgroundColor: 'rgba(20, 18, 28, 0.92)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 255, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 4,
+  },
+  stimBarTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#00ffff',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  stimBarRow: { gap: 8, paddingRight: 8 },
+  stimChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0, 255, 255, 0.08)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 255, 255, 0.3)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  stimChipIcon: { fontSize: 14 },
+  stimChipLabel: { fontSize: 11, fontWeight: '600', color: '#d0e8ff', maxWidth: 90 },
 
   resultCard: {
     borderRadius: 12,

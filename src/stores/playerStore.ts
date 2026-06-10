@@ -26,6 +26,16 @@ export type PlayerStoreStatus =
   | 'ready'
   | 'error';
 
+export interface RunHistoryEntry {
+  runId: string;
+  classId: string;
+  className: string;
+  result: 'won' | 'lost' | 'fled';
+  stagesCompleted: number;
+  goldEarned: number;
+  completedAt: number; // unix ms
+}
+
 interface PlayerStoreState {
   status: PlayerStoreStatus;
   error: string | null;
@@ -40,6 +50,14 @@ interface PlayerStoreState {
   currentRunId: string | null;
   /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
   augmentsPicked: number;
+  /** Passives permanently unlocked for future runs (meta-progression). */
+  unlockedPassiveIds: string[];
+  /** Unlock passives for all future runs. Called after run settlement. */
+  unlockPassives: (passiveIds: readonly string[]) => void;
+  /** Run history — last 10 runs with summary stats. */
+  runHistory: RunHistoryEntry[];
+  /** Add a completed run to history. */
+  addRunToHistory: (entry: RunHistoryEntry) => void;
   /**
    * Initialize Firebase and resolve auth state.
    * - If a user is already signed in (Firebase persists across launches), bootstraps the profile.
@@ -76,6 +94,7 @@ const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => 
   ownedClassIds: [...snap.ownedClassIds],
   currentRunId: snap.currentRunId,
   augmentsPicked: snap.augmentsPicked ?? 0,
+  unlockedPassiveIds: (snap as any).unlockedPassiveIds ?? [],
 });
 
 const EMPTY_STATE: Pick<
@@ -101,6 +120,8 @@ const EMPTY_STATE: Pick<
   ownedClassIds: [],
   currentRunId: null,
   augmentsPicked: 0,
+  unlockedPassiveIds: [],
+  runHistory: [],
 };
 
 const loadProfileForCurrentUser = async (): Promise<PlayerSnapshot> => {
@@ -212,6 +233,17 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
 
   incrementAugmentsPicked: () => {
     set({ augmentsPicked: get().augmentsPicked + 1 });
+  },
+
+  unlockPassives: (passiveIds) => {
+    const current = new Set(get().unlockedPassiveIds);
+    for (const id of passiveIds) current.add(id);
+    set({ unlockedPassiveIds: [...current] });
+  },
+
+  addRunToHistory: (entry) => {
+    const history = [entry, ...get().runHistory].slice(0, 10);
+    set({ runHistory: history });
   },
 
   reset: () => {

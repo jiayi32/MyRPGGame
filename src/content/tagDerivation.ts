@@ -1,20 +1,21 @@
 import type { DamageType } from './types/skill';
 import type { SynergyTag } from './types/synergy';
+import { LEGACY_TAG_MAP } from './types/synergy';
 
 /**
  * Auto-derive synergy tags from damage type.
  * Manual overrides in content files take precedence over this mapping.
  */
 const DAMAGE_TYPE_TAG_MAP: Readonly<Record<DamageType, SynergyTag>> = {
-  fire: 'fire',
-  ice: 'frost',
-  shadow: 'shadow',
-  radiant: 'light',
-  physical: 'physical',
-  arcane: 'arcane',
-  lightning: 'arcane',
-  poison: 'arcane',
-  true: 'arcane',
+  fire: 'thermal',
+  ice: 'cryo',
+  shadow: 'void',
+  radiant: 'radiant',
+  physical: 'kinetic',
+  arcane: 'digital',
+  lightning: 'digital',
+  poison: 'void',
+  true: 'digital',
 };
 
 /**
@@ -22,12 +23,18 @@ const DAMAGE_TYPE_TAG_MAP: Readonly<Record<DamageType, SynergyTag>> = {
  * Lowercase matching on the name field.
  */
 const NAME_KEYWORD_TAGS: Readonly<Array<[string[], SynergyTag]>> = [
-  [['burn', 'ember', 'flame', 'inferno', 'ignite', 'pyre', 'lava', 'heat', 'blaze', 'fire'], 'fire'],
-  [['frost', 'chill', 'cold', 'ice', 'frozen', 'winter', 'glacier', 'rime'], 'frost'],
-  [['shadow', 'void', 'dark', 'umbra', 'night', 'shade', 'eclipse', 'gloom'], 'shadow'],
-  [['light', 'radiant', 'holy', 'divine', 'seraph', 'solar', 'dawn', 'gleam', 'bless'], 'light'],
-  [['strike', 'slash', 'blade', 'axe', 'hammer', 'spear', 'bow', 'fist', 'rend', 'cleave', 'physical'], 'physical'],
-  [['arcane', 'flux', 'mana', 'spell', 'rune', 'glyph', 'scroll', 'wand', 'staff', 'orb'], 'arcane'],
+  // Thermal
+  [['burn','ember','flame','inferno','ignite','pyre','lava','heat','blaze','fire','plasma','thermal','melt','scorch','cinder'], 'thermal'],
+  // Cryo
+  [['frost','chill','cold','ice','frozen','winter','glacier','rime','cryo','freeze','hail','blizzard','shard','arctic'], 'cryo'],
+  // Void
+  [['shadow','void','dark','umbra','night','shade','eclipse','gloom','stealth','null','abyss','phantom','ghost','nether'], 'void'],
+  // Radiant
+  [['light','radiant','holy','divine','seraph','solar','dawn','gleam','bless','laser','photon','beam','prism','flash','glow'], 'radiant'],
+  // Kinetic
+  [['strike','slash','blade','axe','hammer','spear','bow','fist','rend','cleave','physical','kinetic','ballistic','bullet','impact','force','crush','bash'], 'kinetic'],
+  // Digital
+  [['arcane','flux','mana','spell','rune','glyph','scroll','wand','staff','orb','digital','code','hack','data','virus','byte','algorithm','virtual','cyber'], 'digital'],
 ];
 
 /**

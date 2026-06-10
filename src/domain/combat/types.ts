@@ -80,6 +80,10 @@ export interface Unit {
   readonly isCompanion: boolean;
   /** Remaining CT reduction from the last Defend action. Applied to next action. */
   readonly defendStance: number;
+  /** Elemental affinity for type effectiveness (thermal, cryo, void, radiant, kinetic, digital). */
+  readonly element?: import('../../content/types/synergy').SynergyTag;
+  /** Active trait tiers stamped at battle start. e.g., { thermal: 2, void: 1 }. */
+  readonly traitFlags?: Readonly<Record<string, number>>;
 }
 
 export type BattleResult = 'ongoing' | 'won' | 'lost' | 'draw';
@@ -93,6 +97,8 @@ export interface BattleState {
   readonly turnOrder: readonly InstanceId[];
   readonly log: readonly BattleEvent[];
   readonly result: BattleResult;
+  /** Mutable tracker for trait mechanics (hit streaks, revive used, void first cast). */
+  readonly traitState: Record<string, number | boolean>;
 }
 
 export type Action =
@@ -163,6 +169,8 @@ export type BattleEvent =
       readonly amount: number;
       readonly damageType: DamageType;
       readonly hitTier: HitTier;
+      /** Pokémon-style type effectiveness multiplier (0.5, 1.0, or 2.0). */
+      readonly typeMultiplier?: number;
     }
   | {
       readonly tick: number;

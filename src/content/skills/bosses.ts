@@ -13,12 +13,12 @@ import { type Skill } from '../types';
  */
 export const BOSS_SKILLS: readonly Skill[] = [
   // -------------------------------------------------------------------------
-  // Pyre Warden — Stage 5 mini-boss (fire DoT race)
+  // Thermal Overlord — Stage 5 mini-boss (plasma DoT race)
   // -------------------------------------------------------------------------
   {
     id: 'boss.pyre.scorch',
-    name: 'Scorch',
-    description: 'Single-target fire jab.',
+    name: 'Plasma Lance',
+    description: 'Single-target plasma jab.',
     ctCost: 30,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
@@ -30,8 +30,8 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
   {
     id: 'boss.pyre.heat_surge',
-    name: 'Heat Surge',
-    description: 'Fire surge that burns for 6s.',
+    name: 'Thermal Surge',
+    description: 'Plasma surge that burns for 6s.',
     ctCost: 50,
     cooldownSec: 8,
     resource: { type: 'none', cost: 0 },
@@ -51,8 +51,8 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
   {
     id: 'boss.pyre.ignite_aura',
-    name: 'Ignite Aura',
-    description: 'Self-buff: outgoing fire damage +25% for 8s.',
+    name: 'Overclock Aura',
+    description: 'Self-buff: outgoing thermal damage +25% for 8s.',
     ctCost: 60,
     cooldownSec: 16,
     resource: { type: 'none', cost: 0 },
@@ -71,12 +71,12 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Vortex Colossus — Stage 10 gate boss (CT manipulation)
+  // Void Warden — Stage 10 gate boss (CT manipulation)
   // -------------------------------------------------------------------------
   {
     id: 'boss.vortex.crush',
     name: 'Crush',
-    description: 'Heavy single-target slam.',
+    description: 'Heavy gravity-distortion slam.',
     ctCost: 35,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
@@ -128,11 +128,11 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Rimefang Hydra — Stage 30 counter boss (ice + Drakehorn counter)
+  // Cryo Matriarch — Stage 30 apex boss (cryo + Nova Dynamics counter)
   // -------------------------------------------------------------------------
   {
     id: 'boss.rimefang.ice_bite',
-    name: 'Ice Bite',
+    name: 'Cryo Bite',
     description: 'Frigid jaws strike.',
     ctCost: 32,
     cooldownSec: 0,
@@ -145,7 +145,7 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
   {
     id: 'boss.rimefang.frostbite_aegis',
-    name: 'Frostbite Aegis',
+    name: 'Cryo Barrier',
     description: 'Self-buff: damage reduction shield for 10s.',
     ctCost: 55,
     cooldownSec: 18,
@@ -172,7 +172,7 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
   {
     id: 'boss.rimefang.regrow_head',
-    name: 'Regrow Head',
+    name: 'Nanite Regeneration',
     description: 'Restore some HP. Mythos: "regrows on fire kill" — currently a flat heal.',
     ctCost: 70,
     cooldownSec: 24,
@@ -190,7 +190,7 @@ export const BOSS_SKILLS: readonly Skill[] = [
   },
   {
     id: 'boss.rimefang.tail_whip',
-    name: 'Tail Whip',
+    name: 'Kinetic Whip',
     description: 'Sweeping ice tail strike with knockback debuff.',
     ctCost: 45,
     cooldownSec: 10,

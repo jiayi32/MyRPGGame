@@ -20,7 +20,7 @@ import {
   type Unit,
 } from '@/domain/combat';
 import { selectStage } from '@/domain/run/director';
-import { collectSynergyTags, resolveSynergyBonuses, type ActiveSynergy } from '@/domain/run/synergy';
+import { collectSynergyTags, resolveSynergyBonuses, resolveTraitsFromPassives, type ActiveSynergy, type ActiveTrait } from '@/domain/run/synergy';
 import type { RewardBundle as DomainRewardBundle, StageRoomType } from '@/domain/run/types';
 import {
   EMPTY_REWARD_BUNDLE,
@@ -140,42 +140,101 @@ const applyPassiveEffects = (
   return engine.withState(nextState);
 };
 
-const applySynergyBonuses = (
+const applyTraitTiers = (
   engine: CombatEngine,
-  synergies: readonly ActiveSynergy[],
+  traits: readonly ActiveTrait[],
 ): CombatEngine => {
-  if (synergies.length === 0) return engine;
+  if (traits.length === 0) return engine;
 
   const state = engine.state;
   let nextState = state;
+
+  // Build trait tier record to stamp onto the player unit
+  const traitRecord: Record<string, number> = {};
+  for (const trait of traits) {
+    traitRecord[trait.tag] = trait.tier;
+  }
 
   for (const unit of Object.values(state.units)) {
     if (unit.team !== 'player') continue;
 
     const stats = { ...unit.baseStats };
 
-    for (const syn of synergies) {
-      switch (syn.tag) {
-        case 'fire':
-          stats.strength = Math.round(stats.strength * 1.15);
-          stats.intellect = Math.round(stats.intellect * 1.15);
-          stats.critChance = Math.min(0.75, stats.critChance + 0.05);
+    for (const trait of traits) {
+      switch (trait.tag) {
+        case 'thermal':
+          if (trait.tier >= 1) {
+            stats.strength = Math.round(stats.strength * 1.15);
+            stats.intellect = Math.round(stats.intellect * 1.15);
+          }
+          if (trait.tier >= 2) {
+            stats.critChance = Math.min(0.75, stats.critChance + 0.10);
+          }
+          if (trait.tier >= 3) {
+            stats.critMultiplier = stats.critMultiplier + 0.10;
+          }
           break;
-        case 'frost':
-          stats.intellect = Math.round(stats.intellect * 1.1);
+        case 'cryo':
+          if (trait.tier >= 1) {
+            stats.intellect = Math.round(stats.intellect * 1.15);
+          }
+          if (trait.tier >= 2) {
+            stats.ctReductionPct = Math.min(0.5, stats.ctReductionPct + 0.05);
+          }
+          if (trait.tier >= 3) {
+            stats.critChance = Math.min(0.75, stats.critChance + 0.08);
+          }
           break;
-        case 'shadow':
-          stats.critChance = Math.min(0.75, stats.critChance + 0.05);
+        case 'void':
+          if (trait.tier >= 1) {
+            stats.strength = Math.round(stats.strength * 1.12);
+            stats.intellect = Math.round(stats.intellect * 1.12);
+          }
+          if (trait.tier >= 2) {
+            stats.critChance = Math.min(0.75, stats.critChance + 0.08);
+          }
+          if (trait.tier >= 3) {
+            stats.critMultiplier = stats.critMultiplier + 0.15;
+          }
           break;
-        case 'light':
-          stats.stamina = Math.round(stats.stamina * 1.1);
+        case 'radiant':
+          if (trait.tier >= 1) {
+            stats.stamina = Math.round(stats.stamina * 1.10);
+          }
+          if (trait.tier >= 2) {
+            stats.defense = Math.round(stats.defense * 1.08);
+            stats.magicDefense = Math.round(stats.magicDefense * 1.08);
+          }
+          if (trait.tier >= 3) {
+            stats.stamina = Math.round(stats.stamina * 1.15);
+            stats.defense = Math.round(stats.defense * 1.10);
+            stats.magicDefense = Math.round(stats.magicDefense * 1.10);
+          }
           break;
-        case 'physical':
-          stats.strength = Math.round(stats.strength * 1.12);
-          stats.critMultiplier = stats.critMultiplier + 0.05;
+        case 'kinetic':
+          if (trait.tier >= 1) {
+            stats.strength = Math.round(stats.strength * 1.12);
+            stats.critMultiplier = stats.critMultiplier + 0.08;
+          }
+          if (trait.tier >= 2) {
+            stats.critChance = Math.min(0.75, stats.critChance + 0.05);
+          }
+          if (trait.tier >= 3) {
+            stats.strength = Math.round(stats.strength * 1.15);
+            stats.critMultiplier = stats.critMultiplier + 0.12;
+          }
           break;
-        case 'arcane':
-          stats.intellect = Math.round(stats.intellect * 1.1);
+        case 'digital':
+          if (trait.tier >= 1) {
+            stats.intellect = Math.round(stats.intellect * 1.10);
+          }
+          if (trait.tier >= 2) {
+            stats.ctReductionPct = Math.min(0.5, stats.ctReductionPct + 0.08);
+          }
+          if (trait.tier >= 3) {
+            stats.intellect = Math.round(stats.intellect * 1.20);
+            stats.ctReductionPct = Math.min(0.5, stats.ctReductionPct + 0.10);
+          }
           break;
         default:
           break;
@@ -185,6 +244,7 @@ const applySynergyBonuses = (
     const patched: Unit = {
       ...unit,
       baseStats: stats,
+      traitFlags: traitRecord,
     };
 
     nextState = {
@@ -568,7 +628,7 @@ export interface PreparedStage {
   rewards: RewardBundle;
   engine: CombatEngine;
   playerUnitId: string;
-  activeSynergies?: readonly ActiveSynergy[];
+  activeTraits?: readonly ActiveTrait[];
 }
 
 const toMutableReward = (reward: DomainRewardBundle): RewardBundle => ({
@@ -767,20 +827,16 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
     statOverlays: overlayFromEquippedGear(input.equippedGearTemplateIds),
   });
 
-  // Merge drafted skills into the player unit
+  // Roguelike pattern: class starts with ONLY basic attack.
+  // All extra skills are acquired via drafting during the run.
   const draftedIds = input.draftedSkillIds ?? [];
-  const mergedPlayer: Unit = draftedIds.length > 0
-    ? { ...player, skillIds: [...player.skillIds, ...draftedIds] }
-    : player;
+  const mergedPlayer: Unit = {
+    ...player,
+    skillIds: draftedIds,
+  };
 
-  // Compute synergy bonuses from the player's full build
-  const synergyTags = collectSynergyTags(
-    input.activeClassId,
-    [], // draftedSkillIds — not yet implemented (P4.3)
-    input.equippedGearTemplateIds ?? [],
-    input.runPassiveIds ?? [],
-  );
-  const activeSynergies = resolveSynergyBonuses(synergyTags);
+  // Compute trait tiers from passive element counts (TFT-style 2/4/6 thresholds)
+  const activeTraits = resolveTraitsFromPassives(input.runPassiveIds ?? []);
 
   // ------ Boss stage path (5 / 10 / 30) ------
   if (selection.kind === 'boss') {
@@ -799,8 +855,8 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
     });
     const contractEngine = applyContractBarriers(engine, input.selectedRiskContractIds ?? []);
     const finalEngine = applyPassiveEffects(contractEngine, input.runPassiveIds ?? []);
-    const synergyEngine = applySynergyBonuses(finalEngine, activeSynergies);
-    const augmentEngine = applyAugmentEffects(synergyEngine, input.augmentIds ?? []);
+    const traitEngine = applyTraitTiers(finalEngine, activeTraits);
+    const augmentEngine = applyAugmentEffects(traitEngine, input.augmentIds ?? []);
     const innEngine = applyInnDecision(augmentEngine, input.pendingInnDecisionId);
     const condEngine = applyStageCondition(innEngine, input.conditionId);
     return {
@@ -812,7 +868,7 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
       rewards: resolveBossRewards(input.stageIndex),
       engine: augmentEngine,
       playerUnitId: 'player_1',
-      ...(activeSynergies.length > 0 ? { activeSynergies } : {}),
+      ...(activeTraits.length > 0 ? { activeTraits } : {}),
     };
   }
 
@@ -844,8 +900,8 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
 
   const contractEngine = applyContractBarriers(engine, input.selectedRiskContractIds ?? []);
   const finalEngine = applyPassiveEffects(contractEngine, input.runPassiveIds ?? []);
-  const synergyEngine = applySynergyBonuses(finalEngine, activeSynergies);
-  const augmentEngine = applyAugmentEffects(synergyEngine, input.augmentIds ?? []);
+  const traitEngine = applyTraitTiers(finalEngine, activeTraits);
+  const augmentEngine = applyAugmentEffects(traitEngine, input.augmentIds ?? []);
   const innEngine = applyInnDecision(augmentEngine, input.pendingInnDecisionId);
   const condEngine = applyStageCondition(innEngine, input.conditionId);
 
@@ -868,7 +924,7 @@ export const prepareStage = (input: StageSimulationInput): PreparedStage => {
     rewards: toMutableReward(selection.encounter.rewards),
     engine: augmentEngine,
     playerUnitId: 'player_1',
-    ...(activeSynergies.length > 0 ? { activeSynergies } : {}),
+    ...(activeTraits.length > 0 ? { activeTraits } : {}),
   };
 };
 
@@ -902,8 +958,8 @@ export const buildStageReport = (prepared: PreparedStage, engine: CombatEngine):
     tickCount: engine.state.tick,
     logLength: engine.state.log.length,
     enemyCount: prepared.enemyCount,
-    ...(prepared.activeSynergies !== undefined && prepared.activeSynergies.length > 0
-      ? { activeSynergies: prepared.activeSynergies }
+    ...(prepared.activeTraits !== undefined && prepared.activeTraits.length > 0
+      ? { activeTraits: prepared.activeTraits }
       : {}),
   };
 };

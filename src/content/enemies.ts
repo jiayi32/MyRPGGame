@@ -22,6 +22,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Caps damage taken per hit at maxHitPct% of max HP.',
     stressAxis: 'Forces multi-hit / DoT responses.',
     foreshadowsBossRole: 'stat_wall',
+    element: 'kinetic',
     // High HP + def, low atk, slightly slower — must be ground down over multiple hits.
     scaling: [
       { tier: 1, hp: 160,  atk: 8,   def: 9,  ctPerTick: 0.95, notes: 'maxHitPct=20' },
@@ -38,6 +39,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Always acts first every initiativeCycle CT cycles.',
     stressAxis: 'Forces burst to outpace first-strike.',
     foreshadowsBossRole: 'speed_pressure',
+    element: 'cryo',
     // Low HP + def, moderate atk, high ctPerTick — acts frequently but can't absorb punishment.
     scaling: [
       { tier: 1, hp: 70,  atk: 14,  def: 4,  ctPerTick: 1.25, notes: 'initiativeCycle=3' },
@@ -54,6 +56,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Reduces incoming heals by healReductionPct%.',
     stressAxis: 'Forces shield/burst lines over recovery.',
     foreshadowsBossRole: 'sustain_denial',
+    element: 'void',
     scaling: scalingWith({
       1: 'healReductionPct=40',
       2: 'healReductionPct=50',
@@ -69,6 +72,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Damage scales +rampPerTurnPct% per turn.',
     stressAxis: 'Forces stun/control windows.',
     foreshadowsBossRole: 'dps_race',
+    element: 'thermal',
     scaling: scalingWith({
       1: 'rampPerTurnPct=8',
       2: 'rampPerTurnPct=10',
@@ -84,6 +88,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Rewinds one random target by rewindCT every manipulateIntervalCT.',
     stressAxis: 'Breaks planned rotations.',
     foreshadowsBossRole: 'ct_manipulator',
+    element: 'digital',
     scaling: scalingWith({
       1: 'interval=60 rewind=10',
       2: 'interval=50 rewind=15',
@@ -99,6 +104,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Spawns a minion every spawnIntervalTurns; cap minionCap.',
     stressAxis: 'Forces AoE coverage.',
     foreshadowsBossRole: 'summoner',
+    element: 'digital',
     scaling: scalingWith({
       1: 'interval=4 cap=1',
       2: 'interval=4 cap=2',
@@ -114,6 +120,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Rotating damage-type immunity; rotates every shieldRotateCT CT.',
     stressAxis: 'Forces flexible skill loadouts.',
     foreshadowsBossRole: 'nullshield',
+    element: 'radiant',
     scaling: scalingWith({
       1: 'shieldRotateCT=80',
       2: 'shieldRotateCT=70',
@@ -145,6 +152,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Telegraphs false skill outcomes deceptionChance% of the time.',
     stressAxis: 'Forces adaptive, reactive play.',
     foreshadowsBossRole: 'oracle',
+    element: 'radiant',
     // Slightly lower atk, slightly higher def — wins via deception not raw power.
     scaling: [
       { tier: 1, hp: 100,  atk: 11,  def: 6,  ctPerTick: 1.0,  notes: 'deceptionChance=15' },
@@ -161,6 +169,7 @@ const archetypes: readonly EnemyArchetype[] = [
     signature: 'Field debuff: slows player CT gain by ctSlowPct% within zone.',
     stressAxis: 'Forces high CT-efficiency skills.',
     foreshadowsBossRole: 'engineer',
+    element: 'kinetic',
     // Durable (higher HP + def), low atk — wins through zone control not damage output.
     scaling: [
       { tier: 1, hp: 110,  atk: 10, def: 7,  ctPerTick: 1.0,  notes: 'ctSlowPct=8' },
@@ -176,6 +185,7 @@ const archetypes: readonly EnemyArchetype[] = [
     role: 'Pressure + evasion (reserve)',
     signature: 'evasionPct% dodge while any ally alive.',
     stressAxis: 'Forces execute / focus-fire.',
+    element: 'cryo',
     // Low HP + def, moderate atk, moderately fast — fragile by stats; evasion is intended real defense.
     scaling: [
       { tier: 1, hp: 75,  atk: 14,  def: 4,  ctPerTick: 1.15, notes: 'evasionPct=20' },
@@ -191,6 +201,7 @@ const archetypes: readonly EnemyArchetype[] = [
     role: 'Buff carrier (reserve)',
     signature: 'Buffs ally damage by resonancePct% per turn.',
     stressAxis: 'Forces priority-kill target selection.',
+    element: 'radiant',
     // Very low atk, modest HP + def — a support role that is fragile when isolated.
     scaling: [
       { tier: 1, hp: 85,  atk: 7,  def: 5,  ctPerTick: 1.0,  notes: 'resonancePct=10' },

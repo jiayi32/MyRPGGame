@@ -7,8 +7,17 @@ import {
   RUN_PASSIVE_BY_ID,
   resolveTags,
 } from '../../content';
-import { SYNERGY_BONUS_BY_TAG, SYNERGY_THRESHOLD } from '../../content/types/synergy';
+import {
+  SYNERGY_BONUS_BY_TAG,
+  SYNERGY_THRESHOLD,
+  resolveTraitTiers,
+  type ActiveTrait,
+} from '../../content/types/synergy';
 
+// Re-export for consumers
+export type { ActiveTrait };
+
+/** @deprecated Use ActiveTrait instead. */
 export interface ActiveSynergy {
   tag: SynergyTag;
   count: number;
@@ -62,11 +71,11 @@ export const collectSynergyTags = (
     }
   }
 
-  // Run passives
+  // Run passives — explicit tags take precedence over name keyword matching
   for (const passiveId of runPassiveIds) {
     const passive = RUN_PASSIVE_BY_ID.get(passiveId);
     if (passive !== undefined) {
-      tags.push(...resolveTags(undefined, passive.name));
+      tags.push(...resolveTags(undefined, passive.name, passive.tags));
     }
   }
 
@@ -99,4 +108,24 @@ export const resolveSynergyBonuses = (
   }
 
   return active;
+};
+
+/**
+ * Count passives by their explicit element tags and resolve active trait tiers.
+ * Only passives with explicit `tags` contribute. Wildcards (no tags) are excluded.
+ * Uses the TFT-style 2/4/6 threshold model from TRAITS definitions.
+ */
+export const resolveTraitsFromPassives = (
+  passiveIds: readonly string[],
+): readonly ActiveTrait[] => {
+  const counts = new Map<SynergyTag, number>();
+  for (const pid of passiveIds) {
+    const passive = RUN_PASSIVE_BY_ID.get(pid);
+    if (passive?.tags) {
+      for (const tag of passive.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+  }
+  return resolveTraitTiers(counts);
 };

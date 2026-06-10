@@ -4,8 +4,8 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   // ---- T1 Ember Initiate ----
   {
     id: 'drakehorn.flame_snap',
-    name: 'Flame Snap',
-    description: 'Basic ranged flame flick.',
+    name: 'Plasma Snap',
+    description: 'Basic ranged plasma discharge.',
     ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
@@ -22,8 +22,8 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.fire_bolt',
-    name: 'Fire Bolt',
-    description: 'Shoots a bolt of fire.',
+    name: 'Plasma Bolt',
+    description: 'Fires a concentrated bolt of superheated plasma.',
     ctCost: 25,
     cooldownSec: 5,
     resource: { type: 'MP', cost: 18 },
@@ -40,8 +40,8 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.flame_burst',
-    name: 'Flame Burst',
-    description: 'Explodes on impact, burning the target over time.',
+    name: 'Plasma Burst',
+    description: 'Explodes on impact, applying thermal burn over time.',
     ctCost: 35,
     cooldownSec: 8,
     resource: { type: 'MP', cost: 22 },
@@ -90,8 +90,8 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.combustion',
-    name: 'Combustion',
-    description: 'Self-buff: next Fire Bolt double hits.',
+    name: 'Thermal Detonation',
+    description: 'Self-buff: next Plasma Bolt fires twice.',
     ctCost: 40,
     cooldownSec: 12,
     resource: { type: 'MP', cost: 24 },
@@ -110,8 +110,8 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   // ---- T2 Flame Berserker ----
   {
     id: 'drakehorn.molten_strike',
-    name: 'Molten Strike',
-    description: 'Basic flaming punch with small ignite chance.',
+    name: 'Plasma Strike',
+    description: 'Basic plasma-charged strike with small burn chance.',
     ctCost: 20,
     cooldownSec: 0,
     resource: { type: 'none', cost: 0 },
@@ -160,7 +160,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.raging_inferno',
-    name: 'Raging Inferno',
+    name: 'Plasma Storm',
     description: 'Leap-slam that burns the ground in an AoE.',
     ctCost: 35,
     cooldownSec: 12,
@@ -202,7 +202,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.rage_fuel',
-    name: 'Rage Fuel',
+    name: 'Overclock Protocol',
     description: '+25% Attack Speed and +15% damage for 6s.',
     ctCost: 25,
     cooldownSec: 10,
@@ -232,7 +232,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   // ---- T3 Pyre Warlord ----
   {
     id: 'drakehorn.warhammer_smash',
-    name: 'Warhammer Smash',
+    name: 'Kinetic Smash',
     description: 'Ground strike causing a flame fissure.',
     ctCost: 20,
     cooldownSec: 0,
@@ -269,7 +269,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.volcanic_eruption',
-    name: 'Volcanic Eruption',
+    name: 'Magma Burst',
     description: 'Huge volcanic blast around self; knockback.',
     ctCost: 60,
     cooldownSec: 18,
@@ -311,7 +311,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.battle_cry',
-    name: 'Battle Cry',
+    name: 'Rally Cry',
     description: 'Allies gain +10% Attack and reflect 5% damage for 8s.',
     ctCost: 30,
     cooldownSec: 10,
@@ -340,7 +340,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   // ---- T4 Inferno Executioner ----
   {
     id: 'drakehorn.blazing_axe',
-    name: 'Blazing Axe',
+    name: 'Plasma Axe',
     description: 'Heavy swing that burns deeply.',
     ctCost: 20,
     cooldownSec: 0,
@@ -418,7 +418,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.final_blaze',
-    name: 'Final Blaze',
+    name: 'Final Protocol',
     description: 'Self-immolation: sacrifices 20% HP for massive AoE damage.',
     ctCost: 90,
     cooldownSec: 30,
@@ -438,7 +438,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   // ---- T5 Apocalypse Bringer ----
   {
     id: 'drakehorn.world_on_fire',
-    name: 'World on Fire',
+    name: 'Reactor Overload',
     description: 'Every basic attack ignites the ground for splash damage.',
     ctCost: 20,
     cooldownSec: 0,
@@ -492,7 +492,7 @@ export const DRAKEHORN_SKILLS: readonly Skill[] = [
   },
   {
     id: 'drakehorn.wrath_of_the_phoenix',
-    name: 'Wrath of the Phoenix',
+    name: 'Nova Pulse',
     description: 'On lethal damage, resurrect with 50% HP once per fight.',
     ctCost: 80,
     cooldownSec: 20,

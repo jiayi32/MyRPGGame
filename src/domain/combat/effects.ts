@@ -5,6 +5,7 @@ import {
   type SkillEffect,
   type SkillEffectKind,
 } from '../../content/types';
+import { getTypeMultiplier, LEGACY_TAG_MAP, type SynergyTag } from '../../content/types/synergy';
 import {
   DEFAULT_TICK_INTERVAL_SEC,
   resolveChance,
@@ -118,16 +119,57 @@ const applyDamageToUnit = (
   tick: number,
 ): BattleState => {
   if (target.isDead || rawAmount <= 0) return state;
+
+  const sourceUnit = state.units[sourceId];
   const stats = effectiveStats(target);
-  const mitigated = mitigate(rawAmount, defenseFor(stats, damageType));
+
+  // Thermal T3: defense penetration
+  const penMult = (sourceUnit?.traitFlags?.thermal ?? 0) >= 3 ? 0.75 : 1.0;
+  const mitigated = mitigate(rawAmount, defenseFor(stats, damageType) * penMult);
   const resisted = applyResistance(mitigated, resistanceFor(stats, damageType));
-  const finalAmount = Math.max(0, Math.round(resisted * hit.severity));
+
+  // Pokémon-style type effectiveness: attacker element vs defender element
+  const attackElement = LEGACY_TAG_MAP[damageType] as SynergyTag | undefined;
+  const typeMult = getTypeMultiplier(attackElement, target.element);
+  const withType = resisted * typeMult;
+  const finalAmount = Math.max(0, Math.round(withType * hit.severity));
   if (finalAmount <= 0) return state;
 
-  const shielded = takeShield(target.statuses, finalAmount);
-  const afterShield = finalAmount - shielded.absorbed;
-  const hpAfter = clamp(target.hp - afterShield, 0, target.hpMax);
-  const isDead = hpAfter <= 0;
+  // Radiant T3: revive check (before applying damage)
+  let hpAfter: number;
+  let isDead: boolean;
+  let traitState = { ...state.traitState };
+
+  const isPlayer = target.team === 'player';
+  const radiantTier = target.traitFlags?.radiant ?? 0;
+  const reviveAvailable = isPlayer && radiantTier >= 3 && !traitState['radiantReviveUsed'];
+
+  if (reviveAvailable) {
+    const shielded = takeShield(target.statuses, finalAmount);
+    const afterShield = finalAmount - shielded.absorbed;
+    const wouldBeHp = target.hp - afterShield;
+    if (wouldBeHp <= 0) {
+      // Revive triggers
+      hpAfter = Math.round(target.hpMax * 0.40);
+      isDead = false;
+      traitState = { ...traitState, radiantReviveUsed: true };
+    } else {
+      hpAfter = clamp(wouldBeHp, 0, target.hpMax);
+      isDead = hpAfter <= 0;
+    }
+  } else {
+    const shielded = takeShield(target.statuses, finalAmount);
+    const afterShield = finalAmount - shielded.absorbed;
+    hpAfter = clamp(target.hp - afterShield, 0, target.hpMax);
+    isDead = hpAfter <= 0;
+  }
+
+  // Kinetic T2/T3: momentum tracking
+  const kinTag = LEGACY_TAG_MAP[damageType];
+  if (kinTag === 'kinetic' && sourceUnit && (sourceUnit.traitFlags?.kinetic ?? 0) >= 2) {
+    const prevStreak = typeof traitState['kineticStreak'] === 'number' ? traitState['kineticStreak'] as number : 0;
+    traitState = { ...traitState, kineticStreak: prevStreak + 1 };
+  }
 
   const events: BattleEvent[] = [
     {
@@ -138,17 +180,38 @@ const applyDamageToUnit = (
       amount: finalAmount,
       damageType,
       hitTier: hit.tier,
+      ...(typeMult !== 1.0 ? { typeMultiplier: typeMult } : {}),
     },
   ];
   if (isDead && !target.isDead) {
     events.push({ tick, type: 'unit_died', unitId: target.id });
   }
 
-  const nextState = patchUnit(state, target.id, {
+  let nextState = patchUnit(state, target.id, {
     hp: hpAfter,
-    statuses: shielded.statuses,
+    statuses: isDead ? [] : target.statuses,
     isDead,
   });
+  nextState = { ...nextState, traitState };
+
+  // Void T1/T3: lifesteal on void damage
+  const voidTag = LEGACY_TAG_MAP[damageType];
+  if (voidTag === 'void' && sourceUnit && (sourceUnit.traitFlags?.void ?? 0) >= 1) {
+    const lifestealPct = (sourceUnit.traitFlags?.void ?? 0) >= 3 ? 0.15 : 0.08;
+    const healAmt = Math.round(finalAmount * lifestealPct);
+    if (healAmt > 0 && !sourceUnit.isDead) {
+      const sourceHp = clamp(sourceUnit.hp + healAmt, 0, sourceUnit.hpMax);
+      nextState = patchUnit(nextState, sourceUnit.id, { hp: sourceHp });
+      nextState = appendLog(nextState, [{
+        tick,
+        type: 'heal',
+        sourceUnitId: sourceId,
+        targetUnitId: sourceId,
+        amount: healAmt,
+      }]);
+    }
+  }
+
   return appendLog(nextState, events);
 };
 
