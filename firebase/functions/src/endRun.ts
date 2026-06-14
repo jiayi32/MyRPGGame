@@ -20,7 +20,7 @@ import type {
   PlayerDoc,
   ProgressionDelta,
   RunDoc,
-  XpScrollPouch,
+  DataCachePouch,
 } from './shared/types';
 
 export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
@@ -91,28 +91,28 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
       const progression = computeProgression({
         result: finalResult,
         stageCompleted,
-        activeLineageId: runData.activeLineageId,
-        evolutionTargetClassId: runData.evolutionTargetClassId,
-        ownedClassIds: playerData.ownedClassIds,
-        lineageRanks: playerData.lineageRanks,
+        activeCorpId: runData.activeCorpId,
+        evolutionTargetSpecId: runData.evolutionTargetSpecId,
+        unlockedSpecIds: playerData.unlockedSpecIds,
+        corpRanks: playerData.corpRanks,
       });
 
       // Apply player-doc updates: persistent currencies + meta-progression.
-      const newGoldBank = playerData.goldBank + settledBank.gold;
-      const newXpScrolls: XpScrollPouch = {
-        minor: playerData.xpScrolls.minor + settledBank.xpScrollMinor,
-        standard: playerData.xpScrolls.standard + settledBank.xpScrollStandard,
-        grand: playerData.xpScrolls.grand + settledBank.xpScrollGrand,
+      const newCredits = playerData.credits + settledBank.credits;
+      const newDataCaches: DataCachePouch = {
+        minor: playerData.dataCaches.minor + settledBank.dataCacheMinor,
+        standard: playerData.dataCaches.standard + settledBank.dataCacheStandard,
+        grand: playerData.dataCaches.grand + settledBank.dataCacheGrand,
       };
-      const newAscensionCells = playerData.ascensionCells + settledBank.ascensionCells + progression.awardedAscensionCells;
-      const newLineageRanks = {
-        ...playerData.lineageRanks,
-        [runData.activeLineageId]: progression.newRank,
+      const newQuantumCores = playerData.quantumCores + settledBank.quantumCores + progression.awardedQuantumCores;
+      const newCorpRanks = {
+        ...playerData.corpRanks,
+        [runData.activeCorpId]: progression.newRank,
       };
-      const newOwnedClassIds = progression.newlyUnlockedClassIds.length > 0
-        ? [...playerData.ownedClassIds, ...progression.newlyUnlockedClassIds]
-        : playerData.ownedClassIds;
-      const existingClassRanks = playerData.classRanks ?? {};
+      const newUnlockedSpecIds = progression.newlyUnlockedSpecIds.length > 0
+        ? [...playerData.unlockedSpecIds, ...progression.newlyUnlockedSpecIds]
+        : playerData.unlockedSpecIds;
+      const existingSpecRanks = playerData.specRanks ?? {};
 
       // Create one gear instance doc per gearId in the settled bank.
       const gearCollection = playerRef.collection('gear');
@@ -141,27 +141,27 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
       });
 
       tx.update(playerRef, {
-        goldBank: newGoldBank,
-        xpScrolls: newXpScrolls,
-        ascensionCells: newAscensionCells,
-        lineageRanks: newLineageRanks,
-        ownedClassIds: newOwnedClassIds,
+        credits: newCredits,
+        dataCaches: newDataCaches,
+        quantumCores: newQuantumCores,
+        corpRanks: newCorpRanks,
+        unlockedSpecIds: newUnlockedSpecIds,
         currentRunId: null,
         updatedAt: now,
       });
 
       const delta: ProgressionDelta = {
-        awardedAscensionCells: progression.awardedAscensionCells,
-        lineageRankDelta: progression.lineageRankDelta,
-        newlyUnlockedClassIds: progression.newlyUnlockedClassIds,
+        awardedQuantumCores: progression.awardedQuantumCores,
+        corpRankDelta: progression.corpRankDelta,
+        newlyUnlockedSpecIds: progression.newlyUnlockedSpecIds,
         playerTotals: {
-          goldBank: newGoldBank,
-          ascensionCells: newAscensionCells,
-          sigilShards: playerData.sigilShards ?? 0,
-          xpScrolls: newXpScrolls,
-          ownedClassIds: newOwnedClassIds,
-          lineageRanks: newLineageRanks,
-          classRanks: existingClassRanks,
+          credits: newCredits,
+          quantumCores: newQuantumCores,
+          scrap: playerData.scrap ?? 0,
+          dataCaches: newDataCaches,
+          unlockedSpecIds: newUnlockedSpecIds,
+          corpRanks: newCorpRanks,
+          specRanks: existingSpecRanks,
         },
         gearInstancesCreated,
       };
@@ -175,9 +175,9 @@ export const endRun = onCall<EndRunPayload, Promise<EndRunResponse>>(
         vaultForfeited,
         postSettleBanked: settledBank,
         progressionAwarded: {
-          ascensionCells: progression.awardedAscensionCells,
-          lineageRankDelta: progression.lineageRankDelta,
-          newlyUnlockedClassIds: progression.newlyUnlockedClassIds,
+          quantumCores: progression.awardedQuantumCores,
+          corpRankDelta: progression.corpRankDelta,
+          newlyUnlockedSpecIds: progression.newlyUnlockedSpecIds,
         },
       };
 

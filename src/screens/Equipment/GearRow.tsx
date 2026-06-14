@@ -135,8 +135,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e8e0d4',
-    backgroundColor: '#fdfbf5',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 10,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   gearRowLeft: { flex: 1, gap: 2 },
   gearNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  gearName: { fontSize: 14, fontWeight: '600', color: '#2b1f10' },
+  gearName: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   gearNameEquipped: { color: '#1a5a2a' },
   tierBadge: {
     borderRadius: 4,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   tierBadgeText: { fontSize: 10, color: '#fff', fontWeight: '700' },
   rarityLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  statSummary: { fontSize: 11, color: '#5d4d35', marginTop: 1 },
+  statSummary: { fontSize: 11, color: '#aabbcc', marginTop: 1 },
   unknownTemplate: { fontSize: 10, color: '#a04040', fontStyle: 'italic' },
   equipBtn: {
     borderRadius: 6,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   equipBtnUnequipped: {
-    backgroundColor: '#7a3b00',
+    backgroundColor: '#ffb000',
   },
   equipBtnEquipped: {
     backgroundColor: '#fff',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 8,
   },
-  temperInfo: { fontSize: 10, color: '#7a5a30', flex: 1 },
+  temperInfo: { fontSize: 10, color: '#ffb000', flex: 1 },
   temperBtn: {
     borderRadius: 5,
     paddingHorizontal: 10,

@@ -6,8 +6,8 @@ import type {
   PlayerDoc,
   UpgradeClassPayload,
   UpgradeClassResponse,
-  XpScrollKind,
-  XpScrollPouch,
+  DataCacheKind,
+  DataCachePouch,
 } from './shared/types';
 
 const MAX_CLASS_RANK = 10;
@@ -16,28 +16,28 @@ const rankUpCostFor = (
   currentRank: number,
 ): {
   gold: number;
-  ascensionCells: number;
-  xpScrollKind: XpScrollKind;
-  xpScrollCost: number;
+  quantumCores: number;
+  dataCacheKind: DataCacheKind;
+  dataCacheCost: number;
 } => {
   if (currentRank >= MAX_CLASS_RANK) {
-    return { gold: 0, ascensionCells: 0, xpScrollKind: 'grand', xpScrollCost: 0 };
+    return { gold: 0, quantumCores: 0, dataCacheKind: 'grand', dataCacheCost: 0 };
   }
   const nextRank = currentRank + 1;
   if (nextRank <= 3) {
-    return { gold: 120 * nextRank, ascensionCells: 10 * nextRank, xpScrollKind: 'minor', xpScrollCost: 1 };
+    return { gold: 120 * nextRank, quantumCores: 10 * nextRank, dataCacheKind: 'minor', dataCacheCost: 1 };
   }
   if (nextRank <= 7) {
-    return { gold: 220 * nextRank, ascensionCells: 18 * nextRank, xpScrollKind: 'standard', xpScrollCost: 1 };
+    return { gold: 220 * nextRank, quantumCores: 18 * nextRank, dataCacheKind: 'standard', dataCacheCost: 1 };
   }
-  return { gold: 360 * nextRank, ascensionCells: 28 * nextRank, xpScrollKind: 'grand', xpScrollCost: 1 };
+  return { gold: 360 * nextRank, quantumCores: 28 * nextRank, dataCacheKind: 'grand', dataCacheCost: 1 };
 };
 
-const takeScroll = (scrolls: XpScrollPouch, kind: XpScrollKind, amount: number): XpScrollPouch => {
-  const next: XpScrollPouch = {
-    minor: scrolls.minor,
-    standard: scrolls.standard,
-    grand: scrolls.grand,
+const takeCache = (caches: DataCachePouch, kind: DataCacheKind, amount: number): DataCachePouch => {
+  const next: DataCachePouch = {
+    minor: caches.minor,
+    standard: caches.standard,
+    grand: caches.grand,
   };
   next[kind] = Math.max(0, next[kind] - amount);
   return next;
@@ -62,48 +62,48 @@ export const upgradeClass = onCall<UpgradeClassPayload, Promise<UpgradeClassResp
       const playerSnap = await tx.get(playerRef);
       const player = requireDoc(playerSnap, 'player') as PlayerDoc;
 
-      if (!player.ownedClassIds.includes(classId)) {
+      if (!player.unlockedSpecIds.includes(classId)) {
         throw new HttpsError('permission-denied', `Class ${classId} is not owned by this player.`);
       }
 
-      const currentRank = Math.max(0, Math.trunc(player.classRanks?.[classId] ?? 0));
+      const currentRank = Math.max(0, Math.trunc(player.specRanks?.[classId] ?? 0));
       if (currentRank >= MAX_CLASS_RANK) {
         throw new HttpsError('failed-precondition', `Class ${classId} is already rank ${MAX_CLASS_RANK}.`);
       }
 
       const costs = rankUpCostFor(currentRank);
-      if (player.goldBank < costs.gold) {
+      if (player.credits < costs.gold) {
         throw new HttpsError(
           'failed-precondition',
-          `Not enough gold. Need ${costs.gold}, have ${player.goldBank}.`,
+          `Not enough credits. Need ${costs.gold}, have ${player.credits}.`,
         );
       }
-      if (player.ascensionCells < costs.ascensionCells) {
+      if (player.quantumCores < costs.quantumCores) {
         throw new HttpsError(
           'failed-precondition',
-          `Not enough ascension cells. Need ${costs.ascensionCells}, have ${player.ascensionCells}.`,
+          `Not enough quantum cores. Need ${costs.quantumCores}, have ${player.quantumCores}.`,
         );
       }
-      const scrollCount = player.xpScrolls[costs.xpScrollKind];
-      if (scrollCount < costs.xpScrollCost) {
+      const cacheCount = player.dataCaches[costs.dataCacheKind];
+      if (cacheCount < costs.dataCacheCost) {
         throw new HttpsError(
           'failed-precondition',
-          `Not enough ${costs.xpScrollKind} scrolls. Need ${costs.xpScrollCost}, have ${scrollCount}.`,
+          `Not enough ${costs.dataCacheKind} data caches. Need ${costs.dataCacheCost}, have ${cacheCount}.`,
         );
       }
 
       const newRank = currentRank + 1;
-      const newClassRanks = { ...(player.classRanks ?? {}), [classId]: newRank };
-      const newGoldBank = player.goldBank - costs.gold;
-      const newAscensionCells = player.ascensionCells - costs.ascensionCells;
-      const newXpScrolls = takeScroll(player.xpScrolls, costs.xpScrollKind, costs.xpScrollCost);
+      const newSpecRanks = { ...(player.specRanks ?? {}), [classId]: newRank };
+      const newCredits = player.credits - costs.gold;
+      const newQuantumCores = player.quantumCores - costs.quantumCores;
+      const newDataCaches = takeCache(player.dataCaches, costs.dataCacheKind, costs.dataCacheCost);
       const now = FieldValue.serverTimestamp();
 
       tx.update(playerRef, {
-        classRanks: newClassRanks,
-        goldBank: newGoldBank,
-        ascensionCells: newAscensionCells,
-        xpScrolls: newXpScrolls,
+        specRanks: newSpecRanks,
+        credits: newCredits,
+        quantumCores: newQuantumCores,
+        dataCaches: newDataCaches,
         updatedAt: now,
       });
 
@@ -112,13 +112,13 @@ export const upgradeClass = onCall<UpgradeClassPayload, Promise<UpgradeClassResp
         costs,
         player: {
           uid: player.uid,
-          goldBank: newGoldBank,
-          xpScrolls: newXpScrolls,
-          ascensionCells: newAscensionCells,
-          sigilShards: player.sigilShards ?? 0,
-          lineageRanks: player.lineageRanks,
-          classRanks: newClassRanks,
-          ownedClassIds: player.ownedClassIds,
+          credits: newCredits,
+          dataCaches: newDataCaches,
+          quantumCores: newQuantumCores,
+          scrap: player.scrap ?? 0,
+          corpRanks: player.corpRanks,
+          specRanks: newSpecRanks,
+          unlockedSpecIds: player.unlockedSpecIds,
           currentRunId: player.currentRunId,
         },
       };

@@ -1,31 +1,30 @@
 export interface RewardBundle {
-  gold: number;
-  ascensionCells: number;
-  /** Rare drop from stage-5 mini-boss and stage-10 gate boss only. Used for cross-lineage unlocks. */
-  sigilShards: number;
-  xpScrollMinor: number;
-  xpScrollStandard: number;
-  xpScrollGrand: number;
+  credits: number;
+  quantumCores: number;
+  scrap: number;
+  dataCacheMinor: number;
+  dataCacheStandard: number;
+  dataCacheGrand: number;
   gearIds: string[];
 }
 
 export const EMPTY_REWARD_BUNDLE: RewardBundle = {
-  gold: 0,
-  ascensionCells: 0,
-  sigilShards: 0,
-  xpScrollMinor: 0,
-  xpScrollStandard: 0,
-  xpScrollGrand: 0,
+  credits: 0,
+  quantumCores: 0,
+  scrap: 0,
+  dataCacheMinor: 0,
+  dataCacheStandard: 0,
+  dataCacheGrand: 0,
   gearIds: [],
 };
 
-export interface XpScrollPouch {
+export interface DataCachePouch {
   minor: number;
   standard: number;
   grand: number;
 }
 
-export const EMPTY_XP_SCROLLS: XpScrollPouch = {
+export const EMPTY_DATA_CACHES: DataCachePouch = {
   minor: 0,
   standard: 0,
   grand: 0,
@@ -75,17 +74,17 @@ export interface EndRunPayload {
 }
 
 export interface ProgressionDelta {
-  awardedAscensionCells: number;
-  lineageRankDelta: number;
-  newlyUnlockedClassIds: string[];
+  awardedQuantumCores: number;
+  corpRankDelta: number;
+  newlyUnlockedSpecIds: string[];
   playerTotals: {
-    goldBank: number;
-    ascensionCells: number;
-    sigilShards: number;
-    xpScrolls: XpScrollPouch;
-    ownedClassIds: string[];
-    lineageRanks: Record<string, number>;
-    classRanks: Record<string, number>;
+    credits: number;
+    quantumCores: number;
+    scrap: number;
+    dataCaches: DataCachePouch;
+    unlockedSpecIds: string[];
+    corpRanks: Record<string, number>;
+    specRanks: Record<string, number>;
   };
   gearInstancesCreated: number;
   /** Total augments picked across all runs after this settlement. */
@@ -103,9 +102,9 @@ export interface EndRunSettlementLedger {
   vaultForfeited: RewardBundle;
   postSettleBanked: RewardBundle;
   progressionAwarded: {
-    ascensionCells: number;
-    lineageRankDelta: number;
-    newlyUnlockedClassIds: string[];
+    quantumCores: number;
+    corpRankDelta: number;
+    newlyUnlockedSpecIds: string[];
   };
 }
 
@@ -150,13 +149,13 @@ export interface RunSnapshot {
 
 export interface PlayerSnapshot {
   uid: string;
-  goldBank: number;
-  xpScrolls: XpScrollPouch;
-  ascensionCells: number;
-  sigilShards: number;
-  lineageRanks: Record<string, number>;
-  classRanks: Record<string, number>;
-  ownedClassIds: string[];
+  credits: number;
+  dataCaches: DataCachePouch;
+  quantumCores: number;
+  scrap: number;
+  corpRanks: Record<string, number>;
+  specRanks: Record<string, number>;
+  unlockedSpecIds: string[];
   currentRunId: string | null;
   /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
   augmentsPicked: number;
@@ -178,7 +177,7 @@ export interface DevSkipStageResponse {
 
 export interface DevGrantAllClassesResponse {
   ok: boolean;
-  ownedClassIds: string[];
+  unlockedSpecIds: string[];
 }
 
 export interface DevResetPlayerResponse {
@@ -188,20 +187,20 @@ export interface DevResetPlayerResponse {
 }
 
 export interface DevSetCurrenciesPayload {
-  goldBank?: number;
-  ascensionCells?: number;
-  sigilShards?: number;
-  xpScrollMinor?: number;
-  xpScrollStandard?: number;
-  xpScrollGrand?: number;
+  credits?: number;
+  quantumCores?: number;
+  scrap?: number;
+  dataCacheMinor?: number;
+  dataCacheStandard?: number;
+  dataCacheGrand?: number;
 }
 
 export interface DevSetCurrenciesResponse {
   ok: boolean;
-  goldBank: number;
-  ascensionCells: number;
-  sigilShards: number;
-  xpScrolls: XpScrollPouch;
+  credits: number;
+  quantumCores: number;
+  scrap: number;
+  dataCaches: DataCachePouch;
 }
 
 export interface ShopOffer {
@@ -235,9 +234,9 @@ export interface UpgradeClassResponse {
   newRank: number;
   costs: {
     gold: number;
-    ascensionCells: number;
-    xpScrollKind: keyof XpScrollPouch;
-    xpScrollCost: number;
+    quantumCores: number;
+    dataCacheKind: keyof DataCachePouch;
+    dataCacheCost: number;
   };
   player: PlayerSnapshot;
 }

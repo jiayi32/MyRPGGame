@@ -73,12 +73,12 @@ export function HubScreen() {
   const error = runError ?? playerError;
 
   return (
-    <ScreenWrapper mode="parchment">
-      <ThemeText textRole="heading" size="2xl" color={colors.accent.gold}>
+    <ScreenWrapper mode="cyberpunk">
+      <ThemeText textRole="heading" size="2xl" color={colors.neon.cyan}>
         MyRPGGame
       </ThemeText>
       <ThemeText textRole="body" size="sm" colorKey="secondary" style={{ marginBottom: spacing.lg }}>
-        Forge Your Lineage
+        Jack Into the Grid
       </ThemeText>
 
       <Card variant="stat" style={{ marginBottom: spacing.lg }}>

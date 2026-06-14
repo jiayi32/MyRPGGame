@@ -122,16 +122,52 @@ const applyDamageToUnit = (
 
   const sourceUnit = state.units[sourceId];
   const stats = effectiveStats(target);
+  const passiveFlags = state.traitState;
 
-  // Thermal T3: defense penetration
-  const penMult = (sourceUnit?.traitFlags?.thermal ?? 0) >= 3 ? 0.75 : 1.0;
+  // Thermal T3: defense penetration (75% def ignored)
+  // + passive.physical_breach: kinetic crit ignores 30% def (stacks multiplicatively)
+  const thermalPen = (sourceUnit?.traitFlags?.thermal ?? 0) >= 3 ? 0.75 : 1.0;
+  const breachPen =
+    passiveFlags['passive.physical_breach'] &&
+    damageType === 'physical' &&
+    hit.tier === 'crit'
+      ? 0.70
+      : 1.0;
+  const penMult = thermalPen * breachPen;
   const mitigated = mitigate(rawAmount, defenseFor(stats, damageType) * penMult);
   const resisted = applyResistance(mitigated, resistanceFor(stats, damageType));
 
   // Pokémon-style type effectiveness: attacker element vs defender element
   const attackElement = LEGACY_TAG_MAP[damageType] as SynergyTag | undefined;
   const typeMult = getTypeMultiplier(attackElement, target.element);
-  const withType = resisted * typeMult;
+
+  // Passive damage multipliers
+  let passiveDmgMult = 1.0;
+
+  // passive.fire_overheat: +15% thermal damage
+  if (damageType === 'fire' && passiveFlags['passive.fire_overheat']) {
+    passiveDmgMult *= 1.15;
+  }
+
+  // passive.light_beacon: +10% all damage while >75% HP
+  if (sourceUnit && passiveFlags['passive.light_beacon'] && sourceUnit.hp > sourceUnit.hpMax * 0.75) {
+    passiveDmgMult *= 1.10;
+  }
+
+  // passive.cryo_shatter: +40% dmg vs frozen, consumes freeze
+  let shatterConsumed = false;
+  let targetStatuses = target.statuses;
+  if (passiveFlags['passive.cryo_shatter']) {
+    const frozenIdx = targetStatuses.findIndex((s) => s.kind === 'stun');
+    if (frozenIdx !== -1) {
+      passiveDmgMult *= 1.40;
+      shatterConsumed = true;
+      targetStatuses = [...targetStatuses];
+      targetStatuses.splice(frozenIdx, 1);
+    }
+  }
+
+  const withType = resisted * typeMult * passiveDmgMult;
   const finalAmount = Math.max(0, Math.round(withType * hit.severity));
   if (finalAmount <= 0) return state;
 
@@ -145,7 +181,7 @@ const applyDamageToUnit = (
   const reviveAvailable = isPlayer && radiantTier >= 3 && !traitState['radiantReviveUsed'];
 
   if (reviveAvailable) {
-    const shielded = takeShield(target.statuses, finalAmount);
+    const shielded = takeShield(targetStatuses, finalAmount);
     const afterShield = finalAmount - shielded.absorbed;
     const wouldBeHp = target.hp - afterShield;
     if (wouldBeHp <= 0) {
@@ -158,7 +194,7 @@ const applyDamageToUnit = (
       isDead = hpAfter <= 0;
     }
   } else {
-    const shielded = takeShield(target.statuses, finalAmount);
+    const shielded = takeShield(targetStatuses, finalAmount);
     const afterShield = finalAmount - shielded.absorbed;
     hpAfter = clamp(target.hp - afterShield, 0, target.hpMax);
     isDead = hpAfter <= 0;
@@ -189,26 +225,34 @@ const applyDamageToUnit = (
 
   let nextState = patchUnit(state, target.id, {
     hp: hpAfter,
-    statuses: isDead ? [] : target.statuses,
+    statuses: isDead ? [] : (shatterConsumed ? targetStatuses : target.statuses),
     isDead,
   });
   nextState = { ...nextState, traitState };
 
-  // Void T1/T3: lifesteal on void damage
+  // Void T1/T3 lifesteal + passive.shadow_leech (12% void lifesteal)
   const voidTag = LEGACY_TAG_MAP[damageType];
-  if (voidTag === 'void' && sourceUnit && (sourceUnit.traitFlags?.void ?? 0) >= 1) {
-    const lifestealPct = (sourceUnit.traitFlags?.void ?? 0) >= 3 ? 0.15 : 0.08;
-    const healAmt = Math.round(finalAmount * lifestealPct);
-    if (healAmt > 0 && !sourceUnit.isDead) {
-      const sourceHp = clamp(sourceUnit.hp + healAmt, 0, sourceUnit.hpMax);
-      nextState = patchUnit(nextState, sourceUnit.id, { hp: sourceHp });
-      nextState = appendLog(nextState, [{
-        tick,
-        type: 'heal',
-        sourceUnitId: sourceId,
-        targetUnitId: sourceId,
-        amount: healAmt,
+  if (voidTag === 'void' && sourceUnit && !sourceUnit.isDead) {
+    let lifestealPct = 0;
+    if ((sourceUnit.traitFlags?.void ?? 0) >= 1) {
+      lifestealPct += (sourceUnit.traitFlags?.void ?? 0) >= 3 ? 0.15 : 0.08;
+    }
+    if (passiveFlags['passive.shadow_leech']) {
+      lifestealPct += 0.12;
+    }
+    if (lifestealPct > 0) {
+      const healAmt = Math.round(finalAmount * lifestealPct);
+      if (healAmt > 0) {
+        const sourceHp = clamp(sourceUnit.hp + healAmt, 0, sourceUnit.hpMax);
+        nextState = patchUnit(nextState, sourceUnit.id, { hp: sourceHp });
+        nextState = appendLog(nextState, [{
+          tick,
+          type: 'heal',
+          sourceUnitId: sourceId,
+          targetUnitId: sourceId,
+          amount: healAmt,
       }]);
+      }
     }
   }
 

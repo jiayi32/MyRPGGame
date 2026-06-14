@@ -34,7 +34,7 @@ export function EventRoomScreen({ navigation, route }: Props) {
   const stage = useRunStore((state) => state.stage);
   const addStim = useRunStore((state) => state.addStim);
   const selectPassive = useRunStore((state) => state.selectPassive);
-  const goldBank = usePlayerStore((state) => state.goldBank);
+  const credits = usePlayerStore((state) => state.credits);
 
   const [resolved, setResolved] = useState(false);
   const [resultText, setResultText] = useState('');

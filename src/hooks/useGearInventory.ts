@@ -173,7 +173,7 @@ export function useGearInventory(): UseGearInventoryResult {
   ): Promise<{ success: boolean; newLevel: number; goldSpent: number }> => {
     const result = await temperGear(instanceId);
     // Sync gold balance back to the player store.
-    usePlayerStore.setState({ goldBank: result.goldRemaining });
+    usePlayerStore.setState({ credits: result.goldRemaining });
     return { success: result.success, newLevel: result.temperLevel, goldSpent: result.goldSpent };
   };
 

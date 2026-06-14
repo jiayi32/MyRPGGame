@@ -12,10 +12,10 @@ import {
   getPlayerSnapshot,
 } from '@/services/runApi';
 import {
-  EMPTY_XP_SCROLLS,
+  EMPTY_DATA_CACHES,
   type PlayerSnapshot,
   type ProgressionDelta,
-  type XpScrollPouch,
+  type DataCachePouch,
 } from '@/features/run/types';
 
 export type PlayerStoreStatus =
@@ -40,13 +40,13 @@ interface PlayerStoreState {
   status: PlayerStoreStatus;
   error: string | null;
   uid: string | null;
-  goldBank: number;
-  xpScrolls: XpScrollPouch;
-  ascensionCells: number;
-  sigilShards: number;
-  lineageRanks: Record<string, number>;
-  classRanks: Record<string, number>;
-  ownedClassIds: string[];
+  credits: number;
+  dataCaches: DataCachePouch;
+  quantumCores: number;
+  scrap: number;
+  corpRanks: Record<string, number>;
+  specRanks: Record<string, number>;
+  unlockedSpecIds: string[];
   currentRunId: string | null;
   /** Total augments picked across all runs. Drives tier unlocks (Bronze→Silver→Gold→Prismatic). */
   augmentsPicked: number;
@@ -77,7 +77,7 @@ interface PlayerStoreState {
   reset: () => void;
 }
 
-const cloneXpScrolls = (s: XpScrollPouch): XpScrollPouch => ({
+const cloneDataCaches = (s: DataCachePouch): DataCachePouch => ({
   minor: s.minor,
   standard: s.standard,
   grand: s.grand,
@@ -85,13 +85,13 @@ const cloneXpScrolls = (s: XpScrollPouch): XpScrollPouch => ({
 
 const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => ({
   uid: snap.uid,
-  goldBank: snap.goldBank,
-  xpScrolls: cloneXpScrolls(snap.xpScrolls),
-  ascensionCells: snap.ascensionCells,
-  sigilShards: snap.sigilShards,
-  lineageRanks: { ...snap.lineageRanks },
-  classRanks: { ...snap.classRanks },
-  ownedClassIds: [...snap.ownedClassIds],
+  credits: snap.credits,
+  dataCaches: cloneDataCaches(snap.dataCaches),
+  quantumCores: snap.quantumCores,
+  scrap: snap.scrap,
+  corpRanks: { ...snap.corpRanks },
+  specRanks: { ...snap.specRanks },
+  unlockedSpecIds: [...snap.unlockedSpecIds],
   currentRunId: snap.currentRunId,
   augmentsPicked: snap.augmentsPicked ?? 0,
   unlockedPassiveIds: (snap as any).unlockedPassiveIds ?? [],
@@ -100,24 +100,24 @@ const applyPlayerToState = (snap: PlayerSnapshot): Partial<PlayerStoreState> => 
 const EMPTY_STATE: Pick<
   PlayerStoreState,
   | 'uid'
-  | 'goldBank'
-  | 'xpScrolls'
-  | 'ascensionCells'
-  | 'sigilShards'
-  | 'lineageRanks'
-  | 'classRanks'
-  | 'ownedClassIds'
+  | 'credits'
+  | 'dataCaches'
+  | 'quantumCores'
+  | 'scrap'
+  | 'corpRanks'
+  | 'specRanks'
+  | 'unlockedSpecIds'
   | 'currentRunId'
   | 'augmentsPicked'
 > = {
   uid: null,
-  goldBank: 0,
-  xpScrolls: cloneXpScrolls(EMPTY_XP_SCROLLS),
-  ascensionCells: 0,
-  sigilShards: 0,
-  lineageRanks: {},
-  classRanks: {},
-  ownedClassIds: [],
+  credits: 0,
+  dataCaches: cloneDataCaches(EMPTY_DATA_CACHES),
+  quantumCores: 0,
+  scrap: 0,
+  corpRanks: {},
+  specRanks: {},
+  unlockedSpecIds: [],
   currentRunId: null,
   augmentsPicked: 0,
   unlockedPassiveIds: [],
@@ -219,13 +219,13 @@ export const usePlayerStore = create<PlayerStoreState>((set, get) => ({
   applyEndRunDelta: (delta, currentRunId) => {
     const totals = delta.playerTotals;
     set({
-      goldBank: totals.goldBank,
-      xpScrolls: cloneXpScrolls(totals.xpScrolls),
-      ascensionCells: totals.ascensionCells,
-      sigilShards: totals.sigilShards,
-      lineageRanks: { ...totals.lineageRanks },
-      classRanks: { ...totals.classRanks },
-      ownedClassIds: [...totals.ownedClassIds],
+      credits: totals.credits,
+      dataCaches: cloneDataCaches(totals.dataCaches),
+      quantumCores: totals.quantumCores,
+      scrap: totals.scrap,
+      corpRanks: { ...totals.corpRanks },
+      specRanks: { ...totals.specRanks },
+      unlockedSpecIds: [...totals.unlockedSpecIds],
       currentRunId,
       augmentsPicked: delta.augmentsPicked ?? get().augmentsPicked,
     });

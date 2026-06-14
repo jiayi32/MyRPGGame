@@ -1,13 +1,13 @@
 /**
  * Design System — Theme Context
  *
- * Provides the current visual mode (dark | parchment) to all components.
+ * Provides the current visual mode (dark | cyberpunk) to all components.
  * Components consume color tokens via `useTheme()` and automatically
  * adjust to the current mode.
  *
  * Mode selection:
- *   - Battle, dungeon, boss screens → 'dark'
- *   - Hub, narrative, shop, equipment, profile screens → 'parchment'
+ *   - Battle, dungeon, raid, boss screens → 'dark'
+ *   - Hub, narrative, shop, gear, character, profile screens → 'cyberpunk'
  *   - Draft, reward screens → 'dark' (high-focus moments)
  *
  * Usage:
@@ -40,12 +40,12 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ mode, children }: ThemeProviderProps) {
   const value = useMemo<ThemeContextValue>(() => {
-    const modeColors = mode === 'dark' ? colorTokens.dark : colorTokens.parchment;
+    const modeColors = mode === 'dark' ? colorTokens.dark : mode === 'cyberpunk' ? colorTokens.cyberpunk : colorTokens.parchment;
     return {
       mode,
       colors: modeColors,
       allColors: colorTokens,
-      isDark: mode === 'dark',
+      isDark: mode === 'dark' || mode === 'cyberpunk',
     };
   }, [mode]);
 
@@ -60,12 +60,12 @@ export function ThemeProvider({ mode, children }: ThemeProviderProps) {
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
-    // Fallback to parchment if no provider (safe default for non-combat screens)
+    // Fallback to cyberpunk if no provider (new default for all screens)
     return {
-      mode: 'parchment',
-      colors: colorTokens.parchment,
+      mode: 'cyberpunk',
+      colors: colorTokens.cyberpunk,
       allColors: colorTokens,
-      isDark: false,
+      isDark: true,
     };
   }
   return ctx;

@@ -11,20 +11,20 @@ import type {
 export type RunResult = 'won' | 'lost' | 'fled';
 
 export interface RewardBundle {
-  gold: number;
-  ascensionCells: number;
-  xpScrollMinor: number;
-  xpScrollStandard: number;
-  xpScrollGrand: number;
+  credits: number;
+  quantumCores: number;
+  dataCacheMinor: number;
+  dataCacheStandard: number;
+  dataCacheGrand: number;
   gearIds: readonly string[];
 }
 
 export const EMPTY_REWARD_BUNDLE: RewardBundle = {
-  gold: 0,
-  ascensionCells: 0,
-  xpScrollMinor: 0,
-  xpScrollStandard: 0,
-  xpScrollGrand: 0,
+  credits: 0,
+  quantumCores: 0,
+  dataCacheMinor: 0,
+  dataCacheStandard: 0,
+  dataCacheGrand: 0,
   gearIds: [],
 };
 
@@ -62,7 +62,7 @@ export interface RunDirectorInput {
   seed: number;
   stage: number;
   activeClassId: ClassId;
-  activeLineageId: LineageId;
+  activeCorpId: LineageId;
   roomType?: StageRoomType;
   roomNodeId?: string;
 }
@@ -76,9 +76,9 @@ export interface StageSelection {
 }
 
 export interface ProgressionPlayerState {
-  ownedClassIds: readonly ClassId[];
-  lineageRanks: Readonly<Record<LineageId, number>>;
-  ascensionCells: number;
+  unlockedSpecIds: readonly ClassId[];
+  corpRanks: Readonly<Record<LineageId, number>>;
+  quantumCores: number;
 }
 
 export interface ProgressionInput {
@@ -87,16 +87,16 @@ export interface ProgressionInput {
   stageCompleted: number;
   runResult: RunResult;
   requestedEvolutionTargetClassId?: ClassId;
-  allowCrossLineageEvolution?: boolean;
+  allowCrossCorpEvolution?: boolean;
 }
 
 export interface ProgressionResult {
   playerState: ProgressionPlayerState;
-  lineageRankDelta: number;
-  awardedAscensionCells: number;
-  newlyUnlockedClassIds: readonly ClassId[];
+  corpRankDelta: number;
+  awardedQuantumCores: number;
+  newlyUnlockedSpecIds: readonly ClassId[];
   rejectedEvolutionTargetClassId?: ClassId;
-  rejectionReason?: 'cross_lineage_locked' | 'invalid_target';
+  rejectionReason?: 'cross_corp_locked' | 'invalid_target';
 }
 
 export interface RewardLedger {

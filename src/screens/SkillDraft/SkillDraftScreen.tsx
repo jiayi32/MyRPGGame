@@ -126,16 +126,16 @@ export function SkillDraftScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f4ef' },
-  title: { fontSize: 22, fontWeight: '700', color: '#2b1f10', padding: 20, paddingBottom: 4 },
-  subtitle: { fontSize: 13, color: '#5d4d35', paddingHorizontal: 20, marginBottom: 8 },
+  container: { flex: 1, backgroundColor: '#0a0a1a' },
+  title: { fontSize: 22, fontWeight: '700', color: '#ffffff', padding: 20, paddingBottom: 4 },
+  subtitle: { fontSize: 13, color: '#aabbcc', paddingHorizontal: 20, marginBottom: 8 },
   list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   card: {
     borderWidth: 1.5,
-    borderColor: '#d8cdbb',
+    borderColor: 'rgba(0,255,255,0.1)',
     borderRadius: 12,
     padding: 14,
-    backgroundColor: '#fffdf8',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     gap: 4,
   },
   cardSelected: {
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   slotBadgeText: { fontSize: 10, fontWeight: '700' },
   cardName: { fontSize: 15, fontWeight: '700', color: '#1e3a5f' },
-  cardDescription: { fontSize: 12, color: '#5d4d35', lineHeight: 17 },
+  cardDescription: { fontSize: 12, color: '#aabbcc', lineHeight: 17 },
   cardCost: { fontSize: 11, color: '#8b6f3a', fontWeight: '600', marginTop: 2 },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#d8cdbb', backgroundColor: '#fffdf8' },
+  footer: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
 });

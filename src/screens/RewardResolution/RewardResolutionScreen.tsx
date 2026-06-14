@@ -45,7 +45,7 @@ interface MilestoneNarrative {
 }
 
 function formatRewardBundleSummary(bundle: RewardBundle): string {
-  return `Gold ${bundle.gold} · Cells ${bundle.ascensionCells} · Sigils ${bundle.sigilShards} · Scrolls ${bundle.xpScrollMinor}/${bundle.xpScrollStandard}/${bundle.xpScrollGrand} · Gear ${bundle.gearIds.length}`;
+  return `Credits ${bundle.credits} · Cores ${bundle.quantumCores} · Scrap ${bundle.scrap} · Caches ${bundle.dataCacheMinor}/${bundle.dataCacheStandard}/${bundle.dataCacheGrand} · Gear ${bundle.gearIds.length}`;
 }
 
 function resolveMilestoneNarrative(
@@ -556,18 +556,18 @@ export function RewardResolutionScreen({ navigation }: Props) {
           <Text style={styles.progressionTitle}>Run Settled</Text>
           <View style={styles.progressionRow}>
             <Text style={styles.progressionItem}>
-              ⚡ +{progression.awardedAscensionCells} cells
+              ⚡ +{progression.awardedQuantumCores} cores
             </Text>
-            {progression.lineageRankDelta > 0 && (
+            {progression.corpRankDelta > 0 && (
               <Text style={styles.progressionItem}>
-                ↑ Rank +{progression.lineageRankDelta}
+                ↑ Rank +{progression.corpRankDelta}
               </Text>
             )}
           </View>
-          {progression.newlyUnlockedClassIds.length > 0 && (
+          {progression.newlyUnlockedSpecIds.length > 0 && (
             <View style={styles.unlockedSection}>
               <Text style={styles.unlockedLabel}>Newly Unlocked</Text>
-              {progression.newlyUnlockedClassIds.map((id) => {
+              {progression.newlyUnlockedSpecIds.map((id) => {
                 const c = CLASS_BY_ID.get(id as ClassId);
                 return (
                   <Text key={id} style={styles.unlockedClass}>
@@ -602,7 +602,7 @@ export function RewardResolutionScreen({ navigation }: Props) {
               <Text style={styles.ledgerRow}>Vault lost: {formatRewardBundleSummary(settlementLedger.vaultForfeited)}</Text>
               <Text style={styles.ledgerRow}>Post-settle banked: {formatRewardBundleSummary(settlementLedger.postSettleBanked)}</Text>
               <Text style={styles.ledgerRow}>
-                Progression: +{settlementLedger.progressionAwarded.ascensionCells} cells, rank delta {settlementLedger.progressionAwarded.lineageRankDelta}, unlocks {settlementLedger.progressionAwarded.newlyUnlockedClassIds.length}
+                Progression: +{settlementLedger.progressionAwarded.quantumCores} cores, rank delta {settlementLedger.progressionAwarded.corpRankDelta}, unlocks {settlementLedger.progressionAwarded.newlyUnlockedSpecIds.length}
               </Text>
             </>
           )}
@@ -625,18 +625,18 @@ export function RewardResolutionScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { flex: 1, backgroundColor: '#eff5f1' },
+  scrollContainer: { flex: 1, backgroundColor: '#0a0a1a' },
   container: { padding: 20, gap: 14 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   headerLeft: { gap: 6 },
-  title: { fontSize: 22, fontWeight: '700', color: '#12372a' },
+  title: { fontSize: 22, fontWeight: '700', color: '#ffffff' },
   resultBadge: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 3 },
   resultWon: { backgroundColor: '#1a7a2a' },
   resultLost: { backgroundColor: '#8b1a1a' },
   resultBadgeText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   mapLink: { paddingTop: 4 },
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
-  battleSummary: { fontSize: 13, color: '#36564a' },
+  battleSummary: { fontSize: 13, color: '#aabbcc' },
   narrativeCard: {
     borderRadius: 10,
     borderWidth: 1,
@@ -644,39 +644,39 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   narrativeNeutral: {
-    borderColor: '#cdbda4',
-    backgroundColor: '#fffaf0',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   narrativeWarning: {
     borderColor: '#d79a9a',
-    backgroundColor: '#fff2f2',
+    backgroundColor: 'rgba(255,0,0,0.05)',
   },
   narrativeVictory: {
     borderColor: '#91c294',
-    backgroundColor: '#eef8ef',
+    backgroundColor: 'rgba(0,255,0,0.05)',
   },
-  narrativeTitle: { fontSize: 14, fontWeight: '700', color: '#2d2d2d' },
-  narrativeBody: { fontSize: 12, color: '#4e4e4e', lineHeight: 18 },
+  narrativeTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
+  narrativeBody: { fontSize: 12, color: '#aabbcc', lineHeight: 18 },
   economyGuideCard: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#c7bfae',
-    backgroundColor: '#fffaf0',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 10,
     gap: 4,
   },
-  economyGuideTitle: { fontSize: 14, fontWeight: '700', color: '#3b2b16' },
-  economyGuideBody: { fontSize: 12, color: '#4f4438', lineHeight: 18 },
+  economyGuideTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
+  economyGuideBody: { fontSize: 12, color: '#aabbcc', lineHeight: 18 },
   economyGuideExample: {
     marginTop: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 8,
     gap: 2,
   },
-  economyGuideExampleTitle: { fontSize: 12, fontWeight: '700', color: '#4d3a22' },
+  economyGuideExampleTitle: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
   economyGuideLink: { alignSelf: 'flex-start', paddingVertical: 2 },
   economyGuideLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
   tutorialStepHeaderRow: {
@@ -684,16 +684,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  tutorialStepCounter: { fontSize: 11, color: '#6e634f', fontWeight: '700' },
+  tutorialStepCounter: { fontSize: 11, color: '#889999', fontWeight: '700' },
   tutorialDotsRow: { flexDirection: 'row', gap: 4 },
   tutorialDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#d0c8b8',
+    backgroundColor: 'rgba(0,255,255,0.08)',
   },
   tutorialDotActive: {
-    backgroundColor: '#7b5a2a',
+    backgroundColor: '#ffb000',
   },
   tutorialNavRow: {
     flexDirection: 'row',
@@ -702,51 +702,51 @@ const styles = StyleSheet.create({
   contextTipCard: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#d5c7a8',
-    backgroundColor: '#fff8ea',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 10,
     gap: 6,
   },
   contextTipTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#563d17',
+    color: '#ffffff',
   },
   contextTipBody: {
     fontSize: 12,
-    color: '#5f4e35',
+    color: '#aabbcc',
     lineHeight: 18,
   },
   contextTipBtn: {
     alignSelf: 'flex-start',
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#c7b285',
-    backgroundColor: '#fffdf7',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   contextTipBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#654b23',
+    color: '#ffb000',
   },
   contractNoticeCard: {
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#d4a248',
-    backgroundColor: '#fff8e7',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 10,
     gap: 4,
   },
   contractNoticeTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#7a4e0a',
+    color: '#ffb000',
   },
   contractNoticeBody: {
     fontSize: 12,
-    color: '#5f4e35',
+    color: '#aabbcc',
     lineHeight: 18,
   },
   rewardsSection: { gap: 8 },
@@ -754,7 +754,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: '#4a9a5a',
-    backgroundColor: '#f0faf2',
+    backgroundColor: 'rgba(0,255,0,0.05)',
     padding: 14,
     gap: 8,
   },
@@ -767,8 +767,8 @@ const styles = StyleSheet.create({
   ledgerCard: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#99b7dc',
-    backgroundColor: '#f4f9ff',
+    borderColor: 'rgba(0,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 12,
     gap: 6,
   },
@@ -777,32 +777,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  ledgerTitle: { fontSize: 14, fontWeight: '700', color: '#1d4672' },
-  ledgerRow: { fontSize: 12, color: '#224968', lineHeight: 18 },
+  ledgerTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff' },
+  ledgerRow: { fontSize: 12, color: '#aabbcc', lineHeight: 18 },
   inlineToggleBtn: {
     alignSelf: 'flex-start',
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#aeb9d2',
-    backgroundColor: '#f3f6ff',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   inlineToggleBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#3f4f78',
+    color: '#aabbcc',
   },
   actions: { gap: 8 },
   checkpointSuccessCard: {
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#4a9a5a',
-    backgroundColor: '#f0faf2',
+    backgroundColor: 'rgba(0,255,0,0.05)',
     padding: 10,
   },
   checkpointSuccessText: { fontSize: 13, color: '#1a5a2a', fontWeight: '600' },
   checkpointErrorBody: { fontSize: 12, color: '#8b1a1a' },
-  checkpointCardBody: { fontSize: 12, color: '#3a5a48' },
+  checkpointCardBody: { fontSize: 12, color: '#aabbcc' },
   error: { fontSize: 13, color: '#a10f0f' },
 });

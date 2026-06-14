@@ -15,12 +15,12 @@ export function ProfileScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const uid = usePlayerStore((state) => state.uid);
-  const goldBank = usePlayerStore((state) => state.goldBank);
-  const ascensionCells = usePlayerStore((state) => state.ascensionCells);
-  const lineageRanks = usePlayerStore((state) => state.lineageRanks);
-  const classRanks = usePlayerStore((state) => state.classRanks);
-  const xpScrolls = usePlayerStore((state) => state.xpScrolls);
-  const ownedClassIds = usePlayerStore((state) => state.ownedClassIds);
+  const credits = usePlayerStore((state) => state.credits);
+  const quantumCores = usePlayerStore((state) => state.quantumCores);
+  const corpRanks = usePlayerStore((state) => state.corpRanks);
+  const specRanks = usePlayerStore((state) => state.specRanks);
+  const dataCaches = usePlayerStore((state) => state.dataCaches);
+  const unlockedSpecIds = usePlayerStore((state) => state.unlockedSpecIds);
   const playerStatus = usePlayerStore((state) => state.status);
   const applyPlayerSnapshot = usePlayerStore((state) => state.applyPlayerSnapshot);
 
@@ -28,7 +28,7 @@ export function ProfileScreen() {
   const resetRun = useRunStore((state) => state.resetRun);
   const clearCombat = useCombatStore((state) => state.clear);
 
-  const lineageEntries = Object.entries(lineageRanks).filter(([, rank]) => rank > 0);
+  const corpEntries = Object.entries(corpRanks).filter(([, rank]) => rank > 0);
   const [busyClassId, setBusyClassId] = useState<string | null>(null);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
@@ -81,26 +81,26 @@ export function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Resources</Text>
-          <StatRow label="Gold" value={goldBank} />
-          <StatRow label="Ascension Cells" value={ascensionCells} />
-          <StatRow label="XP Scrolls" value={`M ${xpScrolls.minor} / S ${xpScrolls.standard} / G ${xpScrolls.grand}`} />
+          <StatRow label="Credits" value={credits} />
+          <StatRow label="Quantum Cores" value={quantumCores} />
+          <StatRow label="Data Caches" value={`M ${dataCaches.minor} / S ${dataCaches.standard} / G ${dataCaches.grand}`} />
         </View>
 
-        {lineageEntries.length > 0 && (
+        {corpEntries.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Lineage Ranks</Text>
-            {lineageEntries.map(([lineageId, rank]) => (
-              <StatRow key={lineageId} label={lineageId.replace(/_/g, ' ')} value={`Rank ${rank}`} />
+            <Text style={styles.cardTitle}>Corporation Ranks</Text>
+            {corpEntries.map(([corpId, rank]) => (
+              <StatRow key={corpId} label={corpId.replace(/_/g, ' ')} value={`Rank ${rank}`} />
             ))}
           </View>
         )}
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Owned Classes ({ownedClassIds.length})</Text>
+          <Text style={styles.cardTitle}>Unlocked Specs ({unlockedSpecIds.length})</Text>
           {upgradeError !== null && <Text style={styles.errorText}>{upgradeError}</Text>}
-          {ownedClassIds.map((id) => {
+          {unlockedSpecIds.map((id) => {
             const c = CLASS_BY_ID.get(id as ClassId);
-            const rank = Math.max(0, Math.trunc(classRanks[id] ?? 0));
+            const rank = Math.max(0, Math.trunc(specRanks[id] ?? 0));
             const maxed = rank >= 10;
             const busy = busyClassId === id;
             return (
@@ -121,8 +121,8 @@ export function ProfileScreen() {
               </View>
             );
           })}
-          {ownedClassIds.length === 0 && (
-            <Text style={styles.emptyHint}>No classes yet.</Text>
+          {unlockedSpecIds.length === 0 && (
+            <Text style={styles.emptyHint}>No specs yet.</Text>
           )}
         </View>
 
@@ -159,53 +159,53 @@ export function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f4ef' },
+  container: { flex: 1, backgroundColor: '#0a0a1a' },
   header: {
     padding: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#d8cdbb',
+    borderBottomColor: 'rgba(0,255,255,0.1)',
     gap: 4,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2b1f10' },
-  subtitle: { fontSize: 13, color: '#5d4d35' },
+  title: { fontSize: 22, fontWeight: '700', color: '#ffffff' },
+  subtitle: { fontSize: 13, color: '#aabbcc' },
   content: { padding: 16, gap: 12 },
   card: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 14,
     gap: 8,
   },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#4a3a28', marginBottom: 2 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#ffffff', marginBottom: 2 },
   classRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   classMeta: { flex: 1, gap: 2 },
-  className: { fontSize: 14, color: '#2b1f10' },
-  classTier: { fontSize: 12, color: '#7b684a', fontWeight: '600' },
+  className: { fontSize: 14, color: '#ffffff' },
+  classTier: { fontSize: 12, color: '#889999', fontWeight: '600' },
   upgradeBtn: {
     borderRadius: 6,
-    backgroundColor: '#7a3b00',
+    backgroundColor: '#ffb000',
     paddingHorizontal: 10,
     paddingVertical: 5,
     minWidth: 72,
     alignItems: 'center',
   },
-  upgradeBtnDisabled: { backgroundColor: '#b9ab96' },
+  upgradeBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.06)' },
   upgradeBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   errorText: { fontSize: 12, color: '#8b1a1a' },
-  emptyHint: { fontSize: 13, color: '#9e8870', fontStyle: 'italic' },
+  emptyHint: { fontSize: 13, color: '#667788', fontStyle: 'italic' },
   diagBtn: {
     alignSelf: 'center',
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     marginTop: 4,
   },
-  diagBtnText: { fontSize: 13, color: '#9e8870' },
+  diagBtnText: { fontSize: 13, color: '#667788' },
   signOutBtn: {
     alignSelf: 'center',
     paddingVertical: 10,

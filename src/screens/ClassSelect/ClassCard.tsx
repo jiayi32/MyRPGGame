@@ -39,7 +39,7 @@ export function ClassCard({
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
-        <View style={[styles.tierBadge, { backgroundColor: owned ? '#7a3b00' : '#aaa' }]}>
+        <View style={[styles.tierBadge, { backgroundColor: owned ? '#ffb000' : '#aaa' }]}>
           <Text style={styles.tierText}>{TIER_LABELS[classData.tier] ?? `T${classData.tier}`}</Text>
         </View>
         <Text style={[styles.cardName, !owned && styles.lockedText]}>
@@ -80,18 +80,18 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 14,
     gap: 6,
   },
   cardSelected: {
-    borderColor: '#7a3b00',
-    backgroundColor: '#fff8f0',
+    borderColor: '#ffb000',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   cardLocked: {
     opacity: 0.55,
-    backgroundColor: '#f0ece4',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   tierText: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: '#2b1f10' },
+  cardName: { flex: 1, fontSize: 16, fontWeight: '600', color: '#ffffff' },
   lockedText: { color: '#888' },
   roleBadge: {
     borderRadius: 6,
@@ -113,11 +113,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   roleText: { fontSize: 11, fontWeight: '600' },
-  cardDesc: { fontSize: 13, color: '#5a4838', lineHeight: 18 },
-  lockHint: { fontSize: 12, color: '#9e8870', fontStyle: 'italic' },
+  cardDesc: { fontSize: 13, color: '#aabbcc', lineHeight: 18 },
+  lockHint: { fontSize: 12, color: '#667788', fontStyle: 'italic' },
   selectedBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#7a3b00',
+    backgroundColor: '#ffb000',
     borderRadius: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,

@@ -5,33 +5,33 @@ import type { Timestamp } from 'firebase-admin/firestore';
 // ---------------------------------------------------------------------------
 
 export interface RewardBundle {
-  gold: number;
-  ascensionCells: number;
+  credits: number;
+  quantumCores: number;
   /** Rare drop from stage-5 mini-boss and stage-10 gate boss only. Used for cross-lineage unlocks. */
-  sigilShards: number;
-  xpScrollMinor: number;
-  xpScrollStandard: number;
-  xpScrollGrand: number;
+  scrap: number;
+  dataCacheMinor: number;
+  dataCacheStandard: number;
+  dataCacheGrand: number;
   gearIds: string[];
 }
 
 export const EMPTY_REWARD: RewardBundle = {
-  gold: 0,
-  ascensionCells: 0,
-  sigilShards: 0,
-  xpScrollMinor: 0,
-  xpScrollStandard: 0,
-  xpScrollGrand: 0,
+  credits: 0,
+  quantumCores: 0,
+  scrap: 0,
+  dataCacheMinor: 0,
+  dataCacheStandard: 0,
+  dataCacheGrand: 0,
   gearIds: [],
 };
 
-export interface XpScrollPouch {
+export interface DataCachePouch {
   minor: number;
   standard: number;
   grand: number;
 }
 
-export const EMPTY_XP_SCROLLS: XpScrollPouch = {
+export const EMPTY_DATA_CACHES: DataCachePouch = {
   minor: 0,
   standard: 0,
   grand: 0,
@@ -49,11 +49,11 @@ export interface RunDoc {
   /** Consecutive won stages without banking; drives vault reward multiplier. */
   vaultStreak: number;
   activeClassId: string;
-  activeLineageId: string;
-  /** Same-lineage next-tier evolution target the client computed at startRun.
+  activeCorpId: string;
+  /** Same-corp next-tier evolution target the client computed at startRun.
    *  Server reads this directly on endRun to apply the unlock without a content lookup.
-   *  null when the active class is already T1 (apex) and has no same-lineage upgrade. */
-  evolutionTargetClassId: string | null;
+   *  null when the active spec is already T1 (apex) and has no same-corp upgrade. */
+  evolutionTargetSpecId: string | null;
   selectedRiskContractIds?: string[];
   runPassiveIds?: string[];
   augmentIds?: string[];
@@ -80,13 +80,13 @@ export interface StageOutcomeDoc {
 export interface PlayerDoc {
   uid: string;
   /** Persistent currencies — survive encounter losses. */
-  goldBank: number;
-  xpScrolls: XpScrollPouch;
-  ascensionCells: number;
-  sigilShards: number;
-  lineageRanks: Record<string, number>;
-  classRanks: Record<string, number>;
-  ownedClassIds: string[];
+  credits: number;
+  dataCaches: DataCachePouch;
+  quantumCores: number;
+  scrap: number;
+  corpRanks: Record<string, number>;
+  specRanks: Record<string, number>;
+  unlockedSpecIds: string[];
   currentRunId: string | null;
   augmentsPicked?: number;
 
@@ -99,18 +99,8 @@ export interface PlayerDoc {
   xp?: number;
   /** Currently active specialization ID (sci-fi class). */
   activeSpecId?: string | null;
-  /** All permanently unlocked specialization IDs. */
-  unlockedSpecIds?: string[];
-  /** Corporation mastery ranks (0-10 per corp). */
-  corpRanks?: Record<string, number>;
-  /** Standard credits. */
-  credits?: number;
   /** Premium currency for specialization unlocks (like Orna's Orns). */
   techPoints?: number;
-  /** Dismantling materials. */
-  scrap?: number;
-  /** Rare crafting components. */
-  quantumCores?: number;
   /** Currently equipped weapon instance ID. */
   equippedWeaponId?: string | null;
   /** Currently equipped armor instance ID. */
@@ -155,9 +145,9 @@ export interface GetOrCreatePlayerResponse {
 
 export interface StartRunPayload {
   activeClassId: string;
-  activeLineageId: string;
-  /** null when the active class is T1 (apex) and has no same-lineage upgrade. */
-  evolutionTargetClassId: string | null;
+  activeCorpId: string;
+  /** null when the active spec is T1 (apex) and has no same-corp upgrade. */
+  evolutionTargetSpecId: string | null;
   selectedRiskContractIds: string[];
 }
 
@@ -196,18 +186,18 @@ export interface EndRunPayload {
 
 /** Progression deltas the server applied — surfaced so the client can show "+25 cells, +1 lineage rank". */
 export interface ProgressionDelta {
-  awardedAscensionCells: number;
-  lineageRankDelta: number;
-  newlyUnlockedClassIds: string[];
+  awardedQuantumCores: number;
+  corpRankDelta: number;
+  newlyUnlockedSpecIds: string[];
   /** Snapshot of player totals AFTER settle, so the client doesn't need a second read. */
   playerTotals: {
-    goldBank: number;
-    ascensionCells: number;
-    sigilShards: number;
-    xpScrolls: XpScrollPouch;
-    ownedClassIds: string[];
-    lineageRanks: Record<string, number>;
-    classRanks: Record<string, number>;
+    credits: number;
+    quantumCores: number;
+    scrap: number;
+    dataCaches: DataCachePouch;
+    unlockedSpecIds: string[];
+    corpRanks: Record<string, number>;
+    specRanks: Record<string, number>;
   };
   /** Number of gear instance docs the server created in this settle. */
   gearInstancesCreated: number;
@@ -224,9 +214,9 @@ export interface EndRunSettlementLedger {
   vaultForfeited: RewardBundle;
   postSettleBanked: RewardBundle;
   progressionAwarded: {
-    ascensionCells: number;
-    lineageRankDelta: number;
-    newlyUnlockedClassIds: string[];
+    quantumCores: number;
+    corpRankDelta: number;
+    newlyUnlockedSpecIds: string[];
   };
 }
 
@@ -259,7 +249,7 @@ export interface BuyGearResponse {
   purchasedInstanceId: string;
   templateId: string;
   goldSpent: number;
-  player: Pick<PlayerDoc, 'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'sigilShards' | 'lineageRanks' | 'classRanks' | 'ownedClassIds' | 'currentRunId'>;
+  player: Pick<PlayerDoc, 'uid' | 'credits' | 'dataCaches' | 'quantumCores' | 'scrap' | 'corpRanks' | 'specRanks' | 'unlockedSpecIds' | 'currentRunId'>;
 }
 
 // ── Phase D: World Map Encounters ─────────────────────────────────
@@ -282,7 +272,7 @@ export interface SubmitEncounterResponse {
   newUnlocks: string[];
 }
 
-export type XpScrollKind = keyof XpScrollPouch;
+export type DataCacheKind = keyof DataCachePouch;
 
 export interface UpgradeClassPayload {
   classId: string;
@@ -294,11 +284,11 @@ export interface UpgradeClassResponse {
   newRank: number;
   costs: {
     gold: number;
-    ascensionCells: number;
-    xpScrollKind: XpScrollKind;
-    xpScrollCost: number;
+    quantumCores: number;
+    dataCacheKind: DataCacheKind;
+    dataCacheCost: number;
   };
-  player: Pick<PlayerDoc, 'uid' | 'goldBank' | 'xpScrolls' | 'ascensionCells' | 'sigilShards' | 'lineageRanks' | 'classRanks' | 'ownedClassIds' | 'currentRunId'>;
+  player: Pick<PlayerDoc, 'uid' | 'credits' | 'dataCaches' | 'quantumCores' | 'scrap' | 'corpRanks' | 'specRanks' | 'unlockedSpecIds' | 'currentRunId'>;
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +312,7 @@ export interface DevGrantAllClassesPayload {
 
 export interface DevGrantAllClassesResponse {
   ok: boolean;
-  ownedClassIds: string[];
+  unlockedSpecIds: string[];
 }
 
 export interface DevResetPlayerPayload {
@@ -338,18 +328,18 @@ export interface DevResetPlayerResponse {
 }
 
 export interface DevSetCurrenciesPayload {
-  goldBank?: number;
-  ascensionCells?: number;
-  sigilShards?: number;
-  xpScrollMinor?: number;
-  xpScrollStandard?: number;
-  xpScrollGrand?: number;
+  credits?: number;
+  quantumCores?: number;
+  scrap?: number;
+  dataCacheMinor?: number;
+  dataCacheStandard?: number;
+  dataCacheGrand?: number;
 }
 
 export interface DevSetCurrenciesResponse {
   ok: boolean;
-  goldBank: number;
-  ascensionCells: number;
-  sigilShards: number;
-  xpScrolls: XpScrollPouch;
+  credits: number;
+  quantumCores: number;
+  scrap: number;
+  dataCaches: DataCachePouch;
 }

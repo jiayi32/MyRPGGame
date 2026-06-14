@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { requireAuth, requirePayloadSize, requireRateLimit } from './shared/guards';
 import { emptyReward } from './shared/rewards';
-import { EMPTY_XP_SCROLLS } from './shared/types';
+import { EMPTY_DATA_CACHES } from './shared/types';
 import type { StartRunPayload, StartRunResponse, PlayerDoc } from './shared/types';
 
 const STARTER_CLASS_ID = 'drakehorn_forge.ember_initiate';
@@ -22,21 +22,21 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
     const uid = requireAuth(request);
     // Cap: 6 starts/min per user — generous for double-tap retries, blocks spam.
     requireRateLimit(`startRun:${uid}`, 6, 60_000);
-    const { activeClassId, activeLineageId, evolutionTargetClassId, selectedRiskContractIds } = request.data;
+    const { activeClassId, activeCorpId, evolutionTargetSpecId, selectedRiskContractIds } = request.data;
 
     if (typeof activeClassId !== 'string' || activeClassId.length === 0) {
       throw new HttpsError('invalid-argument', 'activeClassId must be a non-empty string.');
     }
-    if (typeof activeLineageId !== 'string' || activeLineageId.length === 0) {
-      throw new HttpsError('invalid-argument', 'activeLineageId must be a non-empty string.');
+    if (typeof activeCorpId !== 'string' || activeCorpId.length === 0) {
+      throw new HttpsError('invalid-argument', 'activeCorpId must be a non-empty string.');
     }
     if (
-      evolutionTargetClassId !== null &&
-      (typeof evolutionTargetClassId !== 'string' || evolutionTargetClassId.length === 0)
+      evolutionTargetSpecId !== null &&
+      (typeof evolutionTargetSpecId !== 'string' || evolutionTargetSpecId.length === 0)
     ) {
       throw new HttpsError(
         'invalid-argument',
-        'evolutionTargetClassId must be a non-empty string or null.'
+        'evolutionTargetSpecId must be a non-empty string or null.'
       );
     }
     if (!Array.isArray(selectedRiskContractIds)) {
@@ -78,12 +78,12 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
       if (!playerSnap.exists) {
         tx.set(playerRef, {
           uid,
-          goldBank: 0,
-          xpScrolls: { ...EMPTY_XP_SCROLLS },
-          ascensionCells: 0,
-          lineageRanks: {},
-          classRanks: {},
-          ownedClassIds: [STARTER_CLASS_ID],
+          credits: 0,
+          dataCaches: { ...EMPTY_DATA_CACHES },
+          quantumCores: 0,
+          corpRanks: {},
+          specRanks: {},
+          unlockedSpecIds: [STARTER_CLASS_ID],
           currentRunId: null,
           createdAt: now,
           updatedAt: now,
@@ -98,7 +98,7 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
           );
         }
         // Refuse to start with a class the player doesn't own.
-        if (!player.ownedClassIds.includes(activeClassId)) {
+        if (!player.unlockedSpecIds.includes(activeClassId)) {
           throw new HttpsError(
             'permission-denied',
             `Class ${activeClassId} is not owned by player.`
@@ -113,8 +113,8 @@ export const startRun = onCall<StartRunPayload, Promise<StartRunResponse>>(
         turn: 0,
         vaultStreak: 0,
         activeClassId,
-        activeLineageId,
-        evolutionTargetClassId,
+        activeCorpId,
+        evolutionTargetSpecId,
         selectedRiskContractIds,
         runPassiveIds: [],
         pendingInnDecisionId: null,

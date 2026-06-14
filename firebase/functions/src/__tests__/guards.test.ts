@@ -11,7 +11,7 @@ import {
 } from '../shared/guards.js';
 
 describe('validateRewardBundle', () => {
-  const valid = { gold: 10, ascensionCells: 1, xpScrollMinor: 0, xpScrollStandard: 0, xpScrollGrand: 0, gearIds: [] };
+  const valid = { credits: 10, quantumCores: 1, dataCacheMinor: 0, dataCacheStandard: 0, dataCacheGrand: 0, gearIds: [] };
 
   it('accepts a valid bundle', () => {
     assert.doesNotThrow(() => validateRewardBundle(valid));
@@ -23,11 +23,11 @@ describe('validateRewardBundle', () => {
   });
 
   it('rejects negative numeric field', () => {
-    assert.throws(() => validateRewardBundle({ ...valid, gold: -1 }), /non-negative integer/);
+    assert.throws(() => validateRewardBundle({ ...valid, credits: -1 }), /non-negative integer/);
   });
 
   it('rejects fractional numeric field', () => {
-    assert.throws(() => validateRewardBundle({ ...valid, gold: 1.5 }), /non-negative integer/);
+    assert.throws(() => validateRewardBundle({ ...valid, credits: 1.5 }), /non-negative integer/);
   });
 
   it('rejects non-array gearIds', () => {
@@ -40,14 +40,14 @@ describe('validateRewardBundle', () => {
 });
 
 describe('validateRewardPlausibility', () => {
-  const valid = { gold: 100, ascensionCells: 5, xpScrollMinor: 10, xpScrollStandard: 5, xpScrollGrand: 1, gearIds: ['a', 'b'] };
+  const valid = { credits: 100, quantumCores: 5, dataCacheMinor: 10, dataCacheStandard: 5, dataCacheGrand: 1, gearIds: ['a', 'b'] };
 
   it('accepts values within caps', () => {
     assert.doesNotThrow(() => validateRewardPlausibility(valid as Record<string, unknown>));
   });
 
   it('rejects gold exceeding cap', () => {
-    assert.throws(() => validateRewardPlausibility({ ...valid, gold: 99999 } as Record<string, unknown>), /plausibility cap/);
+    assert.throws(() => validateRewardPlausibility({ ...valid, credits: 99999 } as Record<string, unknown>), /plausibility cap/);
   });
 
   it('rejects too many gearIds', () => {

@@ -56,14 +56,14 @@ export const temperGear = onCall<TemperGearPayload, Promise<TemperGearResponse>>
       const currentLevel = gear.temperLevel ?? 0;
       const cost = computeTemperCost(currentLevel);
 
-      if (player.goldBank < cost) {
+      if (player.credits < cost) {
         throw new HttpsError(
           'failed-precondition',
-          `Not enough gold. Temper cost: ${cost}g, you have: ${player.goldBank}g.`,
+          `Not enough credits. Temper cost: ${cost}, you have: ${player.credits}.`,
         );
       }
 
-      const newGoldBank = player.goldBank - cost;
+      const newCredits = player.credits - cost;
 
       // Roll the dice — deterministic per transaction execution.
       const chance = computeTemperChance(currentLevel);
@@ -77,13 +77,13 @@ export const temperGear = onCall<TemperGearPayload, Promise<TemperGearResponse>>
         });
       }
 
-      tx.update(playerRef, { goldBank: newGoldBank });
+      tx.update(playerRef, { credits: newCredits });
 
       return {
         success,
         temperLevel: success ? currentLevel + 1 : currentLevel,
         goldSpent: cost,
-        goldRemaining: newGoldBank,
+        goldRemaining: newCredits,
       } satisfies TemperGearResponse;
     });
 

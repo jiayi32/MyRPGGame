@@ -236,29 +236,29 @@ const resolveProceduralRewards = (stage: number, roomType: StageRoomType): Rewar
 
   if (stage <= 4) {
     base = {
-      gold: 50 + stage * 10,
-      ascensionCells: 0,
-      xpScrollMinor: 1,
-      xpScrollStandard: 0,
-      xpScrollGrand: 0,
+      credits: 50 + stage * 10,
+      quantumCores: 0,
+      dataCacheMinor: 1,
+      dataCacheStandard: 0,
+      dataCacheGrand: 0,
       gearIds: [`${gearRollPrefix}.common`],
     };
   } else if (stage <= 9) {
     base = {
-      gold: 120 + stage * 15,
-      ascensionCells: 1,
-      xpScrollMinor: 1,
-      xpScrollStandard: 1,
-      xpScrollGrand: 0,
+      credits: 120 + stage * 15,
+      quantumCores: 1,
+      dataCacheMinor: 1,
+      dataCacheStandard: 1,
+      dataCacheGrand: 0,
       gearIds: [`${gearRollPrefix}.common`, `${gearRollPrefix}.rare`],
     };
   } else {
     base = {
-      gold: 260 + stage * 20,
-      ascensionCells: stage >= 20 ? 4 : 2,
-      xpScrollMinor: 0,
-      xpScrollStandard: 1,
-      xpScrollGrand: stage >= 20 ? 1 : 0,
+      credits: 260 + stage * 20,
+      quantumCores: stage >= 20 ? 4 : 2,
+      dataCacheMinor: 0,
+      dataCacheStandard: 1,
+      dataCacheGrand: stage >= 20 ? 1 : 0,
       gearIds: [`${gearRollPrefix}.rare`, `${gearRollPrefix}.epic`],
     };
   }
@@ -269,9 +269,9 @@ const resolveProceduralRewards = (stage: number, roomType: StageRoomType): Rewar
     return withExtraGearRoll(
       {
         ...base,
-        gold: Math.round(base.gold * 1.35),
-        ascensionCells: Math.min(10, base.ascensionCells + 1),
-        xpScrollStandard: base.xpScrollStandard + 1,
+        credits: Math.round(base.credits * 1.35),
+        quantumCores: Math.min(10, base.quantumCores + 1),
+        dataCacheStandard: base.dataCacheStandard + 1,
       },
       `${gearRollPrefix}.elite`,
     );
@@ -280,8 +280,8 @@ const resolveProceduralRewards = (stage: number, roomType: StageRoomType): Rewar
   if (roomType === 'event') {
     return {
       ...base,
-      gold: base.gold + 40,
-      xpScrollMinor: base.xpScrollMinor + 1,
+      credits: base.credits + 40,
+      dataCacheMinor: base.dataCacheMinor + 1,
     };
   }
 
@@ -289,7 +289,7 @@ const resolveProceduralRewards = (stage: number, roomType: StageRoomType): Rewar
     return withExtraGearRoll(
       {
         ...base,
-        gold: base.gold + 80,
+        credits: base.credits + 80,
       },
       `${gearRollPrefix}.cache`,
     );
@@ -298,33 +298,33 @@ const resolveProceduralRewards = (stage: number, roomType: StageRoomType): Rewar
   if (roomType === 'rest') {
     return {
       ...base,
-      gold: base.gold + 20,
-      xpScrollMinor: base.xpScrollMinor + 1,
+      credits: base.credits + 20,
+      dataCacheMinor: base.dataCacheMinor + 1,
     };
   }
 
   if (roomType === 'merchant') {
     return {
       ...base,
-      gold: base.gold + 110,
+      credits: base.credits + 110,
     };
   }
 
   if (roomType === 'anomaly') {
     return {
       ...base,
-      gold: base.gold + 60,
-      ascensionCells: Math.min(10, base.ascensionCells + 1),
-      xpScrollStandard: base.xpScrollStandard + 1,
+      credits: base.credits + 60,
+      quantumCores: Math.min(10, base.quantumCores + 1),
+      dataCacheStandard: base.dataCacheStandard + 1,
     };
   }
 
   if (roomType === 'gate') {
     return {
       ...base,
-      gold: base.gold + 180,
-      ascensionCells: Math.min(10, base.ascensionCells + 1),
-      xpScrollStandard: base.xpScrollStandard + 1,
+      credits: base.credits + 180,
+      quantumCores: Math.min(10, base.quantumCores + 1),
+      dataCacheStandard: base.dataCacheStandard + 1,
     };
   }
 

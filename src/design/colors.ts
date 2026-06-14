@@ -1,53 +1,96 @@
 /**
  * Design System — Color Tokens
  *
- * Dual-mode palette supporting dark mode (combat/dungeon) and parchment mode (hub/narrative).
+ * Three-mode palette:
+ *   - dark (combat/dungeon/raid screens)
+ *   - cyberpunk (hub, narrative, shop, gear, character, profile screens) — PRIMARY
+ *   - parchment (DEPRECATED — legacy fantasy, being phased out)
+ *
+ * Neon accents drive the sci-fi cyberpunk aesthetic:
+ *   neon-cyan: #00ffff   — primary accent, active elements, CT ready
+ *   neon-magenta: #ff00ff — secondary accent, anomalies, void
+ *   neon-green: #00ff88   — healing, success, active status
+ *   neon-red: #ff4466     — damage, danger, enemy HP
+ *   terminal-amber: #ffb000 — warnings, narrative, loot
+ *
  * All colors are referenced by semantic token name, never by raw hex in components.
  *
  * Usage:
  *   import { colors } from 'src/design';
- *   backgroundColor: colors.dark.background.primary
+ *   backgroundColor: colors.cyberpunk.background.primary
  *
- * ThemeContext provides the current mode (dark | parchment) automatically.
+ * ThemeContext provides the current mode (dark | cyberpunk) automatically.
  */
 
 // ─── Dark Mode (Combat, Dungeon, Boss screens) ──────────────────────────────
 const dark = {
   background: {
-    primary: '#1a1410',    // Battle screen background
-    secondary: '#231d16',  // Card backgrounds on dark
-    tertiary: '#2d261e',   // Elevated surfaces (modals, tooltips)
+    primary: '#0a0a1a',    // Battle screen background — unified with cyberpunk
+    secondary: '#12122a',  // Card backgrounds on dark
+    tertiary: '#1a1a3a',   // Elevated surfaces (modals, tooltips)
   },
   text: {
-    primary: '#f0e8d8',    // Primary text on dark
-    secondary: '#b8a890',  // Secondary/muted text on dark
-    dim: '#706858',        // Disabled/hint text on dark
+    primary: '#ffffff',    // Primary text on dark
+    secondary: '#aabbcc',  // Secondary/muted text on dark
+    dim: '#667788',        // Disabled/hint text on dark
   },
   border: {
-    default: '#3d3628',    // Card borders on dark
-    active: '#8b7355',     // Active/selected borders on dark
+    default: 'rgba(0,255,255,0.1)',    // Card borders on dark
+    active: 'rgba(0,255,255,0.3)',     // Active/selected borders on dark
   },
 } as const;
 
-// ─── Parchment Mode (Hub, Narrative, Shop, Profile screens) ──────────────────
+// ─── Cyberpunk Mode (Hub, Narrative, Shop, Gear, Character, Profile) ────────
+const cyberpunk = {
+  background: {
+    primary: '#0a0a1a',              // Main screen background
+    secondary: '#12122a',            // Card backgrounds
+    tertiary: '#1a1a3a',             // Elevated surfaces
+    surface: 'rgba(0,255,255,0.05)', // Subtle cyan-tinted surface
+    overlay: 'rgba(0,0,0,0.7)',      // Modal overlay
+  },
+  text: {
+    primary: '#ffffff',              // Primary text
+    secondary: '#aabbcc',            // Secondary/muted text
+    dim: '#667788',                  // Disabled/hint text
+  },
+  border: {
+    default: 'rgba(0,255,255,0.1)',  // Card borders
+    active: 'rgba(0,255,255,0.3)',   // Active/selected borders
+    glow: 'rgba(0,255,255,0.5)',     // Glowing borders (rare items, CT pulse)
+  },
+} as const;
+
+// ─── Parchment Mode (DEPRECATED — legacy fantasy, retained for reference) ───
+/** @deprecated Use `cyberpunk` mode instead. Retained until all screens are migrated. */
 const parchment = {
   background: {
-    primary: '#f5f0e8',    // Hub/main screen background
-    secondary: '#fefcf7',  // Card backgrounds on parchment
-    tertiary: '#ede4d3',   // Elevated surfaces on parchment
+    primary: '#f5f0e8',
+    secondary: '#fefcf7',
+    tertiary: '#ede4d3',
   },
   text: {
-    primary: '#2b1f10',    // Primary text on parchment
-    secondary: '#6b5d4a',  // Secondary/muted text on parchment
-    dim: '#a89880',        // Disabled/hint text on parchment
+    primary: '#2b1f10',
+    secondary: '#6b5d4a',
+    dim: '#a89880',
   },
   border: {
-    default: '#d8cdbb',    // Card borders on parchment
-    active: '#8b6914',     // Active/selected borders on parchment
+    default: '#d8cdbb',
+    active: '#8b6914',
   },
 } as const;
 
-// ─── Accent & Feedback Colors (mode-independent) ─────────────────────────────
+// ─── Neon Accent Colors (sci-fi cyberpunk) ───────────────────────────────────
+const neon = {
+  cyan: '#00ffff',        // Primary accent — active elements, CT ready, selected
+  magenta: '#ff00ff',     // Secondary accent — anomalies, void, ultimate skills
+  green: '#00ff88',       // Healing, success, active status, HP
+  red: '#ff4466',         // Damage, danger, enemy HP, destructive actions
+  amber: '#ffb000',       // Warnings, narrative, loot, crit damage
+  white: '#e0e8ff',       // Cold white — text highlights
+} as const;
+
+// ─── Accent & Feedback Colors (mode-independent, legacy + sci-fi hybrid) ─────
 const accent = {
   gold: '#c8a040',        // Primary actions, rare items, CT ready pulse
   crimson: '#c04040',     // Damage, enemy HP, danger, destructive
@@ -57,6 +100,15 @@ const accent = {
   amber: '#d08030',       // Crit damage, warnings, elite markers
   frost: '#60a0c0',       // Frost/ice skills, slow/control effects
   shadow: '#504060',      // Shadow/umbral skills, stealth
+} as const;
+
+// ─── Gear Rarity Colors ──────────────────────────────────────────────────────
+const rarity = {
+  common:    { bg: 'rgba(136,153,153,0.1)', border: '#889999', text: '#889999' },
+  rare:      { bg: 'rgba(68,136,255,0.1)', border: '#4488ff', text: '#4488ff' },
+  epic:      { bg: 'rgba(204,68,255,0.1)', border: '#cc44ff', text: '#cc44ff' },
+  legendary: { bg: 'rgba(255,170,0,0.1)',  border: '#ffaa00', text: '#ffaa00' },
+  mythic:    { bg: 'rgba(255,68,102,0.1)', border: '#ff4466', text: '#ff4466' },
 } as const;
 
 // ─── Augment Tier Colors ─────────────────────────────────────────────────────
@@ -144,50 +196,57 @@ const statusEffect = {
 // ─── Button Colors ───────────────────────────────────────────────────────────
 const button = {
   primary: {
-    bg: accent.gold,
-    border: '#a08030',
-    text: '#1a1410',
-    disabledBg: '#e6e0d4',
-    disabledBorder: '#c8c0b0',
-    disabledText: '#8a8074',
+    bg: neon.cyan,
+    border: 'rgba(0,255,255,0.5)',
+    text: '#0a0a1a',
+    disabledBg: 'rgba(0,255,255,0.1)',
+    disabledBorder: 'rgba(0,255,255,0.15)',
+    disabledText: '#667788',
   },
   secondary: {
     bg: 'transparent',
-    border: accent.gold,
-    text: accent.gold,
+    border: 'rgba(0,255,255,0.3)',
+    text: neon.cyan,
   },
   destructive: {
-    bg: accent.crimson,
-    border: '#7a3030',
+    bg: neon.red,
+    border: 'rgba(255,68,102,0.5)',
     text: '#ffffff',
-    disabledBg: '#e6e0d4',
-    disabledBorder: '#c8c0b0',
-    disabledText: '#8a8074',
+    disabledBg: 'rgba(255,68,102,0.1)',
+    disabledBorder: 'rgba(255,68,102,0.15)',
+    disabledText: '#667788',
   },
 } as const;
 
 // ─── Damage Popup Colors ─────────────────────────────────────────────────────
 const damagePopup = {
-  damage: '#c04040',
-  heal: '#3a8a5a',
-  crit: '#ff7030',
-  mana: '#4070c0',
-  shield: '#60a0c0',
+  damage: neon.red,
+  heal: neon.green,
+  crit: neon.amber,
+  mana: '#4488ff',
+  shield: neon.cyan,
 } as const;
 
 // ─── Tab Bar ─────────────────────────────────────────────────────────────────
 const tabBar = {
-  background: dark.background.secondary,
-  active: accent.gold,
-  inactive: '#706858',
-  border: dark.border.default,
+  background: cyberpunk.background.secondary,
+  active: neon.cyan,
+  inactive: '#667788',
+  border: 'rgba(0,255,255,0.1)',
 } as const;
+
+// ─── ColorMode Type ──────────────────────────────────────────────────────────
+export type ColorMode = 'dark' | 'cyberpunk' | 'parchment';
 
 // ─── Export ──────────────────────────────────────────────────────────────────
 export const colors = {
   dark,
+  cyberpunk,
+  /** @deprecated Use `cyberpunk` mode instead. */
   parchment,
+  neon,
   accent,
+  rarity,
   augmentTier,
   augmentCategory,
   roomType,
@@ -198,5 +257,3 @@ export const colors = {
   damagePopup,
   tabBar,
 } as const;
-
-export type ColorMode = 'dark' | 'parchment';

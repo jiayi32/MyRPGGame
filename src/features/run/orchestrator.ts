@@ -3,9 +3,11 @@ import {
   CLASS_BY_ID,
   ENEMY_ARCHETYPE_BY_ID,
   isSpecified,
+  RUN_PASSIVE_BY_ID,
   SKILL_BY_ID,
   lookupGearTemplate,
   type ClassId,
+  type RunPassiveId,
   type SkillId,
 } from '@/content';
 import {
@@ -104,38 +106,199 @@ const applyPassiveEffects = (
   const state = engine.state;
   let nextState = state;
 
+  // ── Resolve passive definitions ──────────────────────────────
+  const passiveDefs = passiveIds
+    .map((id) => RUN_PASSIVE_BY_ID.get(id as RunPassiveId))
+    .filter(Boolean);
+
+  if (passiveDefs.length === 0) return engine;
+
+  // ── Compute trait tiers from passive tags (for wild_adaptive) ─
+  const tagCounts = new Map<string, number>();
+  for (const def of passiveDefs) {
+    if (def.tags) {
+      for (const tag of def.tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+    }
+  }
+  const traitTiers = new Map<string, number>();
+  for (const [tag, count] of tagCounts) {
+    if (count >= 6) traitTiers.set(tag, 3);
+    else if (count >= 4) traitTiers.set(tag, 2);
+    else if (count >= 2) traitTiers.set(tag, 1);
+  }
+  const activeTraitCount = traitTiers.size; // number of unique tags at tier ≥1
+
+  // ── Build passive flag map for traitState ────────────────────
+  const passiveFlags: Record<string, boolean> = {};
+  for (const pid of passiveIds) {
+    passiveFlags[pid] = true;
+  }
+
   for (const unit of Object.values(state.units)) {
     if (unit.team !== 'player') continue;
 
     let hpMultiplier = 1;
     let ctGainMultiplier = 1;
+    let allStatsMultiplier = 1;
+    let shouldApplyShield = false;
+    let shieldPct = 0;
+    let shouldCleanse = false;
+    let cleanseCount = 1;
 
-    if (passiveIds.includes('passive.vanguard_heart')) {
-      hpMultiplier = 1.1;
-    }
-    if (passiveIds.includes('passive.arc_flux')) {
-      ctGainMultiplier = 0.92;
+    for (const pid of passiveIds) {
+      switch (pid) {
+        // ── THERMAL ──────────────────────────────────────────
+        case 'passive.fire_overheat':
+          // −10% CT cost on thermal skills — stored as flag for effects.ts
+          break;
+
+        // ── CRYO ─────────────────────────────────────────────
+        case 'passive.frost_armor': {
+          // Shield at battle start: 8% HP, doubled if cryo trait active
+          const cryoTier = traitTiers.get('cryo') ?? 0;
+          shouldApplyShield = true;
+          shieldPct = cryoTier >= 1 ? 0.16 : 0.08;
+          break;
+        }
+        case 'passive.frost_flash':
+          // <30% HP → freeze all enemies — handled by effects.ts flag
+          break;
+
+        // ── VOID ─────────────────────────────────────────────
+        case 'passive.shadow_leech':
+          // 12% void lifesteal — handled by effects.ts flag
+          break;
+
+        // ── RADIANT ──────────────────────────────────────────
+        case 'passive.light_cleanse': {
+          // Cleanse 1 debuff at battle start, 2 if radiant trait active
+          const radiantTier = traitTiers.get('radiant') ?? 0;
+          shouldCleanse = true;
+          cleanseCount = radiantTier >= 1 ? 2 : 1;
+          break;
+        }
+        case 'passive.light_beacon':
+          // >75% HP → +10% all damage — handled by effects.ts flag
+          break;
+        case 'passive.radiant_lens':
+          // +20% radiant single-target dmg — handled by effects.ts flag
+          break;
+
+        // ── KINETIC ──────────────────────────────────────────
+        case 'passive.physical_adrenal':
+          // <50% HP → +15% CT speed — flag for effects.ts
+          break;
+        case 'passive.physical_breach':
+          // Kinetic crit: ignore 30% defense — flag for effects.ts
+          break;
+        case 'passive.kinetic_juggernaut':
+          // +3% def per kinetic hit — flag for effects.ts
+          break;
+
+        // ── DIGITAL ──────────────────────────────────────────
+        case 'passive.digital_firewall':
+          // Absorb first debuff — flag for effects.ts
+          break;
+
+        // ── WILDCARD ─────────────────────────────────────────
+        case 'passive.wild_adaptive':
+          // +5% all stats per active trait tier
+          allStatsMultiplier = 1 + 0.05 * activeTraitCount;
+          break;
+      }
     }
 
-    if (hpMultiplier !== 1 || ctGainMultiplier !== 1) {
+    // ── Apply modifiers to player unit ─────────────────────────
+    let patched: Unit = { ...unit };
+
+    if (hpMultiplier !== 1) {
       const newHpMax = Math.round(unit.hpMax * hpMultiplier);
       const hpChange = newHpMax - unit.hpMax;
-      const patched: Unit = {
-        ...unit,
+      patched = {
+        ...patched,
         hp: Math.max(1, unit.hp + hpChange),
         hpMax: newHpMax,
-        baseStats: {
-          ...unit.baseStats,
-          ctReductionPct: Math.min(0.5, unit.baseStats.ctReductionPct + (1 - ctGainMultiplier)),
-        },
-      };
-
-      nextState = {
-        ...nextState,
-        units: { ...nextState.units, [unit.id]: patched },
       };
     }
+
+    if (ctGainMultiplier !== 1) {
+      patched = {
+        ...patched,
+        baseStats: {
+          ...patched.baseStats,
+          ctReductionPct: Math.min(0.5, patched.baseStats.ctReductionPct + (1 - ctGainMultiplier)),
+        },
+      };
+    }
+
+    if (allStatsMultiplier !== 1) {
+      const s = patched.baseStats;
+      patched = {
+        ...patched,
+        baseStats: {
+          ...s,
+          strength: Math.round(s.strength * allStatsMultiplier),
+          intellect: Math.round(s.intellect * allStatsMultiplier),
+          agility: Math.round(s.agility * allStatsMultiplier),
+          stamina: Math.round(s.stamina * allStatsMultiplier),
+          defense: Math.round(s.defense * allStatsMultiplier),
+          magicDefense: Math.round(s.magicDefense * allStatsMultiplier),
+        },
+      };
+    }
+
+    if (shouldApplyShield && shieldPct > 0) {
+      const shieldAmount = Math.round(unit.hpMax * shieldPct);
+      const shieldStatus: StatusInstance = {
+        id: toInstanceId(`passive_shield_${unit.id}`),
+        kind: 'shield',
+        sourceUnitId: unit.id,
+        skillId: '__passive.frost_armor' as SkillId,
+        snapshot: {
+          magnitude: shieldAmount,
+          magnitudeUnit: 'flat',
+          sourceStrength: unit.baseStats.strength,
+          sourceIntellect: unit.baseStats.intellect,
+          sourceAgility: unit.baseStats.agility,
+        },
+        remainingSec: 999, // persists until consumed
+        stacks: 1,
+        tickIntervalSec: 0,
+        secSinceLastTick: 0,
+        tags: ['passive', 'frost_armor'],
+      };
+      patched = {
+        ...patched,
+        statuses: [...patched.statuses, shieldStatus],
+      };
+    }
+
+    if (shouldCleanse) {
+      const debuffsToRemove = patched.statuses
+        .filter((s) => s.kind === 'debuff')
+        .slice(0, cleanseCount)
+        .map((s) => s.id);
+      if (debuffsToRemove.length > 0) {
+        patched = {
+          ...patched,
+          statuses: patched.statuses.filter((s) => !debuffsToRemove.includes(s.id)),
+        };
+      }
+    }
+
+    nextState = {
+      ...nextState,
+      units: { ...nextState.units, [unit.id]: patched },
+    };
   }
+
+  // ── Stamp passive flags onto traitState ──────────────────────
+  nextState = {
+    ...nextState,
+    traitState: { ...nextState.traitState, ...passiveFlags },
+  };
 
   return engine.withState(nextState);
 };
@@ -632,12 +795,12 @@ export interface PreparedStage {
 }
 
 const toMutableReward = (reward: DomainRewardBundle): RewardBundle => ({
-  gold: reward.gold,
-  ascensionCells: reward.ascensionCells,
-  sigilShards: 0,
-  xpScrollMinor: reward.xpScrollMinor,
-  xpScrollStandard: reward.xpScrollStandard,
-  xpScrollGrand: reward.xpScrollGrand,
+  credits: reward.credits,
+  quantumCores: reward.quantumCores,
+  scrap: 0,
+  dataCacheMinor: reward.dataCacheMinor,
+  dataCacheStandard: reward.dataCacheStandard,
+  dataCacheGrand: reward.dataCacheGrand,
   gearIds: [...reward.gearIds],
 });
 
@@ -766,40 +929,40 @@ const overlayFromEquippedGear = (templateIds: readonly string[] | undefined): Pa
 
 /**
  * Boss stage reward payouts — sized larger than procedural rewards.
- * Pyre Warden (5): mid-tier; Vortex (10): checkpoint gate, includes ascensionCells; Rimefang (30): apex.
+ * Pyre Warden (5): mid-tier; Vortex (10): checkpoint gate, includes quantumCores; Rimefang (30): apex.
  * Magnitudes are P6 retune candidates.
  */
 const resolveBossRewards = (stage: number): RewardBundle => {
   if (stage === 5) {
     return {
-      gold: 250,
-      ascensionCells: 2,
-      sigilShards: 1,
-      xpScrollMinor: 2,
-      xpScrollStandard: 1,
-      xpScrollGrand: 0,
+      credits: 250,
+      quantumCores: 2,
+      scrap: 1,
+      dataCacheMinor: 2,
+      dataCacheStandard: 1,
+      dataCacheGrand: 0,
       gearIds: ['dps.t2.weapon'],
     };
   }
   if (stage === 10) {
     return {
-      gold: 600,
-      ascensionCells: 5,
-      sigilShards: 2,
-      xpScrollMinor: 1,
-      xpScrollStandard: 2,
-      xpScrollGrand: 0,
+      credits: 600,
+      quantumCores: 5,
+      scrap: 2,
+      dataCacheMinor: 1,
+      dataCacheStandard: 2,
+      dataCacheGrand: 0,
       gearIds: ['hybrid.t3.weapon'],
     };
   }
   // stage 30
   return {
-    gold: 1500,
-    ascensionCells: 12,
-    sigilShards: 0,
-    xpScrollMinor: 0,
-    xpScrollStandard: 1,
-    xpScrollGrand: 2,
+    credits: 1500,
+    quantumCores: 12,
+    scrap: 0,
+    dataCacheMinor: 0,
+    dataCacheStandard: 1,
+    dataCacheGrand: 2,
     gearIds: ['drakehorn_forge.worldbreaker_fang'],
   };
 };

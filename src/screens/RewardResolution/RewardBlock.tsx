@@ -15,11 +15,11 @@ export function RewardBlock({
   runOngoing?: boolean;
 }) {
   const hasAny =
-    rewards.gold > 0 ||
-    rewards.ascensionCells > 0 ||
-    rewards.xpScrollMinor > 0 ||
-    rewards.xpScrollStandard > 0 ||
-    rewards.xpScrollGrand > 0 ||
+    rewards.credits > 0 ||
+    rewards.quantumCores > 0 ||
+    rewards.dataCacheMinor > 0 ||
+    rewards.dataCacheStandard > 0 ||
+    rewards.dataCacheGrand > 0 ||
     rewards.gearIds.length > 0;
 
   return (
@@ -27,11 +27,11 @@ export function RewardBlock({
       <Text style={[styles.rewardBlockTitle, { color: tint }]}>{title}</Text>
       {hasAny ? (
         <>
-          <RewardRow label="Gold" value={rewards.gold} />
-          <RewardRow label="Ascension Cells" value={rewards.ascensionCells} />
-          <RewardRow label="XP Scroll (Minor)" value={rewards.xpScrollMinor} />
-          <RewardRow label="XP Scroll (Standard)" value={rewards.xpScrollStandard} />
-          <RewardRow label="XP Scroll (Grand)" value={rewards.xpScrollGrand} />
+          <RewardRow label="Credits" value={rewards.credits} />
+          <RewardRow label="Quantum Cores" value={rewards.quantumCores} />
+          <RewardRow label="Data Cache (Minor)" value={rewards.dataCacheMinor} />
+          <RewardRow label="Data Cache (Standard)" value={rewards.dataCacheStandard} />
+          <RewardRow label="Data Cache (Grand)" value={rewards.dataCacheGrand} />
           {rewards.gearIds.map((id, index) => {
             const resolved = lookupGearTemplate(id);
             const name = resolved?.name ?? id;
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#b7d0c2',
-    backgroundColor: '#fcfffd',
+    borderColor: 'rgba(0,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 14,
     paddingLeft: 12,
     gap: 4,

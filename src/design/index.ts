@@ -3,6 +3,8 @@
  *
  * Import everything from one place:
  *   import { colors, typography, spacing, radius, touchTarget, ThemeProvider, useTheme } from 'src/design';
+ *
+ * Theme modes: 'dark' (combat) | 'cyberpunk' (hub/shop/gear/character) | 'parchment' (deprecated)
  */
 
 export { colors } from './colors';

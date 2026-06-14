@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   rankDeltaForOutcome,
-  ascensionCellsForOutcome,
+  quantumCoresForOutcome,
   clampLineageRank,
   computeProgression,
   isCompletedRun,
@@ -43,28 +43,28 @@ describe('rankDeltaForOutcome', () => {
   });
 });
 
-describe('ascensionCellsForOutcome', () => {
+describe('quantumCoresForOutcome', () => {
   it('won: 3*stage+25', () => {
-    assert.equal(ascensionCellsForOutcome('won', 10), 55);
-    assert.equal(ascensionCellsForOutcome('won', 1), 28);
+    assert.equal(quantumCoresForOutcome('won', 10), 55);
+    assert.equal(quantumCoresForOutcome('won', 1), 28);
   });
 
   it('lost: 2*stage+8', () => {
-    assert.equal(ascensionCellsForOutcome('lost', 5), 18);
-    assert.equal(ascensionCellsForOutcome('lost', 1), 10);
+    assert.equal(quantumCoresForOutcome('lost', 5), 18);
+    assert.equal(quantumCoresForOutcome('lost', 1), 10);
   });
 
   it('fled: stage only', () => {
-    assert.equal(ascensionCellsForOutcome('fled', 7), 7);
+    assert.equal(quantumCoresForOutcome('fled', 7), 7);
   });
 
   it('returns 0 when stageCompleted is 0 or negative', () => {
-    assert.equal(ascensionCellsForOutcome('won', 0), 0);
-    assert.equal(ascensionCellsForOutcome('lost', -1), 0);
+    assert.equal(quantumCoresForOutcome('won', 0), 0);
+    assert.equal(quantumCoresForOutcome('lost', -1), 0);
   });
 
   it('truncates fractional stage', () => {
-    assert.equal(ascensionCellsForOutcome('won', 3.9), ascensionCellsForOutcome('won', 3));
+    assert.equal(quantumCoresForOutcome('won', 3.9), quantumCoresForOutcome('won', 3));
   });
 });
 
@@ -84,61 +84,61 @@ describe('clampLineageRank', () => {
 
 describe('computeProgression', () => {
   const base = {
-    activeLineageId: 'drakehorn_forge',
-    evolutionTargetClassId: 'drakehorn_forge.ashforged',
-    ownedClassIds: ['drakehorn_forge.ember_initiate'] as string[],
-    lineageRanks: {} as Record<string, number>,
+    activeCorpId: 'drakehorn_forge',
+    evolutionTargetSpecId: 'drakehorn_forge.ashforged',
+    unlockedSpecIds: ['drakehorn_forge.ember_initiate'] as string[],
+    corpRanks: {} as Record<string, number>,
   };
 
   it('unlocks evolution target on won run with stageCompleted > 0', () => {
     const result = computeProgression({ ...base, result: 'won', stageCompleted: 5 });
-    assert.deepEqual(result.newlyUnlockedClassIds, ['drakehorn_forge.ashforged']);
-    assert.equal(result.lineageRankDelta, 1);
+    assert.deepEqual(result.newlyUnlockedSpecIds, ['drakehorn_forge.ashforged']);
+    assert.equal(result.corpRankDelta, 1);
     assert.equal(result.newRank, 1);
-    assert.equal(result.awardedAscensionCells, ascensionCellsForOutcome('won', 5));
+    assert.equal(result.awardedQuantumCores, quantumCoresForOutcome('won', 5));
   });
 
   it('unlocks evolution target on lost run', () => {
     const result = computeProgression({ ...base, result: 'lost', stageCompleted: 3 });
-    assert.deepEqual(result.newlyUnlockedClassIds, ['drakehorn_forge.ashforged']);
-    assert.equal(result.lineageRankDelta, 1);
+    assert.deepEqual(result.newlyUnlockedSpecIds, ['drakehorn_forge.ashforged']);
+    assert.equal(result.corpRankDelta, 1);
   });
 
   it('does NOT unlock if evolution target already owned', () => {
-    const owned = [...base.ownedClassIds, 'drakehorn_forge.ashforged'];
-    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, ownedClassIds: owned });
-    assert.deepEqual(result.newlyUnlockedClassIds, []);
+    const owned = [...base.unlockedSpecIds, 'drakehorn_forge.ashforged'];
+    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, unlockedSpecIds: owned });
+    assert.deepEqual(result.newlyUnlockedSpecIds, []);
   });
 
   it('does NOT unlock on fled result', () => {
     const result = computeProgression({ ...base, result: 'fled', stageCompleted: 5 });
-    assert.deepEqual(result.newlyUnlockedClassIds, []);
-    assert.equal(result.lineageRankDelta, 0);
+    assert.deepEqual(result.newlyUnlockedSpecIds, []);
+    assert.equal(result.corpRankDelta, 0);
   });
 
   it('does NOT unlock when stageCompleted is 0', () => {
     const result = computeProgression({ ...base, result: 'won', stageCompleted: 0 });
-    assert.deepEqual(result.newlyUnlockedClassIds, []);
-    assert.equal(result.lineageRankDelta, 0);
-    assert.equal(result.awardedAscensionCells, 0);
+    assert.deepEqual(result.newlyUnlockedSpecIds, []);
+    assert.equal(result.corpRankDelta, 0);
+    assert.equal(result.awardedQuantumCores, 0);
   });
 
-  it('does NOT unlock when evolutionTargetClassId is null', () => {
-    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, evolutionTargetClassId: null });
-    assert.deepEqual(result.newlyUnlockedClassIds, []);
+  it('does NOT unlock when evolutionTargetSpecId is null', () => {
+    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, evolutionTargetSpecId: null });
+    assert.deepEqual(result.newlyUnlockedSpecIds, []);
   });
 
-  it('increments existing lineage rank', () => {
+  it('increments existing corp rank', () => {
     const ranks = { drakehorn_forge: 4 };
-    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, lineageRanks: ranks });
+    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, corpRanks: ranks });
     assert.equal(result.newRank, 5);
-    assert.equal(result.lineageRankDelta, 1);
+    assert.equal(result.corpRankDelta, 1);
   });
 
-  it('caps lineage rank at 10', () => {
+  it('caps corp rank at 10', () => {
     const ranks = { drakehorn_forge: 10 };
-    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, lineageRanks: ranks });
+    const result = computeProgression({ ...base, result: 'won', stageCompleted: 5, corpRanks: ranks });
     assert.equal(result.newRank, 10);
-    assert.equal(result.lineageRankDelta, 0);
+    assert.equal(result.corpRankDelta, 0);
   });
 });

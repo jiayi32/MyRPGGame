@@ -3,7 +3,7 @@
  *
  * Solo-dev affordances for fast iteration during alpha self-testing:
  *   - devSkipStage: jump the active run to an arbitrary stage
- *   - devGrantAllClasses: append all 5 Drakehorn class IDs to ownedClassIds
+ *   - devGrantAllClasses: append all 5 Drakehorn class IDs to unlockedSpecIds
  *   - devResetPlayer: wipe the caller's player doc + sub-collections + their runs
  *   - devSetCurrencies: bulk-set gold / cells / scrolls
  *
@@ -33,7 +33,7 @@ import type {
   DevSkipStageResponse,
   PlayerDoc,
   RunDoc,
-  XpScrollPouch,
+  DataCachePouch,
 } from './shared/types';
 
 const ALL_DRAKEHORN_CLASSES: readonly string[] = [
@@ -96,19 +96,19 @@ export const devGrantAllClasses = onCall<
 
     const db = admin.firestore();
     const playerRef = db.collection('players').doc(uid);
-    const ownedClassIds = await db.runTransaction(async (tx) => {
+    const specIds = await db.runTransaction(async (tx) => {
       const snap = await tx.get(playerRef);
       const player = requireDoc(snap, 'player') as PlayerDoc;
-      const next = new Set([...player.ownedClassIds, ...ALL_DRAKEHORN_CLASSES]);
+      const next = new Set([...player.unlockedSpecIds, ...ALL_DRAKEHORN_CLASSES]);
       const arr = [...next];
       tx.update(playerRef, {
-        ownedClassIds: arr,
+        unlockedSpecIds: arr,
         updatedAt: FieldValue.serverTimestamp(),
       });
       return arr;
     });
 
-    return { ok: true, ownedClassIds };
+    return { ok: true, unlockedSpecIds: specIds };
   },
 );
 
@@ -182,16 +182,16 @@ export const devSetCurrencies = onCall<
     const uid = requireAuth(request);
     requireRateLimit(`devSetCurrencies:${uid}`, 30, 60_000);
 
-    const { goldBank, ascensionCells, sigilShards, xpScrollMinor, xpScrollStandard, xpScrollGrand } =
+    const { credits, quantumCores, scrap, dataCacheMinor, dataCacheStandard, dataCacheGrand } =
       request.data;
 
     const numericFields: ReadonlyArray<readonly [string, number | undefined]> = [
-      ['goldBank', goldBank],
-      ['ascensionCells', ascensionCells],
-      ['sigilShards', sigilShards],
-      ['xpScrollMinor', xpScrollMinor],
-      ['xpScrollStandard', xpScrollStandard],
-      ['xpScrollGrand', xpScrollGrand],
+      ['credits', credits],
+      ['quantumCores', quantumCores],
+      ['scrap', scrap],
+      ['dataCacheMinor', dataCacheMinor],
+      ['dataCacheStandard', dataCacheStandard],
+      ['dataCacheGrand', dataCacheGrand],
     ];
     for (const [label, value] of numericFields) {
       if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
@@ -204,30 +204,30 @@ export const devSetCurrencies = onCall<
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(playerRef);
       const player = requireDoc(snap, 'player') as PlayerDoc;
-      const newGold = goldBank ?? player.goldBank;
-      const newCells = ascensionCells ?? player.ascensionCells;
-      const newSigils = sigilShards ?? player.sigilShards ?? 0;
-      const newScrolls: XpScrollPouch = {
-        minor: xpScrollMinor ?? player.xpScrolls.minor,
-        standard: xpScrollStandard ?? player.xpScrolls.standard,
-        grand: xpScrollGrand ?? player.xpScrolls.grand,
+      const newCredits = credits ?? player.credits;
+      const newCores = quantumCores ?? player.quantumCores;
+      const newScrap = scrap ?? player.scrap ?? 0;
+      const newCaches: DataCachePouch = {
+        minor: dataCacheMinor ?? player.dataCaches.minor,
+        standard: dataCacheStandard ?? player.dataCaches.standard,
+        grand: dataCacheGrand ?? player.dataCaches.grand,
       };
       tx.update(playerRef, {
-        goldBank: newGold,
-        ascensionCells: newCells,
-        sigilShards: newSigils,
-        xpScrolls: newScrolls,
+        credits: newCredits,
+        quantumCores: newCores,
+        scrap: newScrap,
+        dataCaches: newCaches,
         updatedAt: FieldValue.serverTimestamp(),
       });
-      return { goldBank: newGold, ascensionCells: newCells, sigilShards: newSigils, xpScrolls: newScrolls };
+      return { credits: newCredits, quantumCores: newCores, scrap: newScrap, dataCaches: newCaches };
     });
 
     return {
       ok: true,
-      goldBank: result.goldBank,
-      ascensionCells: result.ascensionCells,
-      sigilShards: result.sigilShards,
-      xpScrolls: result.xpScrolls,
+      credits: result.credits,
+      quantumCores: result.quantumCores,
+      scrap: result.scrap,
+      dataCaches: result.dataCaches,
     };
   },
 );

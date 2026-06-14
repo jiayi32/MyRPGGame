@@ -4,11 +4,11 @@ import type { RewardBundle, RewardLedger, StageRewardSplit } from './types';
 const CHECKPOINT_STAGES = new Set<number>([10, 20, 30]);
 
 const mergeRewards = (a: RewardBundle, b: RewardBundle): RewardBundle => ({
-  gold: a.gold + b.gold,
-  ascensionCells: a.ascensionCells + b.ascensionCells,
-  xpScrollMinor: a.xpScrollMinor + b.xpScrollMinor,
-  xpScrollStandard: a.xpScrollStandard + b.xpScrollStandard,
-  xpScrollGrand: a.xpScrollGrand + b.xpScrollGrand,
+  credits: a.credits + b.credits,
+  quantumCores: a.quantumCores + b.quantumCores,
+  dataCacheMinor: a.dataCacheMinor + b.dataCacheMinor,
+  dataCacheStandard: a.dataCacheStandard + b.dataCacheStandard,
+  dataCacheGrand: a.dataCacheGrand + b.dataCacheGrand,
   gearIds: [...a.gearIds, ...b.gearIds],
 });
 
@@ -31,28 +31,28 @@ export const splitStageRewards = (
   baselineRatio = 0.5,
 ): StageRewardSplit => {
   const ratio = Math.max(0, Math.min(1, baselineRatio));
-  const baselineGold = Math.floor(rewards.gold * ratio);
-  const baselineCells = Math.floor(rewards.ascensionCells * ratio);
-  const baselineMinor = Math.floor(rewards.xpScrollMinor * ratio);
-  const baselineStandard = Math.floor(rewards.xpScrollStandard * ratio);
-  const baselineGrand = Math.floor(rewards.xpScrollGrand * ratio);
+  const baselineCredits = Math.floor(rewards.credits * ratio);
+  const baselineCores = Math.floor(rewards.quantumCores * ratio);
+  const baselineMinor = Math.floor(rewards.dataCacheMinor * ratio);
+  const baselineStandard = Math.floor(rewards.dataCacheStandard * ratio);
+  const baselineGrand = Math.floor(rewards.dataCacheGrand * ratio);
   const splitGear = splitGearIds(rewards.gearIds);
 
   const baseline: RewardBundle = {
-    gold: baselineGold,
-    ascensionCells: baselineCells,
-    xpScrollMinor: baselineMinor,
-    xpScrollStandard: baselineStandard,
-    xpScrollGrand: baselineGrand,
+    credits: baselineCredits,
+    quantumCores: baselineCores,
+    dataCacheMinor: baselineMinor,
+    dataCacheStandard: baselineStandard,
+    dataCacheGrand: baselineGrand,
     gearIds: splitGear.baseline,
   };
 
   const vaulted: RewardBundle = {
-    gold: rewards.gold - baselineGold,
-    ascensionCells: rewards.ascensionCells - baselineCells,
-    xpScrollMinor: rewards.xpScrollMinor - baselineMinor,
-    xpScrollStandard: rewards.xpScrollStandard - baselineStandard,
-    xpScrollGrand: rewards.xpScrollGrand - baselineGrand,
+    credits: rewards.credits - baselineCredits,
+    quantumCores: rewards.quantumCores - baselineCores,
+    dataCacheMinor: rewards.dataCacheMinor - baselineMinor,
+    dataCacheStandard: rewards.dataCacheStandard - baselineStandard,
+    dataCacheGrand: rewards.dataCacheGrand - baselineGrand,
     gearIds: splitGear.vaulted,
   };
 
@@ -73,11 +73,11 @@ export const applyStageRewards = (
 
 export const bankVaultedRewards = (ledger: RewardLedger): RewardLedger => {
   if (
-    ledger.vaulted.gold === 0 &&
-    ledger.vaulted.ascensionCells === 0 &&
-    ledger.vaulted.xpScrollMinor === 0 &&
-    ledger.vaulted.xpScrollStandard === 0 &&
-    ledger.vaulted.xpScrollGrand === 0 &&
+    ledger.vaulted.credits === 0 &&
+    ledger.vaulted.quantumCores === 0 &&
+    ledger.vaulted.dataCacheMinor === 0 &&
+    ledger.vaulted.dataCacheStandard === 0 &&
+    ledger.vaulted.dataCacheGrand === 0 &&
     ledger.vaulted.gearIds.length === 0
   ) {
     return ledger;

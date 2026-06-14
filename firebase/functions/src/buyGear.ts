@@ -35,14 +35,14 @@ export const buyGear = onCall<BuyGearPayload, Promise<BuyGearResponse>>(
       const playerSnap = await tx.get(playerRef);
       const player = requireDoc(playerSnap, 'player') as PlayerDoc;
 
-      if (player.goldBank < offer.priceGold) {
+      if (player.credits < offer.priceGold) {
         throw new HttpsError(
           'failed-precondition',
-          `Not enough gold. Need ${offer.priceGold}, have ${player.goldBank}.`,
+          `Not enough credits. Need ${offer.priceGold}, have ${player.credits}.`,
         );
       }
 
-      const newGoldBank = player.goldBank - offer.priceGold;
+      const newCredits = player.credits - offer.priceGold;
       const now = FieldValue.serverTimestamp();
 
       const gearRef = playerRef.collection('gear').doc(purchasedInstanceId);
@@ -58,19 +58,19 @@ export const buyGear = onCall<BuyGearPayload, Promise<BuyGearResponse>>(
       tx.set(gearRef, gearDoc);
 
       tx.update(playerRef, {
-        goldBank: newGoldBank,
+        credits: newCredits,
         updatedAt: now,
       });
 
       return {
         uid: player.uid,
-        goldBank: newGoldBank,
-        xpScrolls: player.xpScrolls,
-        ascensionCells: player.ascensionCells,
-        sigilShards: player.sigilShards ?? 0,
-        lineageRanks: player.lineageRanks,
-        classRanks: player.classRanks ?? {},
-        ownedClassIds: player.ownedClassIds,
+        credits: newCredits,
+        dataCaches: player.dataCaches,
+        quantumCores: player.quantumCores,
+        scrap: player.scrap ?? 0,
+        corpRanks: player.corpRanks,
+        specRanks: player.specRanks ?? {},
+        unlockedSpecIds: player.unlockedSpecIds,
         currentRunId: player.currentRunId,
       };
     });

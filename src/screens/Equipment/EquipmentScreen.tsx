@@ -16,7 +16,7 @@ const SLOT_ORDER: readonly GearSlot[] = ['weapon', 'armor', 'accessory'];
 
 export function EquipmentScreen() {
   const playerStatus = usePlayerStore((state) => state.status);
-  const goldBank = usePlayerStore((state) => state.goldBank);
+  const credits = usePlayerStore((state) => state.credits);
   const { bySlot, equippedBySlot, instances, loading, error, equip, unequip, temper, dismantle } =
     useGearInventory();
   const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
@@ -104,7 +104,7 @@ export function EquipmentScreen() {
             ? 'Gear acquired from completed runs'
             : `${totalItems} item${totalItems === 1 ? '' : 's'} in inventory`}
         </Text>
-        <Text style={styles.goldLabel}>Gold: {goldBank}g</Text>
+        <Text style={styles.goldLabel}>Credits: {credits}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -147,17 +147,17 @@ export function EquipmentScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f4ef' },
+  container: { flex: 1, backgroundColor: '#0a0a1a' },
   header: {
     padding: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#d8cdbb',
+    borderBottomColor: 'rgba(0,255,255,0.1)',
     gap: 4,
   },
-  title: { fontSize: 22, fontWeight: '700', color: '#2b1f10' },
-  subtitle: { fontSize: 13, color: '#5d4d35' },
-  goldLabel: { fontSize: 13, color: '#7a3b00', fontWeight: '700' },
+  title: { fontSize: 22, fontWeight: '700', color: '#ffffff' },
+  subtitle: { fontSize: 13, color: '#aabbcc' },
+  goldLabel: { fontSize: 13, color: '#ffb000', fontWeight: '700' },
   content: { padding: 16, gap: 16 },
   error: {
     backgroundColor: '#fde8e8',
@@ -169,24 +169,24 @@ const styles = StyleSheet.create({
   loadingCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 24,
     alignItems: 'center',
   },
-  loadingText: { fontSize: 14, color: '#7b684a' },
+  loadingText: { fontSize: 14, color: '#889999' },
   emptyCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#d8cdbb',
-    backgroundColor: '#fffdf8',
+    borderColor: 'rgba(0,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 24,
     alignItems: 'center',
     gap: 8,
   },
   emptyIcon: { fontSize: 40 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#4a3a28' },
-  emptyHint: { fontSize: 13, color: '#7b684a', textAlign: 'center', lineHeight: 18 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
+  emptyHint: { fontSize: 13, color: '#889999', textAlign: 'center', lineHeight: 18 },
   temperSuccess: {
     backgroundColor: '#e8f5e9',
     borderRadius: 8,

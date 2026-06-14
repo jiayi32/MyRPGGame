@@ -4,12 +4,12 @@ import { EMPTY_REWARD } from './types';
 /** Add two RewardBundles together, concatenating gearIds. */
 export function addRewards(a: RewardBundle, b: RewardBundle): RewardBundle {
   return {
-    gold: a.gold + b.gold,
-    ascensionCells: a.ascensionCells + b.ascensionCells,
-    sigilShards: a.sigilShards + b.sigilShards,
-    xpScrollMinor: a.xpScrollMinor + b.xpScrollMinor,
-    xpScrollStandard: a.xpScrollStandard + b.xpScrollStandard,
-    xpScrollGrand: a.xpScrollGrand + b.xpScrollGrand,
+    credits: a.credits + b.credits,
+    quantumCores: a.quantumCores + b.quantumCores,
+    scrap: a.scrap + b.scrap,
+    dataCacheMinor: a.dataCacheMinor + b.dataCacheMinor,
+    dataCacheStandard: a.dataCacheStandard + b.dataCacheStandard,
+    dataCacheGrand: a.dataCacheGrand + b.dataCacheGrand,
     gearIds: [...a.gearIds, ...b.gearIds],
   };
 }
@@ -64,21 +64,21 @@ export function splitRewards(rewards: RewardBundle): {
   const ceil = (n: number) => n - Math.floor(n * 0.3);
   return {
     baseline: {
-      gold: floor(rewards.gold),
-      ascensionCells: floor(rewards.ascensionCells),
-      sigilShards: 0,
-      xpScrollMinor: floor(rewards.xpScrollMinor),
-      xpScrollStandard: floor(rewards.xpScrollStandard),
-      xpScrollGrand: floor(rewards.xpScrollGrand),
+      credits: floor(rewards.credits),
+      quantumCores: floor(rewards.quantumCores),
+      scrap: 0,
+      dataCacheMinor: floor(rewards.dataCacheMinor),
+      dataCacheStandard: floor(rewards.dataCacheStandard),
+      dataCacheGrand: floor(rewards.dataCacheGrand),
       gearIds: [],  // gear always vaulted
     },
     vaulted: {
-      gold: ceil(rewards.gold),
-      ascensionCells: ceil(rewards.ascensionCells),
-      sigilShards: rewards.sigilShards,
-      xpScrollMinor: ceil(rewards.xpScrollMinor),
-      xpScrollStandard: ceil(rewards.xpScrollStandard),
-      xpScrollGrand: ceil(rewards.xpScrollGrand),
+      credits: ceil(rewards.credits),
+      quantumCores: ceil(rewards.quantumCores),
+      scrap: rewards.scrap,
+      dataCacheMinor: ceil(rewards.dataCacheMinor),
+      dataCacheStandard: ceil(rewards.dataCacheStandard),
+      dataCacheGrand: ceil(rewards.dataCacheGrand),
       gearIds: [...rewards.gearIds],
     },
   };
@@ -95,12 +95,12 @@ export function applyVaultMultiplier(
   const m = Number.isFinite(multiplier) ? Math.max(1, multiplier) : 1;
   const scaled = (n: number) => Math.floor(n * m);
   return {
-    gold: scaled(vaulted.gold),
-    ascensionCells: scaled(vaulted.ascensionCells),
-    sigilShards: scaled(vaulted.sigilShards),
-    xpScrollMinor: scaled(vaulted.xpScrollMinor),
-    xpScrollStandard: scaled(vaulted.xpScrollStandard),
-    xpScrollGrand: scaled(vaulted.xpScrollGrand),
+    credits: scaled(vaulted.credits),
+    quantumCores: scaled(vaulted.quantumCores),
+    scrap: scaled(vaulted.scrap),
+    dataCacheMinor: scaled(vaulted.dataCacheMinor),
+    dataCacheStandard: scaled(vaulted.dataCacheStandard),
+    dataCacheGrand: scaled(vaulted.dataCacheGrand),
     gearIds: [...vaulted.gearIds],
   };
 }

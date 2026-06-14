@@ -3,7 +3,7 @@
  *
  * Mirrors the formulas in `src/domain/run/progression.ts` (client) but operates
  * purely on values stored on the run doc — no content registry lookup needed.
- * The client computes `evolutionTargetClassId` at startRun and stores it on the
+ * The client computes `evolutionTargetSpecId` at startRun and stores it on the
  * run doc; on endRun the server reads it back and applies the unlock.
  *
  * If the formulas drift, [src/content/__tests__/integrity.test.ts] and the
@@ -18,7 +18,7 @@ export function isCompletedRun(result: RunResult): boolean {
   return result === 'won' || result === 'lost';
 }
 
-/** +1 lineage rank for completed runs (won/lost), 0 for fled. */
+/** +1 corp rank for completed runs (won/lost), 0 for fled. */
 export function rankDeltaForOutcome(result: RunResult, stageCompleted: number): number {
   if (!isCompletedRun(result)) return 0;
   if (stageCompleted <= 0) return 0;
@@ -26,7 +26,7 @@ export function rankDeltaForOutcome(result: RunResult, stageCompleted: number): 
 }
 
 /** Mirror of client formula: 3*stage+25 won, 2*stage+8 lost, stage fled. */
-export function ascensionCellsForOutcome(result: RunResult, stageCompleted: number): number {
+export function quantumCoresForOutcome(result: RunResult, stageCompleted: number): number {
   const stage = Math.max(0, Math.trunc(stageCompleted));
   if (stage <= 0) return 0;
   if (result === 'won') return stage * 3 + 25;
@@ -39,9 +39,9 @@ export function clampLineageRank(rank: number): number {
 }
 
 export interface AppliedProgression {
-  newlyUnlockedClassIds: string[];
-  awardedAscensionCells: number;
-  lineageRankDelta: number;
+  newlyUnlockedSpecIds: string[];
+  awardedQuantumCores: number;
+  corpRankDelta: number;
   newRank: number;
 }
 
@@ -49,32 +49,32 @@ export interface AppliedProgression {
 export function computeProgression(args: {
   result: RunResult;
   stageCompleted: number;
-  activeLineageId: string;
-  evolutionTargetClassId: string | null;
-  ownedClassIds: readonly string[];
-  lineageRanks: Readonly<Record<string, number>>;
+  activeCorpId: string;
+  evolutionTargetSpecId: string | null;
+  unlockedSpecIds: readonly string[];
+  corpRanks: Readonly<Record<string, number>>;
 }): AppliedProgression {
-  const newlyUnlockedClassIds: string[] = [];
+  const newlyUnlockedSpecIds: string[] = [];
 
-  // Same-lineage tier-up unlock fires only on completed runs.
+  // Same-corp tier-up unlock fires only on completed runs.
   if (
     isCompletedRun(args.result) &&
     args.stageCompleted > 0 &&
-    args.evolutionTargetClassId &&
-    !args.ownedClassIds.includes(args.evolutionTargetClassId)
+    args.evolutionTargetSpecId &&
+    !args.unlockedSpecIds.includes(args.evolutionTargetSpecId)
   ) {
-    newlyUnlockedClassIds.push(args.evolutionTargetClassId);
+    newlyUnlockedSpecIds.push(args.evolutionTargetSpecId);
   }
 
-  const awardedAscensionCells = ascensionCellsForOutcome(args.result, args.stageCompleted);
-  const lineageRankDeltaRaw = rankDeltaForOutcome(args.result, args.stageCompleted);
-  const oldRank = args.lineageRanks[args.activeLineageId] ?? 0;
-  const newRank = clampLineageRank(oldRank + lineageRankDeltaRaw);
+  const awardedQuantumCores = quantumCoresForOutcome(args.result, args.stageCompleted);
+  const corpRankDeltaRaw = rankDeltaForOutcome(args.result, args.stageCompleted);
+  const oldRank = args.corpRanks[args.activeCorpId] ?? 0;
+  const newRank = clampLineageRank(oldRank + corpRankDeltaRaw);
 
   return {
-    newlyUnlockedClassIds,
-    awardedAscensionCells,
-    lineageRankDelta: newRank - oldRank,
+    newlyUnlockedSpecIds,
+    awardedQuantumCores,
+    corpRankDelta: newRank - oldRank,
     newRank,
   };
 }

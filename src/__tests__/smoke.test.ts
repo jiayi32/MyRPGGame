@@ -50,13 +50,13 @@ const mockedGetOrCreatePlayer = getOrCreatePlayer as jest.MockedFunction<typeof 
 
 const fakePlayer = {
   uid: 'test-uid',
-  goldBank: 100,
-  ascensionCells: 5,
-  sigilShards: 0,
-  xpScrolls: { minor: 2, standard: 1, grand: 0 },
-  lineageRanks: { drakehorn_forge: 2 },
-  classRanks: { 'drakehorn_forge.ember_initiate': 1 },
-  ownedClassIds: ['drakehorn_forge.ember_initiate', 'drakehorn_forge.flame_berserker'],
+  credits: 100,
+  quantumCores: 5,
+  scrap: 0,
+  dataCaches: { minor: 2, standard: 1, grand: 0 },
+  corpRanks: { drakehorn_forge: 2 },
+  specRanks: { 'drakehorn_forge.ember_initiate': 1 },
+  unlockedSpecIds: ['drakehorn_forge.ember_initiate', 'drakehorn_forge.flame_berserker'],
   currentRunId: null,
   augmentsPicked: 0,
 };
@@ -71,8 +71,8 @@ describe('playerStore auth lifecycle', () => {
     const state = usePlayerStore.getState();
     expect(state.status).toBe('idle');
     expect(state.uid).toBeNull();
-    expect(state.goldBank).toBe(0);
-    expect(state.ownedClassIds).toEqual([]);
+    expect(state.credits).toBe(0);
+    expect(state.unlockedSpecIds).toEqual([]);
   });
 
   it('bootstraps to awaiting_sign_in when no current user is signed in', async () => {
@@ -102,8 +102,8 @@ describe('playerStore auth lifecycle', () => {
     const state = usePlayerStore.getState();
     expect(state.status).toBe('ready');
     expect(state.uid).toBe('test-uid');
-    expect(state.goldBank).toBe(100);
-    expect(state.ownedClassIds).toContain('drakehorn_forge.ember_initiate');
+    expect(state.credits).toBe(100);
+    expect(state.unlockedSpecIds).toContain('drakehorn_forge.ember_initiate');
     expect(mockedSignInWithEmail).toHaveBeenCalledWith('test@test.com', '1234567890');
   });
 
@@ -136,8 +136,8 @@ describe('playerStore auth lifecycle', () => {
     const state = usePlayerStore.getState();
     expect(state.status).toBe('awaiting_sign_in');
     expect(state.uid).toBeNull();
-    expect(state.goldBank).toBe(0);
-    expect(state.ownedClassIds).toEqual([]);
+    expect(state.credits).toBe(0);
+    expect(state.unlockedSpecIds).toEqual([]);
     expect(mockedSignOut).toHaveBeenCalled();
   });
 });

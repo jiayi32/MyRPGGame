@@ -60,12 +60,12 @@ const buildSnapshot = (state: RunStoreState): RunSnapshot => ({
 const syncPlayerToFirebase = () => {
   const p = usePlayerStore.getState();
   savePlayerProfile({
-    goldBank: p.goldBank,
-    ascensionCells: p.ascensionCells,
-    sigilShards: p.sigilShards,
-    lineageRanks: { ...p.lineageRanks },
-    classRanks: { ...p.classRanks },
-    ownedClassIds: [...p.ownedClassIds],
+    credits: p.credits,
+    quantumCores: p.quantumCores,
+    scrap: p.scrap,
+    corpRanks: { ...p.corpRanks },
+    specRanks: { ...p.specRanks },
+    unlockedSpecIds: [...p.unlockedSpecIds],
     unlockedPassiveIds: [...p.unlockedPassiveIds],
     augmentsPicked: p.augmentsPicked,
     runHistory: [...p.runHistory],
@@ -152,12 +152,12 @@ interface RunStoreState {
 }
 
 const cloneReward = (reward: RewardBundle): RewardBundle => ({
-  gold: reward.gold,
-  ascensionCells: reward.ascensionCells,
-  sigilShards: reward.sigilShards,
-  xpScrollMinor: reward.xpScrollMinor,
-  xpScrollStandard: reward.xpScrollStandard,
-  xpScrollGrand: reward.xpScrollGrand,
+  credits: reward.credits,
+  quantumCores: reward.quantumCores,
+  scrap: reward.scrap,
+  dataCacheMinor: reward.dataCacheMinor,
+  dataCacheStandard: reward.dataCacheStandard,
+  dataCacheGrand: reward.dataCacheGrand,
   gearIds: [...reward.gearIds],
 });
 
@@ -581,12 +581,12 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
         const playerStore = usePlayerStore.getState();
         // Apply progression directly
         playerStore.setState({
-          goldBank: playerStore.goldBank + settlement.totalGoldKept,
-          ascensionCells: playerStore.ascensionCells + settlement.totalCellsKept,
-          xpScrolls: {
-            minor: playerStore.xpScrolls.minor + settlement.xpGained.minor,
-            standard: playerStore.xpScrolls.standard + settlement.xpGained.standard,
-            grand: playerStore.xpScrolls.grand + settlement.xpGained.grand,
+          credits: playerStore.credits + settlement.totalGoldKept,
+          quantumCores: playerStore.quantumCores + settlement.totalCellsKept,
+          dataCaches: {
+            minor: playerStore.dataCaches.minor + settlement.xpGained.minor,
+            standard: playerStore.dataCaches.standard + settlement.xpGained.standard,
+            grand: playerStore.dataCaches.grand + settlement.xpGained.grand,
           },
         });
         playerStore.addRunToHistory({
@@ -627,12 +627,12 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
     set({
       riskMeter: newRisk,
       totalRewards: {
-        gold: totalRewards.gold + stageRewards.gold,
-        ascensionCells: totalRewards.ascensionCells + stageRewards.ascensionCells,
-        sigilShards: totalRewards.sigilShards + stageRewards.sigilShards,
-        xpScrollMinor: totalRewards.xpScrollMinor + stageRewards.xpScrollMinor,
-        xpScrollStandard: totalRewards.xpScrollStandard + stageRewards.xpScrollStandard,
-        xpScrollGrand: totalRewards.xpScrollGrand + stageRewards.xpScrollGrand,
+        credits: totalRewards.credits + stageRewards.credits,
+        quantumCores: totalRewards.quantumCores + stageRewards.quantumCores,
+        scrap: totalRewards.scrap + stageRewards.scrap,
+        dataCacheMinor: totalRewards.dataCacheMinor + stageRewards.dataCacheMinor,
+        dataCacheStandard: totalRewards.dataCacheStandard + stageRewards.dataCacheStandard,
+        dataCacheGrand: totalRewards.dataCacheGrand + stageRewards.dataCacheGrand,
         gearIds: [...totalRewards.gearIds, ...stageRewards.gearIds],
       },
     });
@@ -658,12 +658,12 @@ export const useRunStore = create<RunStoreState>((set, get) => ({
       const playerStore = usePlayerStore.getState();
       // Apply progression directly
       playerStore.setState({
-        goldBank: playerStore.goldBank + settlement.totalGoldKept,
-        ascensionCells: playerStore.ascensionCells + settlement.totalCellsKept,
-        xpScrolls: {
-          minor: playerStore.xpScrolls.minor + settlement.xpGained.minor,
-          standard: playerStore.xpScrolls.standard + settlement.xpGained.standard,
-          grand: playerStore.xpScrolls.grand + settlement.xpGained.grand,
+        credits: playerStore.credits + settlement.totalGoldKept,
+        quantumCores: playerStore.quantumCores + settlement.totalCellsKept,
+        dataCaches: {
+          minor: playerStore.dataCaches.minor + settlement.xpGained.minor,
+          standard: playerStore.dataCaches.standard + settlement.xpGained.standard,
+          grand: playerStore.dataCaches.grand + settlement.xpGained.grand,
         },
       });
 

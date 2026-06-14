@@ -1,7 +1,7 @@
 /**
  * Design System — ScreenWrapper
  *
- * Applies the correct theme mode (dark/parchment) to each screen
+ * Applies the correct theme mode (dark/cyberpunk) to each screen
  * and provides consistent screen-level layout (background, safe area).
  *
  * Usage in a screen component:

@@ -9,7 +9,7 @@ import {
   type RewardBundle,
   type RunSnapshot,
   type StageOutcomeResult,
-  type XpScrollPouch,
+  type DataCachePouch,
 } from '../../features/run/types';
 import { createRunMapGraph } from '../../domain/run/map';
 import { isCheckpointStage } from '../../domain/run/checkpoint';
@@ -49,7 +49,7 @@ export const startRunLocal = (input: LocalStartRunInput): LocalStartRunOutput =>
   const snapshot: RunSnapshot = {
     id: runId,
     seed,
-    stage: 0,
+    stage: 1,
     activeClassId: input.activeClassId,
     activeLineageId: input.activeLineageId,
     evolutionTargetClassId: null,
@@ -105,24 +105,24 @@ export const submitStageOutcomeLocal = (
 
   // Accumulate total rewards for risk meter
   const totalRewards: RewardBundle = {
-    gold: currentSnapshot.totalRewards.gold + input.rewards.gold,
-    ascensionCells: currentSnapshot.totalRewards.ascensionCells + input.rewards.ascensionCells,
-    sigilShards: currentSnapshot.totalRewards.sigilShards + input.rewards.sigilShards,
-    xpScrollMinor: currentSnapshot.totalRewards.xpScrollMinor + input.rewards.xpScrollMinor,
-    xpScrollStandard: currentSnapshot.totalRewards.xpScrollStandard + input.rewards.xpScrollStandard,
-    xpScrollGrand: currentSnapshot.totalRewards.xpScrollGrand + input.rewards.xpScrollGrand,
+    credits: currentSnapshot.totalRewards.credits + input.rewards.credits,
+    quantumCores: currentSnapshot.totalRewards.quantumCores + input.rewards.quantumCores,
+    scrap: currentSnapshot.totalRewards.scrap + input.rewards.scrap,
+    dataCacheMinor: currentSnapshot.totalRewards.dataCacheMinor + input.rewards.dataCacheMinor,
+    dataCacheStandard: currentSnapshot.totalRewards.dataCacheStandard + input.rewards.dataCacheStandard,
+    dataCacheGrand: currentSnapshot.totalRewards.dataCacheGrand + input.rewards.dataCacheGrand,
     gearIds: [...currentSnapshot.totalRewards.gearIds, ...input.rewards.gearIds],
   };
 
   // Keep banked rewards safe; vaulted tracks risk
   const bankedRewards: RewardBundle = input.result === 'won'
     ? {
-        gold: currentSnapshot.bankedRewards.gold + input.rewards.gold,
-        ascensionCells: currentSnapshot.bankedRewards.ascensionCells + input.rewards.ascensionCells,
-        sigilShards: currentSnapshot.bankedRewards.sigilShards + input.rewards.sigilShards,
-        xpScrollMinor: currentSnapshot.bankedRewards.xpScrollMinor + input.rewards.xpScrollMinor,
-        xpScrollStandard: currentSnapshot.bankedRewards.xpScrollStandard + input.rewards.xpScrollStandard,
-        xpScrollGrand: currentSnapshot.bankedRewards.xpScrollGrand + input.rewards.xpScrollGrand,
+        credits: currentSnapshot.bankedRewards.credits + input.rewards.credits,
+        quantumCores: currentSnapshot.bankedRewards.quantumCores + input.rewards.quantumCores,
+        scrap: currentSnapshot.bankedRewards.scrap + input.rewards.scrap,
+        dataCacheMinor: currentSnapshot.bankedRewards.dataCacheMinor + input.rewards.dataCacheMinor,
+        dataCacheStandard: currentSnapshot.bankedRewards.dataCacheStandard + input.rewards.dataCacheStandard,
+        dataCacheGrand: currentSnapshot.bankedRewards.dataCacheGrand + input.rewards.dataCacheGrand,
         gearIds: [...currentSnapshot.bankedRewards.gearIds, ...input.rewards.gearIds],
       }
     : currentSnapshot.bankedRewards;
@@ -145,7 +145,7 @@ export const submitStageOutcomeLocal = (
 export interface LocalEndRunOutput {
   totalGoldKept: number;
   totalCellsKept: number;
-  xpGained: XpScrollPouch;
+  xpGained: DataCachePouch;
   riskMeterAtEnd: number;
   totalGearKept: string[];
 }
@@ -161,12 +161,12 @@ export const endRunLocal = (
   const keepRatio = finalResult === 'won' ? 1.0 : Math.max(0, (100 - riskMeter) / 100);
 
   return {
-    totalGoldKept: Math.round(totalRewards.gold * keepRatio),
-    totalCellsKept: Math.round(totalRewards.ascensionCells * keepRatio),
+    totalGoldKept: Math.round(totalRewards.credits * keepRatio),
+    totalCellsKept: Math.round(totalRewards.quantumCores * keepRatio),
     xpGained: {
-      minor: Math.round(totalRewards.xpScrollMinor * keepRatio),
-      standard: Math.round(totalRewards.xpScrollStandard * keepRatio),
-      grand: Math.round(totalRewards.xpScrollGrand * keepRatio),
+      minor: Math.round(totalRewards.dataCacheMinor * keepRatio),
+      standard: Math.round(totalRewards.dataCacheStandard * keepRatio),
+      grand: Math.round(totalRewards.dataCacheGrand * keepRatio),
     },
     riskMeterAtEnd: riskMeter,
     totalGearKept: totalRewards.gearIds,

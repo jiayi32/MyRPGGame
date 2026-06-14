@@ -7,7 +7,7 @@ import type {
   RunResult,
 } from './types';
 
-const LINEAGE_RANK_CAP = 10;
+const CORP_RANK_CAP = 10;
 
 const RUN_COMPLETION_RESULTS: readonly RunResult[] = ['won', 'lost'];
 
@@ -42,8 +42,8 @@ const addOwnedClass = (
   return [...ownedClassIds, classId];
 };
 
-const clampLineageRank = (rank: number): number =>
-  Math.max(0, Math.min(LINEAGE_RANK_CAP, Math.trunc(rank)));
+const clampCorpRank = (rank: number): number =>
+  Math.max(0, Math.min(CORP_RANK_CAP, Math.trunc(rank)));
 
 const rankDeltaForOutcome = (runResult: RunResult, stageCompleted: number): number => {
   if (!didCompleteRun(runResult)) return 0;
@@ -51,7 +51,7 @@ const rankDeltaForOutcome = (runResult: RunResult, stageCompleted: number): numb
   return 1;
 };
 
-const ascensionCellsForOutcome = (runResult: RunResult, stageCompleted: number): number => {
+const quantumCoresForOutcome = (runResult: RunResult, stageCompleted: number): number => {
   const stage = Math.max(0, Math.trunc(stageCompleted));
   if (stage <= 0) return 0;
 
@@ -112,7 +112,7 @@ export const applyProgression = (input: ProgressionInput): ProgressionResult => 
 
   const newlyUnlockedClassIds: string[] = [];
   let rejectedEvolutionTargetClassId: string | undefined;
-  let rejectionReason: 'cross_lineage_locked' | 'invalid_target' | undefined;
+  let rejectionReason: 'cross_corp_locked' | 'invalid_target' | undefined;
 
   const requested = input.requestedEvolutionTargetClassId;
   if (requested !== undefined) {
@@ -122,14 +122,14 @@ export const applyProgression = (input: ProgressionInput): ProgressionResult => 
       rejectionReason = 'invalid_target';
     } else if (
       requestedClass.lineageId !== activeClass.lineageId &&
-      input.allowCrossLineageEvolution !== true
+      input.allowCrossCorpEvolution !== true
     ) {
       rejectedEvolutionTargetClassId = requested;
-      rejectionReason = 'cross_lineage_locked';
+      rejectionReason = 'cross_corp_locked';
     }
   }
 
-  let ownedClassIds = currentState.ownedClassIds;
+  let ownedClassIds = currentState.unlockedSpecIds;
   if (didCompleteRun(input.runResult) && stageCompleted > 0) {
     const sameLineageTarget = nextSameLineageTierTarget(activeClass);
     if (sameLineageTarget !== undefined && !ownedClassIds.includes(sameLineageTarget)) {
@@ -138,26 +138,26 @@ export const applyProgression = (input: ProgressionInput): ProgressionResult => 
     }
   }
 
-  const lineageRankDelta = rankDeltaForOutcome(input.runResult, stageCompleted);
-  const oldRank = currentState.lineageRanks[activeClass.lineageId] ?? 0;
-  const newRank = clampLineageRank(oldRank + lineageRankDelta);
+  const corpRankDelta = rankDeltaForOutcome(input.runResult, stageCompleted);
+  const oldRank = currentState.corpRanks[activeClass.lineageId] ?? 0;
+  const newRank = clampCorpRank(oldRank + corpRankDelta);
 
-  const awardedAscensionCells = ascensionCellsForOutcome(input.runResult, stageCompleted);
+  const awardedQuantumCores = quantumCoresForOutcome(input.runResult, stageCompleted);
 
   const nextState: ProgressionPlayerState = {
-    ownedClassIds,
-    lineageRanks: {
-      ...currentState.lineageRanks,
+    unlockedSpecIds: ownedClassIds,
+    corpRanks: {
+      ...currentState.corpRanks,
       [activeClass.lineageId]: newRank,
     },
-    ascensionCells: currentState.ascensionCells + awardedAscensionCells,
+    quantumCores: currentState.quantumCores + awardedQuantumCores,
   };
 
   return {
     playerState: nextState,
-    lineageRankDelta: newRank - oldRank,
-    awardedAscensionCells,
-    newlyUnlockedClassIds,
+    corpRankDelta: newRank - oldRank,
+    awardedQuantumCores,
+    newlyUnlockedSpecIds: newlyUnlockedClassIds,
     ...(rejectedEvolutionTargetClassId !== undefined
       ? { rejectedEvolutionTargetClassId }
       : {}),

@@ -17,14 +17,14 @@ import { ClassCard } from './ClassCard';
 type Props = NativeStackScreenProps<HomeStackParamList, 'ClassSelect'>;
 
 export function ClassSelectScreen({ navigation }: Props) {
-  const ownedClassIds = usePlayerStore((state) => state.ownedClassIds);
+  const unlockedSpecIds = usePlayerStore((state) => state.unlockedSpecIds);
   const runStatus = useRunStore((state) => state.status);
 
   const [selectedId, setSelectedId] = useState<ClassId | null>(
-    ownedClassIds.length === 1 ? (ownedClassIds[0] as ClassId) : null,
+    unlockedSpecIds.length === 1 ? (unlockedSpecIds[0] as ClassId) : null,
   );
 
-  const ownedSet = useMemo(() => new Set(ownedClassIds), [ownedClassIds]);
+  const ownedSet = useMemo(() => new Set(unlockedSpecIds), [unlockedSpecIds]);
 
   // Build a map from class ID → display name of the class that evolves into it.
   const unlocksFromMap = useMemo(() => {
@@ -49,7 +49,7 @@ export function ClassSelectScreen({ navigation }: Props) {
       }
     }
     // Immediate evolution targets of owned classes.
-    for (const id of ownedClassIds) {
+    for (const id of unlockedSpecIds) {
       const c = CLASS_BY_ID.get(id as ClassId);
       if (c) {
         for (const targetId of c.evolutionTargetClassIds) {
@@ -60,7 +60,7 @@ export function ClassSelectScreen({ navigation }: Props) {
       }
     }
     return ids;
-  }, [ownedClassIds, ownedSet]);
+  }, [unlockedSpecIds, ownedSet]);
 
   const displayClasses: ClassData[] = useMemo(() => {
     const owned: ClassData[] = [];
@@ -105,7 +105,7 @@ export function ClassSelectScreen({ navigation }: Props) {
               unlockHint={
                 owned
                   ? undefined
-                  : getUnlockHint(item, ownedClassIds, CLASS_BY_ID)
+                  : getUnlockHint(item, unlockedSpecIds, CLASS_BY_ID)
               }
               onPress={() => setSelectedId(item.id as ClassId)}
             />
@@ -126,9 +126,9 @@ export function ClassSelectScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f4ef' },
-  title: { fontSize: 22, fontWeight: '700', color: '#2b1f10', padding: 20, paddingBottom: 4 },
-  subtitle: { fontSize: 13, color: '#5d4d35', paddingHorizontal: 20, marginBottom: 8 },
+  container: { flex: 1, backgroundColor: '#0a0a1a' },
+  title: { fontSize: 22, fontWeight: '700', color: '#ffffff', padding: 20, paddingBottom: 4 },
+  subtitle: { fontSize: 13, color: '#aabbcc', paddingHorizontal: 20, marginBottom: 8 },
   list: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#d8cdbb', backgroundColor: '#fffdf8' },
+  footer: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.03)' },
 });

@@ -2,7 +2,7 @@ import { onCall } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { requireAuth, requirePayloadSize, requireRateLimit } from './shared/guards';
-import { EMPTY_XP_SCROLLS } from './shared/types';
+import { EMPTY_DATA_CACHES } from './shared/types';
 import type {
   GetOrCreatePlayerPayload,
   GetOrCreatePlayerResponse,
@@ -46,13 +46,13 @@ export const getOrCreatePlayer = onCall<
       const now = FieldValue.serverTimestamp();
       const newDoc = {
         uid,
-        goldBank: 0,
-        xpScrolls: { ...EMPTY_XP_SCROLLS },
-        ascensionCells: 0,
-        sigilShards: 0,
-        lineageRanks: {},
-        classRanks: {},
-        ownedClassIds: [...STARTER_CLASS_IDS],
+        credits: 0,
+        dataCaches: { ...EMPTY_DATA_CACHES },
+        quantumCores: 0,
+        scrap: 0,
+        corpRanks: {},
+        specRanks: {},
+        unlockedSpecIds: [...STARTER_CLASS_IDS],
         currentRunId: null,
         createdAt: now,
         updatedAt: now,

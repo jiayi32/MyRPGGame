@@ -7,12 +7,12 @@ import type { RunHistoryEntry } from '@/stores/playerStore';
 
 export interface PlayerProfileDoc {
   uid: string;
-  goldBank: number;
-  ascensionCells: number;
-  sigilShards: number;
-  lineageRanks: Record<string, number>;
-  classRanks: Record<string, number>;
-  ownedClassIds: string[];
+  credits: number;
+  quantumCores: number;
+  scrap: number;
+  corpRanks: Record<string, number>;
+  specRanks: Record<string, number>;
+  unlockedSpecIds: string[];
   unlockedPassiveIds: string[];
   augmentsPicked: number;
   runHistory: RunHistoryEntry[];

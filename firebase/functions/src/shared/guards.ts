@@ -173,11 +173,11 @@ export function validateRewardBundle(rewards: unknown, label = 'rewards'): void 
   }
   const r = rewards as Record<string, unknown>;
   const numericFields = [
-    'gold',
-    'ascensionCells',
-    'xpScrollMinor',
-    'xpScrollStandard',
-    'xpScrollGrand',
+    'credits',
+    'quantumCores',
+    'dataCacheMinor',
+    'dataCacheStandard',
+    'dataCacheGrand',
   ] as const;
   for (const field of numericFields) {
     const v = r[field];
@@ -202,22 +202,22 @@ export function validateRewardBundle(rewards: unknown, label = 'rewards'): void 
 // Reward plausibility caps (loose, server-side sanity checks)
 // ---------------------------------------------------------------------------
 const REWARD_CAPS = {
-  gold: 50_000,
-  ascensionCells: 20,
-  xpScrollMinor: 20,
-  xpScrollStandard: 10,
-  xpScrollGrand: 3,
+  credits: 50_000,
+  quantumCores: 20,
+  dataCacheMinor: 20,
+  dataCacheStandard: 10,
+  dataCacheGrand: 3,
   gearIds: 5,   // max gear drops per stage
 };
 
 /** Throws if any reward field exceeds documented plausibility cap. */
 export function validateRewardPlausibility(rewards: Record<string, unknown>): void {
   const numericCaps = [
-    'gold',
-    'ascensionCells',
-    'xpScrollMinor',
-    'xpScrollStandard',
-    'xpScrollGrand',
+    'credits',
+    'quantumCores',
+    'dataCacheMinor',
+    'dataCacheStandard',
+    'dataCacheGrand',
   ] as const;
   for (const field of numericCaps) {
     const cap = REWARD_CAPS[field];

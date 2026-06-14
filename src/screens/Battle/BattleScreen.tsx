@@ -281,7 +281,7 @@ export function BattleScreen({ navigation }: Props) {
   const runError = useRunStore((state) => state.error);
   const submitStageOutcome = useRunStore((state) => state.submitStageOutcome);
   const endRunAction = useRunStore((state) => state.endRun);
-  const classRanks = usePlayerStore((state) => state.classRanks);
+  const specRanks = usePlayerStore((state) => state.specRanks);
   const { equippedBySlot } = useGearInventory();
 
   const combatStatus = useCombatStore((state) => state.status);
@@ -319,7 +319,7 @@ export function BattleScreen({ navigation }: Props) {
   const stageType: StageType = stage !== null ? (STAGE_TYPES[stage] ?? 'normal') : 'normal';
   const classData = activeClassId ? CLASS_BY_ID.get(activeClassId as ClassId) : null;
   const classRank =
-    activeClassId !== null ? Math.max(0, Math.trunc(classRanks[activeClassId] ?? 0)) : 0;
+    activeClassId !== null ? Math.max(0, Math.trunc(specRanks[activeClassId] ?? 0)) : 0;
   const equippedGearTemplateIds = useMemo(
     () =>
       [
@@ -799,7 +799,7 @@ export function BattleScreen({ navigation }: Props) {
           </View>
           <View style={styles.rewardRow}>
             <Text style={styles.rewardItem}>🪙 {report.claimedRewards.gold}g</Text>
-            <Text style={styles.rewardItem}>⚡ {report.claimedRewards.ascensionCells} cells</Text>
+            <Text style={styles.rewardItem}>⚡ {report.claimedRewards.quantumCores} cores</Text>
             {report.claimedRewards.xpScrollMinor > 0 && (
               <Text style={styles.rewardItem}>📜 ×{report.claimedRewards.xpScrollMinor}</Text>
             )}
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
   autoActiveStripText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   // Legacy Switch styles kept for layout reference; no longer rendered.
   autoPlayToggle: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 4 },
-  autoPlayLabel: { fontSize: 11, color: '#4a3a28' },
+  autoPlayLabel: { fontSize: 11, color: '#ffffff' },
   mapLink: { alignSelf: 'flex-end' },
   mapLinkText: { fontSize: 12, color: '#2a5ab0', fontWeight: '600' },
   quickToolsRow: {
@@ -1235,7 +1235,7 @@ const styles = StyleSheet.create({
     borderColor: '#a04040',
   },
   forfeitBtnText: { fontSize: 12, color: '#a04040', fontWeight: '600' },
-  forfeitBlockedText: { fontSize: 11, color: '#7a684a', fontStyle: 'italic' },
+  forfeitBlockedText: { fontSize: 11, color: '#889999', fontStyle: 'italic' },
   actionDock: {
     position: 'absolute',
     left: 0,

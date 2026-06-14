@@ -238,5 +238,37 @@ export const typography = {
       fontWeight: weight.regular,
       fontStyle: 'italic',
     },
+
+    // Neon glow — sci-fi accent text (cyberpunk mode)
+    neon: {
+      fontFamily: fontFamily.mono,
+      fontSize: size.base,
+      lineHeight: lineHeight.base,
+      fontWeight: weight.bold,
+      letterSpacing: letterSpacing.wide,
+      textShadowColor: 'rgba(0,255,255,0.6)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 6,
+    },
+    neonMd: {
+      fontFamily: fontFamily.mono,
+      fontSize: size.md,
+      lineHeight: lineHeight.md,
+      fontWeight: weight.bold,
+      letterSpacing: letterSpacing.wide,
+      textShadowColor: 'rgba(0,255,255,0.5)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 8,
+    },
+    neonLg: {
+      fontFamily: fontFamily.mono,
+      fontSize: size.lg,
+      lineHeight: lineHeight.lg,
+      fontWeight: weight.bold,
+      letterSpacing: letterSpacing.wide,
+      textShadowColor: 'rgba(0,255,255,0.4)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 10,
+    },
   }),
 } as const;

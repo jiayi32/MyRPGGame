@@ -7,7 +7,7 @@ import {
   type BankCheckpointPayload,
   type BankCheckpointResponse,
   EMPTY_REWARD_BUNDLE,
-  EMPTY_XP_SCROLLS,
+  EMPTY_DATA_CACHES,
   type DevGrantAllClassesResponse,
   type DevResetPlayerResponse,
   type DevSetCurrenciesPayload,
@@ -29,7 +29,7 @@ import {
   type SubmitStageOutcomeResponse,
   type UpgradeClassPayload,
   type UpgradeClassResponse,
-  type XpScrollPouch,
+  type DataCachePouch,
 } from '@/features/run/types';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -69,7 +69,7 @@ const asIntRecord = (value: unknown): Record<string, number> => {
   return out;
 };
 
-const normalizeXpScrolls = (value: unknown): XpScrollPouch => {
+const normalizeDataCaches = (value: unknown): DataCachePouch => {
   const obj = asRecord(value);
   return {
     minor: Math.max(0, asInt(obj['minor'])),
@@ -81,12 +81,12 @@ const normalizeXpScrolls = (value: unknown): XpScrollPouch => {
 const normalizeRewardBundle = (value: unknown): RewardBundle => {
   const obj = asRecord(value);
   return {
-    gold: Math.max(0, asInt(obj['gold'])),
-    ascensionCells: Math.max(0, asInt(obj['ascensionCells'])),
-    sigilShards: Math.max(0, asInt(obj['sigilShards'])),
-    xpScrollMinor: Math.max(0, asInt(obj['xpScrollMinor'])),
-    xpScrollStandard: Math.max(0, asInt(obj['xpScrollStandard'])),
-    xpScrollGrand: Math.max(0, asInt(obj['xpScrollGrand'])),
+    credits: Math.max(0, asInt(obj['credits'])),
+    quantumCores: Math.max(0, asInt(obj['quantumCores'])),
+    scrap: Math.max(0, asInt(obj['scrap'])),
+    dataCacheMinor: Math.max(0, asInt(obj['dataCacheMinor'])),
+    dataCacheStandard: Math.max(0, asInt(obj['dataCacheStandard'])),
+    dataCacheGrand: Math.max(0, asInt(obj['dataCacheGrand'])),
     gearIds: asStringArray(obj['gearIds']),
   };
 };
@@ -95,17 +95,17 @@ const normalizeProgressionDelta = (value: unknown): ProgressionDelta => {
   const obj = asRecord(value);
   const totals = asRecord(obj['playerTotals']);
   return {
-    awardedAscensionCells: asInt(obj['awardedAscensionCells']),
-    lineageRankDelta: asInt(obj['lineageRankDelta']),
-    newlyUnlockedClassIds: asStringArray(obj['newlyUnlockedClassIds']),
+    awardedQuantumCores: asInt(obj['awardedQuantumCores']),
+    corpRankDelta: asInt(obj['corpRankDelta']),
+    newlyUnlockedSpecIds: asStringArray(obj['newlyUnlockedSpecIds']),
     playerTotals: {
-      goldBank: Math.max(0, asInt(totals['goldBank'])),
-      ascensionCells: Math.max(0, asInt(totals['ascensionCells'])),
-      sigilShards: Math.max(0, asInt(totals['sigilShards'])),
-      xpScrolls: normalizeXpScrolls(totals['xpScrolls']),
-      ownedClassIds: asStringArray(totals['ownedClassIds']),
-      lineageRanks: asIntRecord(totals['lineageRanks']),
-      classRanks: asIntRecord(totals['classRanks']),
+      credits: Math.max(0, asInt(totals['credits'])),
+      quantumCores: Math.max(0, asInt(totals['quantumCores'])),
+      scrap: Math.max(0, asInt(totals['scrap'])),
+      dataCaches: normalizeDataCaches(totals['dataCaches']),
+      unlockedSpecIds: asStringArray(totals['unlockedSpecIds']),
+      corpRanks: asIntRecord(totals['corpRanks']),
+      specRanks: asIntRecord(totals['specRanks']),
     },
     gearInstancesCreated: Math.max(0, asInt(obj['gearInstancesCreated'])),
   };
@@ -131,9 +131,9 @@ const normalizeSettlementLedger = (
       vaultForfeited: empty,
       postSettleBanked: normalizeRewardBundle(fallbackBankedRewards),
       progressionAwarded: {
-        ascensionCells: Math.max(0, asInt(fallbackProgression.awardedAscensionCells)),
-        lineageRankDelta: asInt(fallbackProgression.lineageRankDelta),
-        newlyUnlockedClassIds: [...fallbackProgression.newlyUnlockedClassIds],
+        quantumCores: Math.max(0, asInt(fallbackProgression.awardedQuantumCores)),
+        corpRankDelta: asInt(fallbackProgression.corpRankDelta),
+        newlyUnlockedSpecIds: [...fallbackProgression.newlyUnlockedSpecIds],
       },
     };
   }
@@ -155,9 +155,9 @@ const normalizeSettlementLedger = (
     vaultForfeited: normalizeRewardBundle(obj['vaultForfeited']),
     postSettleBanked: normalizeRewardBundle(obj['postSettleBanked']),
     progressionAwarded: {
-      ascensionCells: Math.max(0, asInt(progressionAwarded['ascensionCells'])),
-      lineageRankDelta: asInt(progressionAwarded['lineageRankDelta']),
-      newlyUnlockedClassIds: asStringArray(progressionAwarded['newlyUnlockedClassIds']),
+      quantumCores: Math.max(0, asInt(progressionAwarded['quantumCores'])),
+      corpRankDelta: asInt(progressionAwarded['corpRankDelta']),
+      newlyUnlockedSpecIds: asStringArray(progressionAwarded['newlyUnlockedSpecIds']),
     },
   };
 };
@@ -166,13 +166,13 @@ const normalizePlayerSnapshot = (value: unknown): PlayerSnapshot => {
   const obj = asRecord(value);
   return {
     uid: asString(obj['uid']),
-    goldBank: Math.max(0, asInt(obj['goldBank'])),
-    xpScrolls: normalizeXpScrolls(obj['xpScrolls']),
-    ascensionCells: Math.max(0, asInt(obj['ascensionCells'])),
-    sigilShards: Math.max(0, asInt(obj['sigilShards'])),
-    lineageRanks: asIntRecord(obj['lineageRanks']),
-    classRanks: asIntRecord(obj['classRanks']),
-    ownedClassIds: asStringArray(obj['ownedClassIds']),
+    credits: Math.max(0, asInt(obj['credits'])),
+    dataCaches: normalizeDataCaches(obj['dataCaches']),
+    quantumCores: Math.max(0, asInt(obj['quantumCores'])),
+    scrap: Math.max(0, asInt(obj['scrap'])),
+    corpRanks: asIntRecord(obj['corpRanks']),
+    specRanks: asIntRecord(obj['specRanks']),
+    unlockedSpecIds: asStringArray(obj['unlockedSpecIds']),
     currentRunId: asNullableString(obj['currentRunId']),
     augmentsPicked: Math.max(0, asInt(obj['augmentsPicked'], 0)),
   };
@@ -433,7 +433,7 @@ export const devGrantAllClasses = async (): Promise<DevGrantAllClassesResponse> 
   const data = asRecord(
     await callCallable<Record<string, never>, unknown>('devGrantAllClasses', {}),
   );
-  return { ok: asBoolean(data['ok']), ownedClassIds: asStringArray(data['ownedClassIds']) };
+  return { ok: asBoolean(data['ok']), unlockedSpecIds: asStringArray(data['unlockedSpecIds']) };
 };
 
 export const devResetPlayer = async (): Promise<DevResetPlayerResponse> => {
@@ -455,10 +455,10 @@ export const devSetCurrencies = async (
   );
   return {
     ok: asBoolean(data['ok']),
-    goldBank: asInt(data['goldBank']),
-    ascensionCells: asInt(data['ascensionCells']),
-    sigilShards: Math.max(0, asInt(data['sigilShards'])),
-    xpScrolls: normalizeXpScrolls(data['xpScrolls']),
+    credits: asInt(data['credits']),
+    quantumCores: asInt(data['quantumCores']),
+    scrap: Math.max(0, asInt(data['scrap'])),
+    dataCaches: normalizeDataCaches(data['dataCaches']),
   };
 };
 
@@ -516,8 +516,8 @@ export const upgradeClass = async (
     await callCallable<UpgradeClassPayload, unknown>('upgradeClass', payload),
   );
   const costs = asRecord(data['costs']);
-  const kind = asString(costs['xpScrollKind']);
-  const xpScrollKind: keyof XpScrollPouch =
+  const kind = asString(costs['dataCacheKind']);
+  const dataCacheKind: keyof DataCachePouch =
     kind === 'minor' || kind === 'standard' || kind === 'grand' ? kind : 'minor';
 
   return {
@@ -526,9 +526,9 @@ export const upgradeClass = async (
     newRank: Math.max(0, asInt(data['newRank'])),
     costs: {
       gold: Math.max(0, asInt(costs['gold'])),
-      ascensionCells: Math.max(0, asInt(costs['ascensionCells'])),
-      xpScrollKind,
-      xpScrollCost: Math.max(0, asInt(costs['xpScrollCost'])),
+      quantumCores: Math.max(0, asInt(costs['quantumCores'])),
+      dataCacheKind,
+      dataCacheCost: Math.max(0, asInt(costs['dataCacheCost'])),
     },
     player: normalizePlayerSnapshot(data['player']),
   };
@@ -541,13 +541,13 @@ export const getPlayerSnapshot = async (uid: string): Promise<PlayerSnapshot | n
   // Default missing fields so we tolerate older docs gracefully during migration.
   return {
     uid: asString(data['uid'], uid),
-    goldBank: Math.max(0, asInt(data['goldBank'])),
-    xpScrolls: normalizeXpScrolls(data['xpScrolls'] ?? EMPTY_XP_SCROLLS),
-    ascensionCells: Math.max(0, asInt(data['ascensionCells'])),
-    sigilShards: Math.max(0, asInt(data['sigilShards'])),
-    lineageRanks: asIntRecord(data['lineageRanks']),
-    classRanks: asIntRecord(data['classRanks']),
-    ownedClassIds: asStringArray(data['ownedClassIds']),
+    credits: Math.max(0, asInt(data['credits'])),
+    dataCaches: normalizeDataCaches(data['dataCaches'] ?? EMPTY_DATA_CACHES),
+    quantumCores: Math.max(0, asInt(data['quantumCores'])),
+    scrap: Math.max(0, asInt(data['scrap'])),
+    corpRanks: asIntRecord(data['corpRanks']),
+    specRanks: asIntRecord(data['specRanks']),
+    unlockedSpecIds: asStringArray(data['unlockedSpecIds']),
     currentRunId: asNullableString(data['currentRunId']),
     augmentsPicked: Math.max(0, asInt(data['augmentsPicked'], 0)),
   };

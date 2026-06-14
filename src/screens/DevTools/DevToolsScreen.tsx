@@ -35,10 +35,10 @@ export function DevToolsScreen() {
     useShallow((s) => ({
       status: s.status,
       uid: s.uid,
-      goldBank: s.goldBank,
-      ascensionCells: s.ascensionCells,
-      xpScrolls: s.xpScrolls,
-      ownedClassIds: s.ownedClassIds,
+      credits: s.credits,
+      quantumCores: s.quantumCores,
+      dataCaches: s.dataCaches,
+      unlockedSpecIds: s.unlockedSpecIds,
       currentRunId: s.currentRunId,
     })),
   );
@@ -170,8 +170,8 @@ export function DevToolsScreen() {
     }
     await run('Set currencies', async () => {
       const payload: Record<string, number> = {};
-      if (goldNum !== undefined) payload['goldBank'] = goldNum;
-      if (cellsNum !== undefined) payload['ascensionCells'] = cellsNum;
+      if (goldNum !== undefined) payload['credits'] = goldNum;
+      if (cellsNum !== undefined) payload['quantumCores'] = cellsNum;
       const result = await devSetCurrencies(payload);
       await playerRefresh();
       return result;
@@ -271,7 +271,7 @@ export function DevToolsScreen() {
           />
         </View>
         <Text style={styles.hint}>
-          Leave a field empty to keep the current value. Sets goldBank / ascensionCells absolute.
+          Leave a field empty to keep the current value. Sets credits / quantumCores absolute.
         </Text>
       </View>
 

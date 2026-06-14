@@ -46,8 +46,8 @@ describe('orchestrator — boss stage support', () => {
     expect(['won', 'lost', 'draw']).toContain(report.battleResult);
     // Boss-stage rewards larger than procedural for the same tier.
     if (report.outcomeResult === 'won') {
-      expect(report.claimedRewards.gold).toBeGreaterThanOrEqual(1500);
-      expect(report.claimedRewards.ascensionCells).toBeGreaterThanOrEqual(12);
+      expect(report.claimedRewards.credits).toBeGreaterThanOrEqual(1500);
+      expect(report.claimedRewards.quantumCores).toBeGreaterThanOrEqual(12);
     }
   });
 

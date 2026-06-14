@@ -5,11 +5,11 @@ import { addRewards, applyVaultMultiplier, emptyReward, splitRewards } from './s
 import type { RewardBundle, RunDoc, StageOutcomeDoc } from './shared/types';
 
 const NUMERIC_REWARD_FIELDS = [
-  'gold',
-  'ascensionCells',
-  'xpScrollMinor',
-  'xpScrollStandard',
-  'xpScrollGrand',
+  'credits',
+  'quantumCores',
+  'dataCacheMinor',
+  'dataCacheStandard',
+  'dataCacheGrand',
 ] as const satisfies ReadonlyArray<keyof RewardBundle>;
 
 interface RunDocWithAudit extends RunDoc {

@@ -4,9 +4,8 @@ import { NavigationContainer, type NavigatorScreenParams } from '@react-navigati
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HubScreen } from '@/screens/Hub';
-import { EquipmentScreen } from '@/screens/Equipment';
+import { GearScreen } from '@/screens/Gear/GearScreen';
 import { ShopScreen } from '@/screens/Shop';
-import { ProfileScreen } from '@/screens/Profile';
 import { OnboardingNarrativeScreen } from '@/screens/OnboardingNarrative';
 import { ClassSelectScreen } from '@/screens/ClassSelect';
 import { BattleScreen } from '@/screens/Battle';
@@ -55,10 +54,8 @@ export type MainTabParamList = {
   HomeStack: NavigatorScreenParams<HomeStackParamList> | undefined;
   WorldMap: NavigatorScreenParams<HomeStackParamList> | undefined;
   Character: undefined;
-  Inventory: undefined;
+  Gear: undefined;
   Shop: undefined;
-  Equipment: undefined;
-  Profile: undefined;
 };
 
 export type RootStackParamList = {
@@ -74,10 +71,8 @@ const TAB_ICONS: Record<string, IconName> = {
   WorldMap: 'castle',
   HomeStack: 'castle',
   Character: 'crest',
-  Inventory: 'shield',
+  Gear: 'shield',
   Shop: 'coin-sack',
-  Equipment: 'shield',
-  Profile: 'crest',
 };
 
 function TabIcon({ routeName, focused }: { routeName: string; focused: boolean }) {
@@ -248,26 +243,15 @@ function MainTabs() {
         options={{ tabBarLabel: 'Character' }}
       />
       <Tab.Screen
-        name="Inventory"
-        component={EquipmentScreen}
+        name="Gear"
+        component={GearScreen}
         options={{ tabBarLabel: 'Gear' }}
+        listeners={withTabGuard}
       />
       <Tab.Screen
         name="Shop"
         component={ShopScreen}
         options={{ tabBarLabel: 'Shop' }}
-        listeners={withTabGuard}
-      />
-      <Tab.Screen
-        name="Equipment"
-        component={EquipmentScreen}
-        options={{ tabBarLabel: 'Equipment' }}
-        listeners={withTabGuard}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ tabBarLabel: 'Profile' }}
         listeners={withTabGuard}
       />
     </Tab.Navigator>

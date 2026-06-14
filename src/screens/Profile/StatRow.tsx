@@ -11,6 +11,6 @@ export function StatRow({ label, value }: { label: string; value: string | numbe
 
 const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  statLabel: { fontSize: 13, color: '#7b684a' },
-  statValue: { fontSize: 13, fontWeight: '600', color: '#2b1f10' },
+  statLabel: { fontSize: 13, color: '#889999' },
+  statValue: { fontSize: 13, fontWeight: '600', color: '#ffffff' },
 });

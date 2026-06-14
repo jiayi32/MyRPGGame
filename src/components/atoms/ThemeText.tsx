@@ -5,16 +5,17 @@
  * based on the text role.
  *
  * Roles:
- *   pixel   → Press Start 2P — damage numbers, CT ticks, currency
- *   heading → Cinzel serif — screen titles, boss names
- *   body    → Inter sans-serif — descriptions, stats
- *   label   → Inter sans-serif, semibold, uppercase — button text, tabs
- *   mono    → JetBrains Mono — stat values, combat log
+ *   pixel     → Press Start 2P — damage numbers, CT ticks, currency
+ *   heading   → Cinzel serif — screen titles, boss names
+ *   body      → Inter sans-serif — descriptions, stats
+ *   label     → Inter sans-serif, semibold, uppercase — button text, tabs
+ *   mono      → JetBrains Mono — stat values, combat log
  *   narrative → Cinzel italic — story text
+ *   neon      → JetBrains Mono bold with cyan glow — sci-fi accent text
  *
  * Usage:
- *   <ThemeText role="pixel" size="md">247</ThemeText>
- *   <ThemeText role="heading" size="lg">EMBER INITIATE</ThemeText>
+ *   <ThemeText textRole="pixel" size="md">247</ThemeText>
+ *   <ThemeText textRole="neon" size="md">ACTIVE</ThemeText>
  */
 
 import React from 'react';
@@ -23,7 +24,7 @@ import { typography } from '../../design';
 import { useTheme } from '../../design/ThemeContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-export type TextRole = 'pixel' | 'heading' | 'body' | 'label' | 'mono' | 'narrative';
+export type TextRole = 'pixel' | 'heading' | 'body' | 'label' | 'mono' | 'narrative' | 'neon';
 export type TextSize = 'xs' | 'sm' | 'base' | 'md' | 'lg' | 'xl' | '2xl';
 
 interface ThemeTextProps extends Omit<TextProps, 'style'> {
@@ -80,6 +81,15 @@ function getBaseStyle(role: TextRole, size?: TextSize) {
     }
     case 'narrative':
       return typography.style.narrative;
+    case 'neon': {
+      const map: Record<string, any> = {
+        sm: typography.style.neon,
+        base: typography.style.neon,
+        md: typography.style.neonMd,
+        lg: typography.style.neonLg,
+      };
+      return map[size ?? 'base'] ?? typography.style.neon;
+    }
     default:
       return typography.style.bodyBase;
   }
